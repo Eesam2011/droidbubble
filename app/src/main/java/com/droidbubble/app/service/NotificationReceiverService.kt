@@ -28,6 +28,7 @@ import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationAction
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
+import com.droidbubble.app.model.parseTimerTextMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -440,9 +441,16 @@ class NotificationReceiverService : NotificationListenerService() {
             controller.packageName
         }
 
-        var artBitmap = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        val metadataArt = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
             ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+
+        // Same track as last time: reuse the cached art unless the app sent a differently sized image
+        val artKey = "${controller.packageName}::$title::${rawArtist.orEmpty()}::${metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()}"
+        val cachedArt = cachedArtBitmap?.takeIf {
+            artKey == cachedArtKey && (metadataArt == null || (metadataArt.width == it.width && metadataArt.height == it.height))
+        }
+        var artBitmap = cachedArt ?: metadataArt
 
         // If bitmap is not directly available, check if artwork URI is provided
         if (artBitmap == null) {
@@ -466,6 +474,11 @@ class NotificationReceiverService : NotificationListenerService() {
                 notifObj?.getLargeIcon()?.loadDrawable(this)?.let { drawableToBitmap(it) }
                     ?: (notifObj?.extras?.getParcelable(Notification.EXTRA_LARGE_ICON) as? Bitmap)
             }.getOrNull()
+        }
+
+        if (artBitmap != null) {
+            cachedArtKey = artKey
+            cachedArtBitmap = artBitmap
         }
 
         val appIconBitmap = getAppIconBitmap(controller.packageName)
@@ -560,6 +573,7 @@ class NotificationReceiverService : NotificationListenerService() {
 
     private var systemRecordingKey: String? = null
     private var recordingTimerJob: Job? = null
+    private var recordingStopJob: Job? = null
     private var recordingStartTimeMs: Long = 0L
     private var recordingPausedAtMs: Long = 0L
     private var activeStopAction: Notification.Action? = null
@@ -637,6 +651,10 @@ class NotificationReceiverService : NotificationListenerService() {
 
     private fun handleScreenRecordingNotification(sbn: StatusBarNotification) {
         systemRecordingKey = sbn.key
+        // The recorder re-posts (or remove+reposts) its ongoing notification on every tick:
+        // cancel any pending stop so the timer keeps counting through updates.
+        recordingStopJob?.cancel()
+        recordingStopJob = null
         val notification = sbn.notification ?: return
 
         // Extract actions: Stop, Pause, Resume
@@ -664,10 +682,14 @@ class NotificationReceiverService : NotificationListenerService() {
             }
             recordingTimerJob?.cancel()
             recordingTimerJob = null
+            recordingStopJob?.cancel()
+            recordingStopJob = null
             systemRecordingKey = null
             activeStopAction = null
             activePauseAction = null
             activeResumeAction = null
+            recordingStartTimeMs = 0L
+            recordingPausedAtMs = 0L
             IslandStateManager.updateRecordingState(ScreenRecordingState(isRecording = false))
         }
 
@@ -696,8 +718,17 @@ class NotificationReceiverService : NotificationListenerService() {
         }
 
         if (recordingTimerJob == null || !IslandStateManager.screenRecordingState.value.isRecording) {
-            val postTime = sbn.postTime
-            recordingStartTimeMs = if (postTime > 0 && postTime <= System.currentTimeMillis()) postTime else System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            // Anchor the elapsed clock once per recording. Prefer the notification's `when`
+            // timestamp (constant recording start), then postTime, and never move the anchor
+            // backwards so remove+repost updates can't reset the visible timer to 00:00.
+            val anchor = when {
+                recordingStartTimeMs in 1..now -> recordingStartTimeMs
+                notification.`when` in 1..now -> notification.`when`
+                sbn.postTime in 1..now -> sbn.postTime
+                else -> now
+            }
+            recordingStartTimeMs = anchor
             recordingPausedAtMs = 0L
             val initialSeconds = ((System.currentTimeMillis() - recordingStartTimeMs) / 1000).coerceAtLeast(0L)
             IslandStateManager.updateRecordingState(
@@ -738,9 +769,13 @@ class NotificationReceiverService : NotificationListenerService() {
                 systemRecordingKey = null
                 recordingTimerJob?.cancel()
                 recordingTimerJob = null
+                recordingStopJob?.cancel()
+                recordingStopJob = null
                 activeStopAction = null
                 activePauseAction = null
                 activeResumeAction = null
+                recordingStartTimeMs = 0L
+                recordingPausedAtMs = 0L
                 IslandStateManager.updateRecordingState(ScreenRecordingState(isRecording = false))
                 return
             }
@@ -811,6 +846,20 @@ class NotificationReceiverService : NotificationListenerService() {
 
         val iconBitmap = extractNotificationBitmap(notification, packageName)
 
+        // Live timers (voice recorders, calls, stopwatches): the app either shows a system
+        // chronometer counting from `when`, or posts a static "00:00"-style title that the
+        // listener never sees tick. Keep a base so the island can count locally.
+        val showsChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)
+        val timerTitleMs = parseTimerTextMillis(title)
+        val isTimerPaused = text?.contains("pause", ignoreCase = true) == true
+        val isForegroundService = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
+        val liveTimerBaseMs = when {
+            showsChronometer && notification.`when` > 0L -> notification.`when`
+            timerTitleMs != null && !isTimerPaused && (isForegroundService || isOngoing) -> sbn.postTime - timerTitleMs
+            else -> 0L
+        }
+        val liveTimerCountDown = showsChronometer && extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false)
+
         val actions = mutableListOf<NotificationAction>()
         notification.actions?.forEach { action ->
             if (action != null && !action.title.isNullOrBlank()) {
@@ -841,7 +890,9 @@ class NotificationReceiverService : NotificationListenerService() {
             progress = progress,
             maxProgress = maxProgress,
             isIndeterminate = isIndeterminate || (isNavigation && maxProgress <= 0),
-            isOngoing = isOngoing
+            isOngoing = isOngoing,
+            liveTimerBaseMs = liveTimerBaseMs,
+            liveTimerCountDown = liveTimerCountDown
         )
 
         if (hasProgress) {
@@ -855,13 +906,21 @@ class NotificationReceiverService : NotificationListenerService() {
         super.onNotificationRemoved(sbn)
         if (sbn == null) return
         if (systemRecordingKey == sbn.key || (sbn.notification != null && isScreenRecordingNotification(sbn, sbn.notification))) {
-            systemRecordingKey = null
-            recordingTimerJob?.cancel()
-            recordingTimerJob = null
-            activeStopAction = null
-            activePauseAction = null
-            activeResumeAction = null
-            IslandStateManager.updateRecordingState(ScreenRecordingState(isRecording = false))
+            // Many recorders remove+repost the same ongoing notification on every update,
+            // so postpone the stop briefly: an immediate repost cancels this and keeps the timer alive.
+            recordingStopJob?.cancel()
+            recordingStopJob = serviceScope.launch {
+                delay(2500)
+                systemRecordingKey = null
+                activeStopAction = null
+                activePauseAction = null
+                activeResumeAction = null
+                recordingTimerJob?.cancel()
+                recordingTimerJob = null
+                recordingStartTimeMs = 0L
+                recordingPausedAtMs = 0L
+                IslandStateManager.updateRecordingState(ScreenRecordingState(isRecording = false))
+            }
         }
         val notifObj = sbn.notification
         if (notifObj != null && (isMediaNotification(sbn, notifObj) || sbn.packageName == activeMediaController?.packageName)) {
@@ -885,6 +944,11 @@ class NotificationReceiverService : NotificationListenerService() {
     }
 
     private val appIconCache = android.util.LruCache<String, Bitmap>(30)
+
+    // Every MediaController query unparcels a brand-new Bitmap, so without this the island would
+    // get a "new" image on each play/pause/seek and redo its blur + accent-colour extraction.
+    private var cachedArtKey: String? = null
+    private var cachedArtBitmap: Bitmap? = null
 
     private fun getAppIconBitmap(packageName: String): Bitmap? {
         appIconCache.get(packageName)?.let { return it }

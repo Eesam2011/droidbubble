@@ -20,6 +20,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.PowerManager
 import kotlin.math.roundToInt
 import android.provider.Settings
 import com.droidbubble.app.model.MediaInfo
@@ -29,9 +30,11 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -258,7 +261,12 @@ class IslandOverlayService : Service() {
                 IslandStateManager.triggerUnlockEvent()
                 return
             }
+            if (action == Intent.ACTION_SCREEN_OFF) {
+                persistentTelemetryManager?.setScreenOn(false)
+                return
+            }
             if (action == Intent.ACTION_SCREEN_ON) {
+                persistentTelemetryManager?.setScreenOn(true)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 if (km != null && !km.isKeyguardLocked) {
                     IslandStateManager.triggerUnlockEvent()
@@ -420,7 +428,11 @@ class IslandOverlayService : Service() {
         initCameraTorch()
         startAutoUpdateChecker()
 
-        persistentTelemetryManager = PersistentWidgetTelemetryManager(this).apply { start(currentSettings) }
+        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        persistentTelemetryManager = PersistentWidgetTelemetryManager(this).apply {
+            setScreenOn(powerManager?.isInteractive ?: true)
+            start(currentSettings)
+        }
 
         val filter = IntentFilter().apply {
             addAction("com.droidbubble.app.ACTION_SIMULATE_UNLOCK")
@@ -446,6 +458,7 @@ class IslandOverlayService : Service() {
             addAction("android.os.action.CHARGING")
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
             addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
             addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
@@ -568,7 +581,7 @@ class IslandOverlayService : Service() {
             val chargingPillWidth = (currentSettings.widthDp + 20f).coerceAtLeast(140f)
             chargingPillWidth + 80f
         } else if (isDual) {
-            val mainHalf = (currentSettings.widthDp * 0.74f) / 2f
+            val mainHalf = currentSettings.widthDp / 2f
             val rightEdge = mainHalf + 8f + currentSettings.heightDp + 40f
             (rightEdge * 2f).coerceAtLeast(currentSettings.widthDp + 80f)
         } else {
@@ -624,10 +637,16 @@ class IslandOverlayService : Service() {
                     colorScheme = darkColorScheme(),
                     motionScheme = MotionScheme.expressive()
                 ) {
-                    IslandOverlayRoot(
-                        settings = liveSettings,
-                        onBoundsChange = { _, _ -> }
-                    )
+                    // Tabular digits island-wide: timers, speeds and percentages tick without
+                    // their width wobbling (only digits are affected; letters stay proportional)
+                    CompositionLocalProvider(
+                        LocalTextStyle provides LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+                    ) {
+                        IslandOverlayRoot(
+                            settings = liveSettings,
+                            onBoundsChange = { _, _ -> }
+                        )
+                    }
                 }
             }
         }
@@ -658,6 +677,7 @@ class IslandOverlayService : Service() {
                     IslandStateManager.isFlashlightOn
                 ) { _, _, _, _, _ -> Unit }
             ) { expanded, _, _ -> expanded }.collectLatest { expanded ->
+                boostRefreshRate()
                 updateWindowState(expanded)
             }
         }
@@ -697,6 +717,42 @@ class IslandOverlayService : Service() {
 
     private var isCollapsing = false
     private var collapseJob: kotlinx.coroutines.Job? = null
+
+    // Ask for the display's top refresh rate only while the island animates. Between animations
+    // the system is free to drop to its low idle rate, so the extra smoothness costs no battery.
+    private var refreshBoostJob: kotlinx.coroutines.Job? = null
+    private val maxRefreshRate: Float by lazy {
+        runCatching {
+            val dm = getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            val display = dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+            val current = display?.mode
+            display?.supportedModes
+                ?.filter { current == null || (it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight) }
+                ?.maxOfOrNull { it.refreshRate } ?: 0f
+        }.getOrDefault(0f)
+    }
+
+    private fun boostRefreshRate() {
+        val view = composeView ?: return
+        val params = layoutParams ?: return
+        val rate = maxRefreshRate
+        if (rate <= 60f) return
+        if (params.preferredRefreshRate != rate) {
+            params.preferredRefreshRate = rate
+            disableMoveAnimation(params)
+            runCatching { windowManager?.updateViewLayout(view, params) }
+        }
+        refreshBoostJob?.cancel()
+        refreshBoostJob = serviceScope.launch {
+            // Long enough for the slowest spring at the lowest animation-speed setting
+            delay((1200L / currentSettings.animationSpeed.coerceIn(0.5f, 2f)).toLong())
+            val v = composeView ?: return@launch
+            val p = layoutParams ?: return@launch
+            p.preferredRefreshRate = 0f
+            disableMoveAnimation(p)
+            runCatching { windowManager?.updateViewLayout(v, p) }
+        }
+    }
     private var wasExpanded = false
 
     private fun applyLayoutParams(
@@ -801,7 +857,7 @@ class IslandOverlayService : Service() {
                 val pillWidth = (currentSettings.widthDp * 0.82f).coerceAtLeast(108f)
                 pillWidth + 80f
             } else if (isDual) {
-                val mainHalf = (currentSettings.widthDp * 0.74f) / 2f
+                val mainHalf = currentSettings.widthDp / 2f
                 val rightEdge = mainHalf + 8f + currentSettings.heightDp + 40f
                 (rightEdge * 2f).coerceAtLeast(currentSettings.widthDp + 80f)
             } else {
@@ -850,9 +906,10 @@ class IslandOverlayService : Service() {
             if (wasExpanded) {
                 wasExpanded = false
                 isCollapsing = true
-                // Keep MATCH_PARENT for 400ms so the user sees the collapse animation smoothly finish in full!
+                // Keep MATCH_PARENT until the island reports the collapse animation has finished
+                // (it scales with the animation-speed setting); the timeout is only a safety net.
                 collapseJob = serviceScope.launch {
-                    kotlinx.coroutines.delay(400)
+                    kotlinx.coroutines.withTimeoutOrNull(1500L) { IslandStateManager.collapseSettled.first() }
                     isCollapsing = false
                     if (!IslandStateManager.isExpanded.value) {
                         applyCompactBounds()

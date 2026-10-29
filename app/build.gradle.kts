@@ -20,7 +20,8 @@ android {
             // Releasable debug apk
         }
         release {
-            isMinifyEnabled = false
+            // R8 optimizes Compose code paths, which noticeably reduces animation jank in release builds
+            isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -95,6 +96,10 @@ dependencies {
   implementation(libs.androidx.navigation3.ui)
   implementation(libs.androidx.navigation3.runtime)
   implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+  // Installs the baseline profiles bundled with Compose at install time, so animations run
+  // precompiled instead of JIT-warming (first expands no longer stutter on sideloaded APKs)
+  implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
   // Shizuku
   implementation("dev.rikka.shizuku:api:13.1.5")

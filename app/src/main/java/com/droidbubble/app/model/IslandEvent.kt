@@ -51,13 +51,26 @@ data class NotificationInfo(
     val progress: Int = -1,
     val maxProgress: Int = 0,
     val isIndeterminate: Boolean = false,
-    val isOngoing: Boolean = false
+    val isOngoing: Boolean = false,
+    // Wall-clock ms a live timer (voice recorder, call, stopwatch) counts from; 0 = no live timer
+    val liveTimerBaseMs: Long = 0L,
+    val liveTimerCountDown: Boolean = false
 ) {
     val hasProgress: Boolean
         get() = maxProgress > 0 || isIndeterminate || (progress >= 0 && maxProgress > 0)
 
     val progressFraction: Float
         get() = if (maxProgress > 0 && progress >= 0) (progress.toFloat() / maxProgress).coerceIn(0f, 1f) else 0f
+}
+
+private val TIMER_TEXT_REGEX = Regex("""^\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s*$""")
+
+/** Parses timer-looking text such as "00:42" or "1:02:03" into millis, or null if it isn't one. */
+fun parseTimerTextMillis(text: String?): Long? {
+    val match = TIMER_TEXT_REGEX.matchEntire(text ?: return null) ?: return null
+    val (h, m, s) = match.destructured
+    val hours = h.toLongOrNull() ?: 0L
+    return ((hours * 3600) + (m.toLong() * 60) + s.toLong()) * 1000L
 }
 
 data class ScreenRecordingState(

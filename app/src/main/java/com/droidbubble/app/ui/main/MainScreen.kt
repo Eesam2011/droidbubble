@@ -2031,7 +2031,7 @@ fun AnimationCurveEditor(
 ) {
     val targets = listOf("Expand", "Appear", "Split")
     var selected by remember { mutableStateOf(0) }
-    val defaults = listOf(0.74f to 380f, 0.60f to 280f, 0.63f to 320f)
+    val defaults = listOf(0.8f to 380f, 0.60f to 280f, 0.63f to 320f)
     val damping = when (selected) { 0 -> settings.expandDamping; 1 -> settings.appearDamping; else -> settings.splitDamping }
     val stiffness = when (selected) { 0 -> settings.expandStiffness; 1 -> settings.appearStiffness; else -> settings.splitStiffness }
     val isDefault = damping == defaults[selected].first && stiffness == defaults[selected].second

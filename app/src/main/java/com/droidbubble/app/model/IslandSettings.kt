@@ -15,7 +15,7 @@ data class IslandSettings(
     val cornerRadiusDp: Int = 22,
     val topOffsetDp: Int = 12,
     val horizontalOffsetDp: Int = 0,
-    val showOutline: Boolean = true,
+    val showOutline: Boolean = false, // off by default: a borderless black island blends into the camera like iOS
     val outlineColorArgb: Long = 0x33FFFFFF, // Sleek translucent silver
     val outlineThicknessDp: Float = 1.5f,
     val expandedScale: Float = 1.1f,
@@ -40,7 +40,7 @@ data class IslandSettings(
     val showNetworkSpeed: Boolean = false,
     val autoDismissNotifications: Boolean = false,
     val blurredAlbumArtBackground: Boolean = false,
-    val expandDamping: Float = 0.74f,
+    val expandDamping: Float = 0.8f,
     val expandStiffness: Float = 380f,
     val appearDamping: Float = 0.6f,
     val appearStiffness: Float = 280f,

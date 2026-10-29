@@ -12,8 +12,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -64,6 +67,14 @@ object IslandStateManager {
 
     private val _isExpanded = MutableStateFlow(false)
     val isExpanded: StateFlow<Boolean> = _isExpanded.asStateFlow()
+
+    // Fired by the island view once the collapse animation has visually finished
+    private val _collapseSettled = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val collapseSettled: SharedFlow<Unit> = _collapseSettled.asSharedFlow()
+
+    fun notifyCollapseSettled() {
+        _collapseSettled.tryEmit(Unit)
+    }
 
     private val _fpsInfo = MutableStateFlow(FpsInfo())
     val fpsInfo: StateFlow<FpsInfo> = _fpsInfo.asStateFlow()
@@ -260,7 +271,7 @@ object IslandStateManager {
         chargingJob?.cancel()
         _activeCharging.value = ChargingInfo(percentage.coerceIn(0, 100), wattage)
         chargingJob = scope.launch {
-            delay(3000)
+            delay(4000)
             _activeCharging.value = null
         }
     }
