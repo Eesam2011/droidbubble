@@ -1458,8 +1458,6 @@ fun IslandOverlayRoot(
                                         // Inner padding lives in each view (islandCardContentPadding)
                                         .graphicsLayer {
                                             alpha = expandedAlpha
-                                            scaleX = 0.94f + (0.06f * expandedAlpha)
-                                            scaleY = 0.94f + (0.06f * expandedAlpha)
                                             // Only leaving content blurs: sharp on the way in, blurred
                                             // with the card's speed (or its fade) on the way out
                                             renderEffect = if (isExpanded) null else steppedBlurEffect(

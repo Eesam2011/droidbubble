@@ -22,7 +22,6 @@ data class IslandSettings(
     // Expanded cards fade from black to clear over a blur of what's behind them
     val liquidGlassCards: Boolean = false,
     val isLeftCutout: Boolean = false,
-    val isTeardropCutout: Boolean = false,
     val showOutline: Boolean = false, // off by default: a borderless black island blends into the camera like iOS
     val outlineColorArgb: Long = 0x33FFFFFF, // Sleek translucent silver
     val outlineThicknessDp: Float = 1.5f,
@@ -56,9 +55,6 @@ data class IslandSettings(
     val showNetworkSpeed: Boolean = false,
     val autoDismissNotifications: Boolean = false,
     val blurredAlbumArtBackground: Boolean = false,
-    val mediaWaveAnimation: Boolean = true,
-    val spinningAlbumArt: Boolean = false,
-    val wavyProgressBar: Boolean = true,
     val hideOnLockScreen: Boolean = false,
     val expandDamping: Float = 0.8f,
     val expandStiffness: Float = 380f,

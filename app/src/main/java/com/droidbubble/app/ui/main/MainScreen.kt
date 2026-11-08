@@ -97,9 +97,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockReset
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.LinearScale
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -1864,20 +1861,12 @@ fun DimensionsPage(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                val currentCutoutMode = when {
-                    settings.isTeardropCutout -> CutoutModeOption.TEARDROP
-                    settings.isLeftCutout -> CutoutModeOption.LEFT
-                    else -> CutoutModeOption.CENTER
-                }
+                val currentCutoutMode = if (settings.isLeftCutout) CutoutModeOption.LEFT else CutoutModeOption.CENTER
                 CutoutPositionSelectorCard(
                     selectedMode = currentCutoutMode,
                     onSelectMode = { mode ->
                         onUpdateSettings { s ->
-                            when (mode) {
-                                CutoutModeOption.CENTER -> s.copy(isLeftCutout = false, isTeardropCutout = false)
-                                CutoutModeOption.LEFT -> s.copy(isLeftCutout = true, isTeardropCutout = false)
-                                CutoutModeOption.TEARDROP -> s.copy(isLeftCutout = false, isTeardropCutout = true)
-                            }
+                            s.copy(isLeftCutout = mode == CutoutModeOption.LEFT)
                         }
                     }
                 )
@@ -1958,7 +1947,6 @@ fun DimensionsPage(
 enum class CutoutModeOption {
     CENTER,
     LEFT,
-    TEARDROP
 }
 
 @Composable
@@ -1996,13 +1984,6 @@ fun CutoutPositionSelectorCard(
                     mode = CutoutModeOption.LEFT,
                     isSelected = selectedMode == CutoutModeOption.LEFT,
                     onClick = { onSelectMode(CutoutModeOption.LEFT) },
-                    modifier = Modifier.weight(1f)
-                )
-                CutoutPositionOptionButton(
-                    label = "Tear-drop",
-                    mode = CutoutModeOption.TEARDROP,
-                    isSelected = selectedMode == CutoutModeOption.TEARDROP,
-                    onClick = { onSelectMode(CutoutModeOption.TEARDROP) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2072,7 +2053,7 @@ private fun CutoutPositionOptionButton(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Cropped top phone bezel illustration with just the selfie camera circle (or tear-drop notch)
+            // Cropped top phone bezel illustration with just the selfie camera circle
             androidx.compose.foundation.Canvas(
                 modifier = Modifier
                     .width(74.dp)
@@ -2135,30 +2116,6 @@ private fun CutoutPositionOptionButton(
                             radius = holeRadius,
                             center = androidx.compose.ui.geometry.Offset(holeX, holeY)
                         )
-                    }
-                    CutoutModeOption.TEARDROP -> {
-                        // Outward-rounded top corners blending from the top bezel into a centered tear-drop semicircle
-                        val dropR = 7.dp.toPx()
-                        val earR = 5.dp.toPx()
-                        val dropBottomY = topY + dropR * 1.45f
-                        val teardropPath = androidx.compose.ui.graphics.Path().apply {
-                            moveTo(centerX - dropR - earR, topY)
-                            quadraticTo(
-                                centerX - dropR, topY,
-                                centerX - dropR * 0.88f, topY + dropR * 0.55f
-                            )
-                            cubicTo(
-                                centerX - dropR * 0.65f, dropBottomY,
-                                centerX + dropR * 0.65f, dropBottomY,
-                                centerX + dropR * 0.88f, topY + dropR * 0.55f
-                            )
-                            quadraticTo(
-                                centerX + dropR, topY,
-                                centerX + dropR + earR, topY
-                            )
-                            close()
-                        }
-                        drawPath(path = teardropPath, color = cutoutDotColor)
                     }
                 }
             }
@@ -2372,61 +2329,7 @@ fun AppearancePage(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    SettingsCardItem(position = GroupPosition.TOP, isActive = settings.mediaWaveAnimation) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Ambient Album Wave", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(Icons.Default.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.mediaWaveAnimation,
-                                    onCheckedChange = { enabled ->
-                                        onUpdateSettings { it.copy(mediaWaveAnimation = enabled) }
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.wavyProgressBar) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Wavy Progress Scrubber", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(Icons.Default.LinearScale, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.wavyProgressBar,
-                                    onCheckedChange = { enabled ->
-                                        onUpdateSettings { it.copy(wavyProgressBar = enabled) }
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.spinningAlbumArt) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Spinning Vinyl Cover", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(Icons.Default.Album, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.spinningAlbumArt,
-                                    onCheckedChange = { enabled ->
-                                        onUpdateSettings { it.copy(spinningAlbumArt = enabled) }
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.BOTTOM, isActive = settings.blurredAlbumArtBackground) {
+                    SettingsCardItem(position = GroupPosition.SINGLE, isActive = settings.blurredAlbumArtBackground) {
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Blurred Album Art Background", fontWeight = FontWeight.SemiBold) },

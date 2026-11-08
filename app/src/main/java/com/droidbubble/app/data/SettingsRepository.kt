@@ -26,7 +26,6 @@ class SettingsRepository(private val context: Context) {
         val TOP_OFFSET_DP = intPreferencesKey("top_offset_dp")
         val HORIZONTAL_OFFSET_DP = intPreferencesKey("horizontal_offset_dp")
         val IS_LEFT_CUTOUT = booleanPreferencesKey("is_left_cutout")
-        val IS_TEARDROP_CUTOUT = booleanPreferencesKey("is_teardrop_cutout")
         val SHOW_OUTLINE = booleanPreferencesKey("show_outline")
         val LIQUID_GLASS_CARDS = booleanPreferencesKey("liquid_glass_cards")
         val OUTLINE_COLOR_ARGB = longPreferencesKey("outline_color_argb")
@@ -59,9 +58,6 @@ class SettingsRepository(private val context: Context) {
         val SHOW_NETWORK_SPEED = booleanPreferencesKey("show_network_speed")
         val AUTO_DISMISS_NOTIFICATIONS = booleanPreferencesKey("auto_dismiss_notifications")
         val BLURRED_ALBUM_ART_BACKGROUND = booleanPreferencesKey("blurred_album_art_background")
-        val MEDIA_WAVE_ANIMATION = booleanPreferencesKey("media_wave_animation")
-        val SPINNING_ALBUM_ART = booleanPreferencesKey("spinning_album_art")
-        val WAVY_PROGRESS_BAR = booleanPreferencesKey("wavy_progress_bar")
         val HIDE_ON_LOCK_SCREEN = booleanPreferencesKey("hide_on_lock_screen")
         val EXPAND_DAMPING = floatPreferencesKey("expand_damping")
         val EXPAND_STIFFNESS = floatPreferencesKey("expand_stiffness")
@@ -90,7 +86,6 @@ class SettingsRepository(private val context: Context) {
             topOffsetDp = preferences[PreferencesKeys.TOP_OFFSET_DP] ?: 12,
             horizontalOffsetDp = preferences[PreferencesKeys.HORIZONTAL_OFFSET_DP] ?: 0,
             isLeftCutout = preferences[PreferencesKeys.IS_LEFT_CUTOUT] ?: false,
-            isTeardropCutout = preferences[PreferencesKeys.IS_TEARDROP_CUTOUT] ?: false,
             showOutline = preferences[PreferencesKeys.SHOW_OUTLINE] ?: false,
             liquidGlassCards = preferences[PreferencesKeys.LIQUID_GLASS_CARDS] ?: false,
             outlineColorArgb = preferences[PreferencesKeys.OUTLINE_COLOR_ARGB] ?: 0x33FFFFFF,
@@ -122,9 +117,6 @@ class SettingsRepository(private val context: Context) {
             showNetworkSpeed = preferences[PreferencesKeys.SHOW_NETWORK_SPEED] ?: false,
             autoDismissNotifications = preferences[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] ?: false,
             blurredAlbumArtBackground = preferences[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] ?: false,
-            mediaWaveAnimation = preferences[PreferencesKeys.MEDIA_WAVE_ANIMATION] ?: true,
-            spinningAlbumArt = preferences[PreferencesKeys.SPINNING_ALBUM_ART] ?: false,
-            wavyProgressBar = preferences[PreferencesKeys.WAVY_PROGRESS_BAR] ?: true,
             hideOnLockScreen = preferences[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
             expandDamping = preferences[PreferencesKeys.EXPAND_DAMPING] ?: 0.8f,
             expandStiffness = preferences[PreferencesKeys.EXPAND_STIFFNESS] ?: 380f,
@@ -162,7 +154,6 @@ class SettingsRepository(private val context: Context) {
                 topOffsetDp = preferences[PreferencesKeys.TOP_OFFSET_DP] ?: 12,
                 horizontalOffsetDp = preferences[PreferencesKeys.HORIZONTAL_OFFSET_DP] ?: 0,
                 isLeftCutout = preferences[PreferencesKeys.IS_LEFT_CUTOUT] ?: false,
-                isTeardropCutout = preferences[PreferencesKeys.IS_TEARDROP_CUTOUT] ?: false,
                 showOutline = preferences[PreferencesKeys.SHOW_OUTLINE] ?: false,
                 liquidGlassCards = preferences[PreferencesKeys.LIQUID_GLASS_CARDS] ?: false,
                 outlineColorArgb = preferences[PreferencesKeys.OUTLINE_COLOR_ARGB] ?: 0x33FFFFFF,
@@ -194,9 +185,6 @@ class SettingsRepository(private val context: Context) {
                 showNetworkSpeed = preferences[PreferencesKeys.SHOW_NETWORK_SPEED] ?: false,
                 autoDismissNotifications = preferences[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] ?: false,
             blurredAlbumArtBackground = preferences[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] ?: false,
-            mediaWaveAnimation = preferences[PreferencesKeys.MEDIA_WAVE_ANIMATION] ?: true,
-            spinningAlbumArt = preferences[PreferencesKeys.SPINNING_ALBUM_ART] ?: false,
-            wavyProgressBar = preferences[PreferencesKeys.WAVY_PROGRESS_BAR] ?: true,
             hideOnLockScreen = preferences[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
             expandDamping = preferences[PreferencesKeys.EXPAND_DAMPING] ?: 0.8f,
             expandStiffness = preferences[PreferencesKeys.EXPAND_STIFFNESS] ?: 380f,
@@ -224,7 +212,6 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.TOP_OFFSET_DP] = newSettings.topOffsetDp
             preferences[PreferencesKeys.HORIZONTAL_OFFSET_DP] = newSettings.horizontalOffsetDp
             preferences[PreferencesKeys.IS_LEFT_CUTOUT] = newSettings.isLeftCutout
-            preferences[PreferencesKeys.IS_TEARDROP_CUTOUT] = newSettings.isTeardropCutout
             preferences[PreferencesKeys.SHOW_OUTLINE] = newSettings.showOutline
             preferences[PreferencesKeys.LIQUID_GLASS_CARDS] = newSettings.liquidGlassCards
             preferences[PreferencesKeys.OUTLINE_COLOR_ARGB] = newSettings.outlineColorArgb
@@ -257,9 +244,6 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.SHOW_NETWORK_SPEED] = newSettings.showNetworkSpeed
             preferences[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] = newSettings.autoDismissNotifications
             preferences[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] = newSettings.blurredAlbumArtBackground
-            preferences[PreferencesKeys.MEDIA_WAVE_ANIMATION] = newSettings.mediaWaveAnimation
-            preferences[PreferencesKeys.SPINNING_ALBUM_ART] = newSettings.spinningAlbumArt
-            preferences[PreferencesKeys.WAVY_PROGRESS_BAR] = newSettings.wavyProgressBar
             preferences[PreferencesKeys.HIDE_ON_LOCK_SCREEN] = newSettings.hideOnLockScreen
             preferences[PreferencesKeys.EXPAND_DAMPING] = newSettings.expandDamping
             preferences[PreferencesKeys.EXPAND_STIFFNESS] = newSettings.expandStiffness
