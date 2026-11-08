@@ -5,7 +5,6 @@ import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
-import com.droidbubble.app.model.FpsInfo
 import com.droidbubble.app.model.WeatherInfo
 import com.droidbubble.app.model.NetworkSpeedInfo
 import kotlinx.coroutines.CoroutineScope
@@ -147,15 +146,6 @@ object IslandStateManager {
         _collapseSettled.value = true
     }
 
-    private val _fpsInfo = MutableStateFlow(FpsInfo())
-    val fpsInfo: StateFlow<FpsInfo> = _fpsInfo.asStateFlow()
-
-    fun updateFps(info: FpsInfo) {
-        if (_fpsInfo.value != info) {
-            _fpsInfo.value = info
-        }
-    }
-
     private val _weatherInfo = MutableStateFlow(WeatherInfo())
     val weatherInfo: StateFlow<WeatherInfo> = _weatherInfo.asStateFlow()
 
@@ -214,7 +204,6 @@ object IslandStateManager {
     // Callbacks for persistent widget actions
     var onRefreshWeather: (() -> Unit)? = null
     var onResetNetworkSession: (() -> Unit)? = null
-    var onRecalibrateFps: (() -> Unit)? = null
 
     // Callback to dismiss notification from listener
     var onDismissNotification: ((String) -> Unit)? = null
@@ -363,9 +352,6 @@ object IslandStateManager {
                 else -> IslandPriority.IDLE
             }
         }
-
-    val activeExpandedPriority: IslandPriority
-        get() = _expandedPriority.value ?: currentPriority
 
     fun updateFlashlightState(enabled: Boolean, level: Int = _flashlightLevel.value, maxLevel: Int = 4) {
         if (enabled && !_isFlashlightOn.value) restoreIsland()
@@ -796,13 +782,5 @@ object IslandStateManager {
         lastTrackKey = null
         dismissMediaOnPause = false
         autoDismissNotifications = false
-    }
-
-    fun toggleExpand(priority: IslandPriority? = null) {
-        if (_isExpanded.value) {
-            collapse()
-        } else {
-            expand(priority)
-        }
     }
 }

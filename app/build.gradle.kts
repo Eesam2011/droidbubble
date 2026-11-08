@@ -117,8 +117,4 @@ dependencies {
   // Installs the baseline profiles bundled with Compose at install time, so animations run
   // precompiled instead of JIT-warming (first expands no longer stutter on sideloaded APKs)
   implementation("androidx.profileinstaller:profileinstaller:1.4.1")
-
-  // Shizuku
-  implementation("dev.rikka.shizuku:api:13.1.5")
-  implementation("dev.rikka.shizuku:provider:13.1.5")
 }

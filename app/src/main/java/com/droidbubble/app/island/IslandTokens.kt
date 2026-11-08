@@ -34,6 +34,8 @@ object IslandTokens {
     val RadiusChip: Dp = 12.dp
     val RadiusButton: Dp = 14.dp
     val RadiusCard: Dp = 28.dp
+    /** Corner radius the collapsed pill morphs toward (the squircle caps it at half the height). */
+    val CompactCornerRadius: Dp = 22.dp
 
     // ---- Surfaces ----
     val CardBackground = Color.Black

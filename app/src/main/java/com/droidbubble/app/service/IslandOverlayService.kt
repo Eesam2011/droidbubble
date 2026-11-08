@@ -727,8 +727,7 @@ class IslandOverlayService : Service() {
                         LocalDensity provides Density(systemDensity.density, systemDensity.fontScale.coerceIn(0.85f, 1.5f))
                     ) {
                         IslandOverlayRoot(
-                            settings = liveSettings,
-                            onBoundsChange = { _, _ -> }
+                            settings = liveSettings
                         )
                     }
                 }
@@ -1047,7 +1046,6 @@ class IslandOverlayService : Service() {
             }
 
             val speedFactor = currentSettings.animationSpeed.coerceIn(0.4f, 2.5f)
-            val collapseDelayMs = (560f / speedFactor).toLong().coerceIn(380L, 950L)
 
             if (wasExpanded) {
                 wasExpanded = false

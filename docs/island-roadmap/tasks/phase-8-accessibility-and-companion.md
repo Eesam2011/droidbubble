@@ -925,6 +925,7 @@ This table is the contract for C3.3–C3.7. In it, "headline" is the node's `con
 - **Ships as:** 1 PR, together with C5.5 if done in one session. User-visible (subtle).
 
 ### C5.5: Remove the "Coming soon" section
+- **Status:** done in the pre-Phase-0 cleanup (2026-11-08).
 - **Goal:** no disabled placeholder clutter on the main screen.
 - **Why:** 05 §2 and P2 "the Coming-soon section is clutter" (`ui/main/MainScreen.kt:986-1041`).
 - **Files:** `ui/main/MainScreen.kt:986-1041` and now-unused imports (for example `alpha` at `:43`, `Widgets` at `:93`; check each with a grep before deleting).

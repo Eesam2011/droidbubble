@@ -106,7 +106,7 @@ class IslandOverlayCrashTest {
         IslandStateManager.resetForTest()
         rule.mainClock.autoAdvance = true
         rule.setContent {
-            IslandOverlayRoot(settings = settings, onBoundsChange = { _, _ -> })
+            IslandOverlayRoot(settings = settings)
         }
     }
 

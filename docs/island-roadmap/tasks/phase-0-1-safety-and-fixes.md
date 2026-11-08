@@ -398,8 +398,7 @@
      - the notification listener, guarded by `BIND_NOTIFICATION_LISTENER_SERVICE`
      - the accessibility service, guarded by `BIND_ACCESSIBILITY_SERVICE`
      - `BootReceiver`
-     - `PowerConnectionReceiver` (a dead manifest receiver; A9.2 removes it)
-     - `ShizukuProvider`, guarded by `INTERACT_ACROSS_USERS_FULL`
+     - (`PowerConnectionReceiver` and `ShizukuProvider` were removed in the pre-Phase-0 cleanup.)
 - **Acceptance criteria:** the test is green. Every system glance still fires on a device.
 - **Tests:** `ExportedSurfaceTest`; device checklist above.
 - **Depends on:** B1.1 (same lines of `onCreate`).

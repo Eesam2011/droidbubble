@@ -651,7 +651,6 @@ fun MainScreen(
                         "PROGRESS",
                         "RECORDING",
                         "FLASHLIGHT",
-                        "FPS",
                         "WEATHER",
                         "NETWORK_SPEED"
                     )
@@ -674,7 +673,6 @@ fun MainScreen(
                             "PROGRESS",
                             "RECORDING",
                             "FLASHLIGHT",
-                            "FPS",
                             "WEATHER",
                             "NETWORK_SPEED"
                         )
@@ -716,7 +714,6 @@ fun MainScreen(
                                 "PROGRESS" -> settings.showLiveProgress
                                 "RECORDING" -> settings.showScreenRecording
                                 "FLASHLIGHT" -> settings.showFlashlight
-                                "FPS" -> settings.showFps
                                 "WEATHER" -> settings.showWeather
                                 "NETWORK_SPEED" -> settings.showNetworkSpeed
                                 else -> false
@@ -729,7 +726,6 @@ fun MainScreen(
                                 "PROGRESS" -> "Live Progress & Activities"
                                 "RECORDING" -> "Screen Recording Indicator"
                                 "FLASHLIGHT" -> "Flashlight Indicator"
-                                "FPS" -> "FPS Counter"
                                 "WEATHER" -> "Weather & Temperature"
                                 "NETWORK_SPEED" -> "Wi-Fi & Network Speed"
                                 else -> currentKey
@@ -742,7 +738,6 @@ fun MainScreen(
                                 "PROGRESS" -> Icons.Default.Animation
                                 "RECORDING" -> Icons.Default.Videocam
                                 "FLASHLIGHT" -> Icons.Default.FlashlightOn
-                                "FPS" -> Icons.Default.Speed
                                 "WEATHER" -> Icons.Default.WbSunny
                                 "NETWORK_SPEED" -> Icons.Default.Wifi
                                 else -> Icons.Default.Apps
@@ -854,7 +849,6 @@ fun MainScreen(
                                                         "PROGRESS" -> s.copy(showLiveProgress = checked)
                                                         "RECORDING" -> s.copy(showScreenRecording = checked)
                                                         "FLASHLIGHT" -> s.copy(showFlashlight = checked)
-                                                        "FPS" -> s.copy(showFps = checked)
                                                         "WEATHER" -> s.copy(showWeather = checked)
                                                         "NETWORK_SPEED" -> s.copy(showNetworkSpeed = checked)
                                                         else -> s
@@ -1002,63 +996,6 @@ fun MainScreen(
             }
             item {
                 LiveActivityTestPanel(islandRunning = settings.isEnabled && pendingPermissions.none { it.id == "overlay" })
-            }
-
-            // SECTION 6: PERSISTENT ISLAND VIEWS
-            item {
-                SectionHeader(
-                    title = "Persistent Island Views",
-                    icon = Icons.Default.Widgets,
-                    badge = "Coming soon",
-                    badgeColor = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .alpha(0.5f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    SettingsCardItem(position = GroupPosition.TOP) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = {
-                                Text("Weather & Temperature", fontWeight = FontWeight.SemiBold)
-                            },
-                            leadingContent = {
-                                Icon(Icons.Default.WbSunny, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = false,
-                                    onCheckedChange = null,
-                                    enabled = false
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.BOTTOM) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = {
-                                Text("Wi-Fi & Network Speed", fontWeight = FontWeight.SemiBold)
-                            },
-                            leadingContent = {
-                                Icon(Icons.Default.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = false,
-                                    onCheckedChange = null,
-                                    enabled = false
-                                )
-                            }
-                        )
-                    }
-                }
             }
 
             item {
@@ -1865,7 +1802,6 @@ fun DimensionsPage(
         ) {
             item {
                 val currentCutoutMode = when {
-                    settings.isTeardropCutout -> CutoutModeOption.TEARDROP
                     settings.isLeftCutout -> CutoutModeOption.LEFT
                     else -> CutoutModeOption.CENTER
                 }
@@ -1874,9 +1810,8 @@ fun DimensionsPage(
                     onSelectMode = { mode ->
                         onUpdateSettings { s ->
                             when (mode) {
-                                CutoutModeOption.CENTER -> s.copy(isLeftCutout = false, isTeardropCutout = false)
-                                CutoutModeOption.LEFT -> s.copy(isLeftCutout = true, isTeardropCutout = false)
-                                CutoutModeOption.TEARDROP -> s.copy(isLeftCutout = false, isTeardropCutout = true)
+                                CutoutModeOption.CENTER -> s.copy(isLeftCutout = false)
+                                CutoutModeOption.LEFT -> s.copy(isLeftCutout = true)
                             }
                         }
                     }
@@ -1957,8 +1892,7 @@ fun DimensionsPage(
 
 enum class CutoutModeOption {
     CENTER,
-    LEFT,
-    TEARDROP
+    LEFT
 }
 
 @Composable
@@ -1996,13 +1930,6 @@ fun CutoutPositionSelectorCard(
                     mode = CutoutModeOption.LEFT,
                     isSelected = selectedMode == CutoutModeOption.LEFT,
                     onClick = { onSelectMode(CutoutModeOption.LEFT) },
-                    modifier = Modifier.weight(1f)
-                )
-                CutoutPositionOptionButton(
-                    label = "Tear-drop",
-                    mode = CutoutModeOption.TEARDROP,
-                    isSelected = selectedMode == CutoutModeOption.TEARDROP,
-                    onClick = { onSelectMode(CutoutModeOption.TEARDROP) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2072,7 +1999,7 @@ private fun CutoutPositionOptionButton(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Cropped top phone bezel illustration with just the selfie camera circle (or tear-drop notch)
+            // Cropped top phone bezel illustration with just the selfie camera circle
             androidx.compose.foundation.Canvas(
                 modifier = Modifier
                     .width(74.dp)
@@ -2135,30 +2062,6 @@ private fun CutoutPositionOptionButton(
                             radius = holeRadius,
                             center = androidx.compose.ui.geometry.Offset(holeX, holeY)
                         )
-                    }
-                    CutoutModeOption.TEARDROP -> {
-                        // Outward-rounded top corners blending from the top bezel into a centered tear-drop semicircle
-                        val dropR = 7.dp.toPx()
-                        val earR = 5.dp.toPx()
-                        val dropBottomY = topY + dropR * 1.45f
-                        val teardropPath = androidx.compose.ui.graphics.Path().apply {
-                            moveTo(centerX - dropR - earR, topY)
-                            quadraticTo(
-                                centerX - dropR, topY,
-                                centerX - dropR * 0.88f, topY + dropR * 0.55f
-                            )
-                            cubicTo(
-                                centerX - dropR * 0.65f, dropBottomY,
-                                centerX + dropR * 0.65f, dropBottomY,
-                                centerX + dropR * 0.88f, topY + dropR * 0.55f
-                            )
-                            quadraticTo(
-                                centerX + dropR, topY,
-                                centerX + dropR + earR, topY
-                            )
-                            close()
-                        }
-                        drawPath(path = teardropPath, color = cutoutDotColor)
                     }
                 }
             }
@@ -2372,61 +2275,7 @@ fun AppearancePage(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    SettingsCardItem(position = GroupPosition.TOP, isActive = settings.mediaWaveAnimation) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Ambient Album Wave", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(Icons.Default.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.mediaWaveAnimation,
-                                    onCheckedChange = { enabled ->
-                                        onUpdateSettings { it.copy(mediaWaveAnimation = enabled) }
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.wavyProgressBar) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Wavy Progress Scrubber", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(Icons.Default.LinearScale, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.wavyProgressBar,
-                                    onCheckedChange = { enabled ->
-                                        onUpdateSettings { it.copy(wavyProgressBar = enabled) }
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.spinningAlbumArt) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Spinning Vinyl Cover", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(Icons.Default.Album, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.spinningAlbumArt,
-                                    onCheckedChange = { enabled ->
-                                        onUpdateSettings { it.copy(spinningAlbumArt = enabled) }
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.BOTTOM, isActive = settings.blurredAlbumArtBackground) {
+                    SettingsCardItem(position = GroupPosition.SINGLE, isActive = settings.blurredAlbumArtBackground) {
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Blurred Album Art Background", fontWeight = FontWeight.SemiBold) },

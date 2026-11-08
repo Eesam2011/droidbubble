@@ -219,7 +219,6 @@ fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, prog
         IslandPriority.SCREEN_RECORDING -> 115.dp to 100.dp
         IslandPriority.PROGRESS -> 182.dp to 155.dp
         IslandPriority.FLASHLIGHT -> 205.dp to 165.dp
-        IslandPriority.FPS -> 185.dp to 150.dp
         IslandPriority.WEATHER -> 195.dp to 155.dp
         IslandPriority.NETWORK_SPEED -> 185.dp to 150.dp
         else -> 195.dp to 155.dp // media, idle, charging...
@@ -271,7 +270,6 @@ class NotificationCardMetrics(scale: Float) {
     val replyChipVerticalPadding = 5.dp
     val replyRowSpacing = 6.dp
     val replyInputHeight = 42.dp
-    val callRowHeight = (52.dp * scale).coerceIn(44.dp, 60.dp)
 }
 
 /** Sizes of the expanded download / progress card, shared by the view and its height measurement. */
@@ -580,16 +578,6 @@ data class CardMorph(val width: Dp, val height: Dp, val corner: Dp, val top: Dp)
         // Stop the spring once it's within 0.1dp (same as Dp's default) instead of running extra frames
         val VisibilityThreshold = CardMorph(0.1.dp, 0.1.dp, 0.1.dp, 0.1.dp)
     }
-}
-
-/**
- * Blur for content that is fading in/out during a morph (iOS blurs content as the island
- * changes shape). Returns null once content is fully visible or hidden, so static frames
- * pay nothing; Android 12+ only, older versions just fade.
- */
-fun morphBlurEffect(visibility: Float, maxRadiusPx: Float): RenderEffect? {
-    if (visibility >= 0.99f || visibility <= 0.01f) return null
-    return steppedBlurEffect(1f - visibility, maxRadiusPx)
 }
 
 /** Blur radii come in steps this size, so a morph reuses a few effects instead of one per frame. */

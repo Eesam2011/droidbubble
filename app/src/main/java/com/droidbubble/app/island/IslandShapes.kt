@@ -112,12 +112,6 @@ fun islandShape(radius: Dp): Shape =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) SquircleShape(radius) else RoundedCornerShape(radius)
 
 /**
- * Expanded-card corner radius that follows the card's size, so short cards (notifications)
- * and tall cards (media, weather) both look concentric with their content.
- */
-fun expandedCornerRadiusFor(cardHeight: Dp): Dp = (cardHeight * 0.2f).coerceIn(26.dp, 40.dp)
-
-/**
  * Black bridge that joins a notch-style island to the top edge of the screen: a bar as wide as
  * the pill plus an inward-curving "ear" on each side, like a phone notch. [ear] is the radius
  * of those concave corners.

@@ -123,7 +123,6 @@ import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.ArrowUpward
-import com.droidbubble.app.model.FpsInfo
 import kotlinx.coroutines.flow.first
 import com.droidbubble.app.model.HourlyWeather
 import com.droidbubble.app.model.WeatherInfo
@@ -388,8 +387,7 @@ object IslandTestTags {
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun IslandOverlayRoot(
-    settings: IslandSettings,
-    onBoundsChange: (widthPx: Int, heightPx: Int) -> Unit
+    settings: IslandSettings
 ) {
     val isExpanded by IslandStateManager.isExpanded.collectAsState()
     val isPopIn by IslandStateManager.isPopInActive.collectAsState()
@@ -405,7 +403,6 @@ fun IslandOverlayRoot(
     val flashlightLevel by IslandStateManager.flashlightLevel.collectAsState()
     val maxFlashlightLevel by IslandStateManager.maxFlashlightLevel.collectAsState()
     val isKeyboardFocused by IslandStateManager.isKeyboardFocused.collectAsState()
-    val fpsInfo by IslandStateManager.fpsInfo.collectAsState()
     val weatherInfo by IslandStateManager.weatherInfo.collectAsState()
     val networkSpeedInfo by IslandStateManager.networkSpeedInfo.collectAsState()
     val connectionAlert by IslandStateManager.connectionAlert.collectAsState()
@@ -471,15 +468,13 @@ fun IslandOverlayRoot(
     val isBluetooth = allowInOrientation && connectionAlertEnabled && isBluetoothConnected && !isCharging && !isUnlock
     val isRingerMode = allowInOrientation && settings.showRingerMode && activeRingerMode != null && !isCharging && !isUnlock && !isBluetooth
 
-    val isFps = false // FPS counter removed
     val isWeather = allowInOrientation && settings.showWeather
     val isNetworkSpeed = allowInOrientation && settings.showNetworkSpeed
-    val hasPersistent = isFps || isWeather || isNetworkSpeed
+    val hasPersistent = isWeather || isNetworkSpeed
 
     val isOccupied = allowInOrientation && (isRecording || isNotification || isMedia || isProgress || isCharging || isUnlock || isBluetooth || isFlashlight || isRingerMode || hasPersistent)
 
     val persistentList = buildList {
-        if (isFps) add(IslandPriority.FPS)
         if (isWeather) add(IslandPriority.WEATHER)
         if (isNetworkSpeed) add(IslandPriority.NETWORK_SPEED)
     }
@@ -958,7 +953,7 @@ fun IslandOverlayRoot(
     val targetCornerRadius = when {
         isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode ->
             liveActivityCornerRadius(settings.expandedScale, notifDensity.fontScale)
-        else -> settings.cornerRadiusDp.dp
+        else -> IslandTokens.CompactCornerRadius
     }
 
     // Card 2 delayed appearance: starts a split frame after Card 1 when expanding
@@ -1474,7 +1469,6 @@ fun IslandOverlayRoot(
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
-                                        fpsInfo = fpsInfo,
                                         weatherInfo = weatherInfo,
                                         networkSpeedInfo = networkSpeedInfo,
                                         scale = settings.expandedScale,
@@ -1635,7 +1629,6 @@ fun IslandOverlayRoot(
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
-                                        fpsInfo = fpsInfo,
                                         weatherInfo = weatherInfo,
                                         networkSpeedInfo = networkSpeedInfo,
                                         scale = settings.expandedScale,
@@ -1746,7 +1739,6 @@ fun IslandOverlayRoot(
                                     media = currentMedia,
                                     notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
                                     recording = recording,
-                                    fpsInfo = fpsInfo,
                                     weatherInfo = weatherInfo,
                                     networkSpeedInfo = networkSpeedInfo
                                 )
@@ -2255,7 +2247,6 @@ fun IslandOverlayRoot(
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
-                                        fpsInfo = fpsInfo,
                                         weatherInfo = weatherInfo,
                                         networkSpeedInfo = networkSpeedInfo,
                                         secondaryPriority = secondaryPriority,
@@ -2465,7 +2456,6 @@ fun AuxiliaryBubbleContent(
     media: MediaInfo?,
     notification: NotificationInfo?,
     recording: ScreenRecordingState,
-    fpsInfo: FpsInfo = FpsInfo(),
     weatherInfo: WeatherInfo = WeatherInfo(),
     networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo()
 ) {
@@ -2581,16 +2571,6 @@ fun AuxiliaryBubbleContent(
                 )
             }
         }
-        IslandPriority.FPS -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "${fpsInfo.fps}",
-                    color = Color(0xFF30D158),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
         IslandPriority.WEATHER -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -2660,7 +2640,6 @@ fun CompactContent(
     isCompactDual: Boolean = false,
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
-    fpsInfo: FpsInfo = FpsInfo(),
     weatherInfo: WeatherInfo = WeatherInfo(),
     networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
     secondaryPriority: IslandPriority? = null,
@@ -2794,26 +2773,6 @@ fun CompactContent(
                             )
                         }
                     )
-                }
-
-                IslandPriority.FPS -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = "FPS",
-                            tint = if (fpsInfo.isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        if (!isCompactDual) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "FPS",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
                 }
 
                 IslandPriority.WEATHER -> {
@@ -2950,15 +2909,6 @@ fun CompactContent(
                     EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = compactEqTint)
                 }
 
-                IslandPriority.FPS -> {
-                    Text(
-                        text = "${fpsInfo.fps} FPS",
-                        color = if (fpsInfo.isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A),
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
                 IslandPriority.WEATHER -> {
                     Text(
                         text = "${weatherInfo.temperatureC}°",
@@ -2991,7 +2941,6 @@ fun ExpandedCardContent(
     recording: ScreenRecordingState,
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
-    fpsInfo: FpsInfo = FpsInfo(),
     weatherInfo: WeatherInfo = WeatherInfo(),
     networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
     scale: Float = 1.0f,
@@ -3031,9 +2980,6 @@ fun ExpandedCardContent(
                 onCollapse = onCollapse,
                 scale = scale
             )
-        }
-        IslandPriority.FPS -> {
-            ExpandedFpsView(fpsInfo = fpsInfo, onCollapse = onCollapse, scale = scale)
         }
         IslandPriority.WEATHER -> {
             ExpandedWeatherView(weatherInfo = weatherInfo, onCollapse = onCollapse, scale = scale)
@@ -4251,144 +4197,6 @@ private fun formatDuration(millis: Long): String {
         String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
         String.format(Locale.US, "%02d:%02d", minutes, seconds)
-    }
-}
-
-@Composable
-fun CellularSignalBars(
-    level: Int,
-    modifier: Modifier = Modifier
-) {
-    val activeLevel = level.coerceIn(0, 4)
-    Row(
-        modifier = modifier.height(11.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(1.5.dp)
-    ) {
-        val barHeights = listOf(3.5.dp, 6.dp, 8.5.dp, 11.dp)
-        for (i in 0 until 4) {
-            val isLit = activeLevel > i || (activeLevel == 0 && i == 0)
-            Box(
-                modifier = Modifier
-                    .width(2.5.dp)
-                    .height(barHeights[i])
-                    .clip(RoundedCornerShape(0.8.dp))
-                    .background(if (isLit) Color.White else Color.White.copy(alpha = 0.25f))
-            )
-        }
-    }
-}
-
-@Composable
-fun ExpandedFpsView(
-    fpsInfo: FpsInfo,
-    onCollapse: () -> Unit,
-    scale: Float = 1.0f
-) {
-    val targetHz = fpsInfo.refreshRateHz.coerceAtLeast(60)
-    val fpsFraction = (fpsInfo.fps.toFloat() / targetHz).coerceIn(0f, 1f)
-    val isSmooth = fpsInfo.isSmooth
-    val statusColor = if (isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.FPS, scale)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top section: Feature icon + Title / Subtitle + Top-Right Status Chip
-        IslandHeader(
-            title = "Display Frame Rate",
-            subtitle = "${targetHz} Hz Refresh Target",
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
-                        .background(IslandTokens.SurfaceMuted),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Speed,
-                        contentDescription = "FPS",
-                        tint = statusColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            },
-            trailing = {
-                InfoChip(
-                    text = "${fpsInfo.fps} FPS",
-                    dotColor = statusColor
-                )
-            }
-        )
-
-        // Center section: Minimal horizontal frame timing progress bar
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Frame Pacing",
-                    color = Color(0xFFA1A1AA),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (isSmooth) "Smooth" else "Drop Detected",
-                    color = statusColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2C2C2E)),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(fpsFraction)
-                        .clip(CircleShape)
-                        .background(statusColor)
-                )
-            }
-        }
-
-        // Bottom section: Clean inline metadata
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = String.format(Locale.US, "Latency: %.1f ms", fpsInfo.frameTimeMs),
-                color = Color(0xFFA1A1AA),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "${targetHz} Hz Display",
-                color = Color(0xFFA1A1AA),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
     }
 }
 

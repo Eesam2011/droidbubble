@@ -93,7 +93,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B6.4 | Swipe right no longer hides | todo |
 | B7.1 | Weather: no fabricated data | todo |
 | B7.2 | Network label: no hard-coded "5G" | todo |
-| B7.3 | Remove FPS remnants | todo |
+| B7.3 | Remove FPS remnants | done |
 | B8.1 | Equalizer throttle and draw-phase recording dot | todo |
 | B8.2 | Media slider without the 250 ms ticker | todo |
 | B8.3 | Lazy, non-blocking glass panes | todo |
@@ -308,12 +308,20 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | C5.2 | Per-app filter reachable | todo |
 | C5.3 | Quieter update row | todo |
 | C5.4 | Steady value chips (tnum) | todo |
-| C5.5 | Remove "Coming soon" | todo |
+| C5.5 | Remove "Coming soon" | done |
 | C5.6 | Reorder list accessibility | todo |
 
 ---
 
 ## Known cross-file notes
+- **Pre-Phase-0 cleanup (2026-11-08, owner-approved).** These are gone; skip any task text that still mentions them:
+  - FPS everywhere (`IslandPriority.FPS`, `FpsInfo`, `showFps`, the settings row, telemetry). Stored `"FPS"`/`"TIMER"` priorities are dropped by `parseFeaturePriorities` (`model/IslandSettings.kt`). This was B7.3.
+  - The settings `isTeardropCutout` (and the Tear-drop picker option), `mediaWaveAnimation`, `wavyProgressBar`, `spinningAlbumArt` and `cornerRadiusDp` (now the fixed `IslandTokens.CompactCornerRadius` = 22 dp).
+  - The "Persistent Island Views · Coming soon" section (this was C5.5).
+  - `ScreenRecordingService` and `FOREGROUND_SERVICE_MEDIA_PROJECTION`; the manifest `PowerConnectionReceiver` (the A9.2 receiver half); Shizuku (`ShizukuHelper`, both dependencies, the exported `ShizukuProvider`, `WRITE_SECURE_SETTINGS`).
+  - Dead code: `morphBlurEffect`, `expandedCornerRadiusFor`, `CellularSignalBars`, `toggleExpand`, `activeExpandedPriority`, `IslandOverlayRoot`'s `onBoundsChange` parameter.
+  - Kept on purpose: the unused tokens `SpaceLg`, `SpaceXl`, `RadiusCard`, `SurfaceSunken`, `AccentPurple`, `AccentYellow` (their values still appear as literals, so F2.2/F2.5 route those literals into them), `HighContrastOutline` (B5.1), `IslandTouchManager` (B2.3).
+- **Owner decisions (2026-11-08):** D5 = yes, D6 = yes, adb debug control = **no** (B1.1 registers `RECEIVER_NOT_EXPORTED` only; the Test panel covers manual testing).
 - The `MainScreen.kt` line ranges in the phase-8 file are stale; the curve editor is now around `:2649–2796`. Re-check them before C5.1.
 - `IslandGeometry` means the animated shape (M1). The cutout data is `CameraGeometry` (V1), and margins are `CardGeometry` (V2).
 - Overlaps:

@@ -1,16 +1,11 @@
 package com.droidbubble.app.service
 
 import android.content.Context
-import android.hardware.display.DisplayManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.TrafficStats
-import android.os.Handler
-import android.os.Looper
-import android.view.Display
 import com.droidbubble.app.island.IslandStateManager
-import com.droidbubble.app.model.FpsInfo
 import com.droidbubble.app.model.HourlyWeather
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.NetworkSpeedInfo
@@ -56,20 +51,6 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     @Volatile private var isCellular = false
     @Volatile private var linkDownKbps = 0
 
-    // FPS via display refresh-rate change events: nothing runs per frame. Requesting every
-    // Choreographer frame woke the app 60-120x/s and kept adaptive displays pinned at max Hz.
-    private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
-    private var isFpsRunning = false
-    private var maxDisplayHz = 60
-
-    private val displayListener = object : DisplayManager.DisplayListener {
-        override fun onDisplayAdded(displayId: Int) = Unit
-        override fun onDisplayRemoved(displayId: Int) = Unit
-        override fun onDisplayChanged(displayId: Int) {
-            if (displayId == Display.DEFAULT_DISPLAY) publishRefreshRate()
-        }
-    }
-
     fun start(settings: IslandSettings? = null) {
         IslandStateManager.onRefreshWeather = {
             scope.launch(Dispatchers.IO) {
@@ -86,9 +67,6 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
                     sessionTotalMb = 0L
                 )
             )
-        }
-        IslandStateManager.onRecalibrateFps = {
-            publishRefreshRate()
         }
         if (settings != null) {
             updateSettings(settings)
@@ -110,9 +88,6 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     private fun applyState() {
         val active = settings?.takeIf { isScreenOn }
 
-        // FPS counter was removed from the app; make sure monitoring never runs
-        stopFpsMonitoring()
-
         if (active?.showNetworkSpeed == true) {
             if (networkJob == null) startNetworkSpeedMonitoring()
         } else {
@@ -128,40 +103,9 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     }
 
     fun stop() {
-        stopFpsMonitoring()
         stopNetworkSpeedMonitoring()
         weatherJob?.cancel()
         scope.cancel()
-    }
-
-    private fun startFpsMonitoring() {
-        if (isFpsRunning) return
-        val dm = displayManager ?: return
-        isFpsRunning = true
-        maxDisplayHz = runCatching {
-            dm.getDisplay(Display.DEFAULT_DISPLAY)?.supportedModes?.maxOfOrNull { it.refreshRate }?.roundToInt()
-        }.getOrNull()?.coerceIn(60, 240) ?: 60
-        dm.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
-        publishRefreshRate()
-    }
-
-    private fun stopFpsMonitoring() {
-        if (!isFpsRunning) return
-        isFpsRunning = false
-        runCatching { displayManager?.unregisterDisplayListener(displayListener) }
-    }
-
-    private fun publishRefreshRate() {
-        val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY) ?: return
-        val fps = display.refreshRate.roundToInt().coerceIn(10, 240)
-        IslandStateManager.updateFps(
-            FpsInfo(
-                fps = fps,
-                refreshRateHz = maxDisplayHz,
-                frameTimeMs = 1000f / fps,
-                isSmooth = fps >= 60
-            )
-        )
     }
 
     private fun startNetworkSpeedMonitoring() {

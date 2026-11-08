@@ -165,7 +165,6 @@ enum class IslandPriority {
     POP_NOTIFICATION,
     MEDIA,
     FLASHLIGHT,
-    FPS,
     WEATHER,
     NETWORK_SPEED,
     IDLE

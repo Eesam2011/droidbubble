@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -18,7 +17,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
@@ -33,7 +31,6 @@
         </intent>
         <package android:name="com.google.android.gm" />
         <package android:name="com.zoho.mail" />
-        <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
     <application
@@ -64,12 +61,6 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating Dynamic Island UI overlay rendered across all applications" />
         </service>
-
-        <!-- Screen Recording Service with MediaProjection -->
-        <service
-            android:name=".service.ScreenRecordingService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
 
         <!-- Notification Listener & Media Interception Service -->
         <service
@@ -105,16 +96,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Power / Charging Connection Receiver -->
-        <receiver
-            android:name=".service.PowerConnectionReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
-                <action android:name="android.os.action.CHARGING" />
-            </intent-filter>
-        </receiver>
-
         <!-- FileProvider for APK In-App Updates -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -125,15 +106,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <!-- Shizuku ContentProvider for IPC Binder -->
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
     </application>
 

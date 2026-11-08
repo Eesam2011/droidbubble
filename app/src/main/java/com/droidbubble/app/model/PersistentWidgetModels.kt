@@ -1,12 +1,5 @@
 package com.droidbubble.app.model
 
-data class FpsInfo(
-    val fps: Int = 60,
-    val refreshRateHz: Int = 120,
-    val frameTimeMs: Float = 16.6f,
-    val isSmooth: Boolean = true
-)
-
 data class HourlyWeather(
     val timeLabel: String,
     val tempC: Int,

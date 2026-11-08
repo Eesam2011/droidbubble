@@ -1241,6 +1241,7 @@ Some tasks also use M3 (content keyed per activity), M4 (gestures), V3 (compact 
   - the English-only regex remnants left after A4.3
   - `LiveActivityKind` / `liveActivityKind()`, once every adapter emits `ActivityKind`
   - `isLiveActivity` (`IslandEvent.kt:92-93`)
+- **Already done (pre-Phase-0 cleanup, 2026-11-08):** the manifest `PowerConnectionReceiver` and `ScreenRecordingService` are deleted. Only the legacy heuristics part of this task remains.
 - **Also flag:** `service/ScreenRecordingService.kt` and its manifest entry (`:68-72`) plus `FOREGROUND_SERVICE_MEDIA_PROJECTION` (`:9`). **Nothing in the code starts this service** (grep finds no caller). Ask the owner before deleting it.
 - **Files:** as listed.
 - **Acceptance criteria:**
