@@ -1,32 +1,28 @@
 package com.droidbubble.app.island
 
-import android.graphics.Bitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipe
-import androidx.compose.ui.test.click
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
-import com.droidbubble.app.model.MediaInfo
-import com.droidbubble.app.model.NotificationAction
-import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import com.droidbubble.app.island.harness.IslandHarness
+import com.droidbubble.app.island.harness.IslandFixtures.song
+import com.droidbubble.app.island.harness.IslandFixtures.recorder
+import com.droidbubble.app.island.harness.IslandFixtures.timer
+import com.droidbubble.app.island.harness.IslandFixtures.incomingCall
+import com.droidbubble.app.island.harness.IslandFixtures.message
 import kotlin.random.Random
 
 /**
@@ -38,135 +34,21 @@ import kotlin.random.Random
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], qualifiers = "w411dp-h891dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class IslandOverlayCrashTest {
-
-    @get:Rule
-    val rule = createAndroidComposeRule<ComponentActivity>()
-
-    private var settings by mutableStateOf(IslandSettings(showNotifications = true))
-
-    private val art: Bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF884422.toInt()) }
-
-    private val song = MediaInfo(
-        packageName = "com.spotify.music",
-        title = "Song",
-        artist = "Artist",
-        albumArt = art,
-        isPlaying = true,
-        durationMs = 200_000L,
-        positionMs = 10_000L
-    )
-
-    private fun message(key: String = "msg", text: String = "Hello there") = NotificationInfo(
-        key = key,
-        packageName = "com.whatsapp",
-        appName = "WhatsApp",
-        title = "Sam",
-        text = text,
-        iconBitmap = art,
-        actions = listOf(NotificationAction("Reply", null, remoteInputKey = "r"), NotificationAction("Mark as read", null))
-    )
-
-    private val incomingCall = NotificationInfo(
-        key = "call",
-        packageName = "com.google.android.dialer",
-        appName = "Phone",
-        title = "Essam medhat",
-        text = "Incoming call",
-        isCall = true,
-        isIncomingCall = true,
-        isOngoing = true
-    )
-
-    private val recorder = NotificationInfo(
-        key = "rec",
-        packageName = "com.google.android.apps.recorder",
-        appName = "Recorder",
-        title = "Recording",
-        text = "00:12",
-        isOngoing = true,
-        liveTimerBaseMs = System.currentTimeMillis() - 12_000L,
-        actions = listOf(NotificationAction("Pause", null), NotificationAction("Stop", null))
-    )
-
-    private val timer = NotificationInfo(
-        key = "timer",
-        packageName = "com.google.android.deskclock",
-        appName = "Clock",
-        title = "Timer",
-        text = "Timer",
-        isOngoing = true,
-        liveTimerBaseMs = System.currentTimeMillis() + 31_000L,
-        liveTimerCountDown = true,
-        actions = listOf(NotificationAction("Pause", null), NotificationAction("Cancel", null))
-    )
+class IslandOverlayCrashTest : IslandHarness(createAndroidComposeRule<ComponentActivity>()) {
+    private val settingsState = mutableStateOf(IslandSettings(showNotifications = true))
+    private var settings by settingsState
 
     @Before
     fun setUp() {
         IslandStateManager.resetForTest()
-        rule.mainClock.autoAdvance = true
-        rule.setContent {
-            IslandOverlayRoot(settings = settings, onBoundsChange = { _, _ -> })
-        }
+        IslandTokens.highContrast = false
+        setContent(settingsState)
     }
 
     @After
     fun tearDown() {
         IslandStateManager.resetForTest()
-    }
-
-    private fun settle(ms: Long = 1500L) {
-        rule.mainClock.advanceTimeBy(ms)
-        rule.waitForIdle()
-        draw()
-    }
-
-    /** Runs a real draw pass (bitmaps, paths, blur effects, colors), not just layout. */
-    private fun draw() {
-        rule.runOnIdle {
-            val root = rule.activity.window.decorView
-            if (root.width > 0 && root.height > 0) {
-                val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
-                root.draw(android.graphics.Canvas(bitmap))
-                bitmap.recycle()
-            }
-        }
-    }
-
-    private fun onState(block: () -> Unit) {
-        rule.runOnIdle(block)
-        settle(60)
-    }
-
-    private fun exists(tag: String) = rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-
-    /** Horizontal swipe across the pill, starting from [startFraction] of its width (0 = left edge). */
-    private fun swipePill(dx: Float, startFraction: Float = 0.5f, durationMs: Long = 120L) {
-        if (!exists(IslandTestTags.PILL)) return
-        rule.onAllNodesWithTag(IslandTestTags.PILL)[0].performTouchInput {
-            val start = Offset(width * startFraction, height / 2f)
-            swipe(start, start + Offset(dx, 0f), durationMs)
-        }
-    }
-
-    private fun swipeUpOnCard() {
-        if (!exists(IslandTestTags.CARD)) return
-        rule.onAllNodesWithTag(IslandTestTags.CARD)[0].performTouchInput {
-            val start = Offset(width / 2f, 20f)
-            swipe(start, start + Offset(0f, -200f), 150L)
-        }
-    }
-
-    private fun swipeCard(dx: Float) {
-        if (!exists(IslandTestTags.CARD)) return
-        rule.onAllNodesWithTag(IslandTestTags.CARD)[0].performTouchInput {
-            swipe(center, center + Offset(dx, 0f), 150L)
-        }
-    }
-
-    private fun tap(tag: String) {
-        if (!exists(tag)) return
-        rule.onAllNodesWithTag(tag)[0].performTouchInput { click() }
+        IslandTokens.highContrast = false
     }
 
     // --- Pill swipes (the reported crashes) -------------------------------------------------
