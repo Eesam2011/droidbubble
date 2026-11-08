@@ -1,0 +1,24 @@
+{
+  "pkg": "com.google.android.apps.recorder",
+  "appLabel": "Recorder",
+  "locale": "en-US",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": -12000,
+  "extras": {
+    "android.title": "Recording",
+    "android.showChronometer": true
+  },
+  "actions": [
+    {
+      "title": "Pause"
+    },
+    {
+      "title": "Stop"
+    }
+  ],
+  "source": "synthetic (Google Recorder)"
+}

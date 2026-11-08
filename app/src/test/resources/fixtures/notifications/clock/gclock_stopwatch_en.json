@@ -1,0 +1,26 @@
+{
+  "pkg": "com.google.android.deskclock",
+  "appLabel": "Clock",
+  "locale": "en-US",
+  "category": "stopwatch",
+  "channelId": "Stopwatch",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": -83000,
+  "extras": {
+    "android.title": "Stopwatch",
+    "android.showChronometer": true
+  },
+  "actions": [
+    {
+      "title": "Pause"
+    },
+    {
+      "title": "Lap"
+    }
+  ],
+  "source": "synthetic (Google Clock running stopwatch)"
+}

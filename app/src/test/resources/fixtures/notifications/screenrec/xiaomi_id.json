@@ -1,0 +1,20 @@
+{
+  "pkg": "com.miui.screenrecorder",
+  "appLabel": "Perekam Layar",
+  "locale": "id-ID",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Merekam layar",
+    "android.text": "00:09"
+  },
+  "actions": [
+    {
+      "title": "Berhenti"
+    }
+  ],
+  "source": "synthetic (MIUI screen recorder, Indonesian)"
+}

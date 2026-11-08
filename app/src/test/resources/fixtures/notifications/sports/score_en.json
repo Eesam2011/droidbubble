@@ -1,0 +1,14 @@
+{
+  "pkg": "com.mobilefootball",
+  "appLabel": "FotMob",
+  "locale": "en-GB",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "Arsenal 2 - 1 Chelsea",
+    "android.text": "67'"
+  },
+  "source": "synthetic (live score, keeps the B4.1 true positive)"
+}

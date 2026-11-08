@@ -1,0 +1,21 @@
+{
+  "pkg": "com.waze",
+  "appLabel": "Waze",
+  "locale": "en-US",
+  "category": "navigation",
+  "importance": 2,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "In 300 m turn left",
+    "android.text": "Arrive 10:45"
+  },
+  "actions": [
+    {
+      "title": "Stop"
+    }
+  ],
+  "source": "synthetic (Waze navigation)"
+}

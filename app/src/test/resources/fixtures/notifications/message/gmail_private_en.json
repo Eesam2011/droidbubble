@@ -1,0 +1,25 @@
+{
+  "pkg": "com.google.android.gm",
+  "appLabel": "Gmail",
+  "locale": "en-US",
+  "category": "email",
+  "importance": 3,
+  "visibility": 0,
+  "flags": [
+    "AUTO_CANCEL"
+  ],
+  "extras": {
+    "android.title": "Sam",
+    "android.text": "Meeting notes"
+  },
+  "actions": [
+    {
+      "title": "Reply",
+      "remoteInput": true
+    },
+    {
+      "title": "Archive"
+    }
+  ],
+  "source": "synthetic (Gmail, VISIBILITY_PRIVATE)"
+}

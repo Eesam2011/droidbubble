@@ -1,0 +1,14 @@
+{
+  "pkg": "com.google.android.googlequicksearchbox",
+  "appLabel": "Google",
+  "locale": "en-US",
+  "importance": 3,
+  "flags": [
+    "AUTO_CANCEL"
+  ],
+  "extras": {
+    "android.title": "Top stories for you",
+    "android.text": "Today's headlines"
+  },
+  "source": "synthetic (Google app news push, B4.1/B4.2 regression)"
+}

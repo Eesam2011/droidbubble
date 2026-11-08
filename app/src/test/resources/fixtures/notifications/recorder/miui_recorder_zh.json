@@ -1,0 +1,23 @@
+{
+  "pkg": "com.android.soundrecorder",
+  "appLabel": "录音机",
+  "locale": "zh-CN",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "正在录音",
+    "android.text": "00:12"
+  },
+  "actions": [
+    {
+      "title": "暂停"
+    },
+    {
+      "title": "停止"
+    }
+  ],
+  "source": "synthetic (MIUI Sound Recorder, Chinese)"
+}

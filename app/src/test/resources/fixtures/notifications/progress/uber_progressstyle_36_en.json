@@ -1,0 +1,20 @@
+{
+  "pkg": "com.ubercab",
+  "appLabel": "Uber",
+  "locale": "en-US",
+  "category": "progress",
+  "template": "android.app.Notification$ProgressStyle",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Driver arriving",
+    "android.text": "Toyota Camry · ABC 123",
+    "android.progress": 60,
+    "android.progressMax": 100,
+    "android.shortCriticalText": "5 min"
+  },
+  "source": "synthetic (Android 16 Live Update, ProgressStyle ride)"
+}

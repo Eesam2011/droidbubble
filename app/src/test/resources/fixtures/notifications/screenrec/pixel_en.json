@@ -1,0 +1,23 @@
+{
+  "pkg": "com.android.systemui",
+  "appLabel": "System UI",
+  "locale": "en-US",
+  "channelId": "screen_record",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": -9000,
+  "extras": {
+    "android.title": "Recording screen",
+    "android.text": "Tap to stop",
+    "android.showChronometer": true
+  },
+  "actions": [
+    {
+      "title": "Stop"
+    }
+  ],
+  "source": "synthetic (AOSP SystemUI screen recorder)"
+}

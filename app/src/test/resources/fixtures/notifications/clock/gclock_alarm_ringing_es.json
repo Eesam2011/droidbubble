@@ -1,0 +1,26 @@
+{
+  "pkg": "com.google.android.deskclock",
+  "appLabel": "Reloj",
+  "locale": "es-ES",
+  "category": "alarm",
+  "channelId": "Firing",
+  "importance": 4,
+  "fullScreenIntent": true,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Alarma",
+    "android.text": "7:00"
+  },
+  "actions": [
+    {
+      "title": "Posponer"
+    },
+    {
+      "title": "Descartar"
+    }
+  ],
+  "source": "synthetic (Google Clock ringing alarm, Spanish)"
+}

@@ -1,0 +1,25 @@
+{
+  "pkg": "com.android.chrome",
+  "appLabel": "Chrome",
+  "locale": "hi-IN",
+  "category": "progress",
+  "importance": 2,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "file.pdf",
+    "android.text": "डाउनलोड हो रहा है",
+    "android.progress": 55,
+    "android.progressMax": 100
+  },
+  "actions": [
+    {
+      "title": "रोकें"
+    },
+    {
+      "title": "रद्द करें"
+    }
+  ],
+  "source": "synthetic (Chrome download, Hindi)"
+}

@@ -1,0 +1,27 @@
+{
+  "pkg": "com.google.android.deskclock",
+  "appLabel": "Horloge",
+  "locale": "fr-FR",
+  "category": "alarm",
+  "channelId": "Timers",
+  "importance": 4,
+  "fullScreenIntent": true,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": 0,
+  "extras": {
+    "android.title": "Le temps est écoulé",
+    "android.text": "Thé"
+  },
+  "actions": [
+    {
+      "title": "+1:00"
+    },
+    {
+      "title": "Arrêter"
+    }
+  ],
+  "source": "synthetic (Google Clock expired timer, French)"
+}

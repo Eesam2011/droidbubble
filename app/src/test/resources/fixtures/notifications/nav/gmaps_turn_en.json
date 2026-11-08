@@ -1,0 +1,22 @@
+{
+  "pkg": "com.google.android.apps.maps",
+  "appLabel": "Maps",
+  "locale": "en-US",
+  "category": "navigation",
+  "importance": 2,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Turn right onto Main St",
+    "android.text": "200 m",
+    "android.subText": "12 min · 4.1 km"
+  },
+  "actions": [
+    {
+      "title": "Exit navigation"
+    }
+  ],
+  "source": "synthetic (Google Maps turn-by-turn)"
+}

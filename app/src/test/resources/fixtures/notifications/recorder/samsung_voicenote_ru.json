@@ -1,0 +1,23 @@
+{
+  "pkg": "com.sec.android.app.voicenote",
+  "appLabel": "Диктофон",
+  "locale": "ru-RU",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "00:12",
+    "android.text": "Запись"
+  },
+  "actions": [
+    {
+      "title": "Пауза"
+    },
+    {
+      "title": "Стоп"
+    }
+  ],
+  "source": "synthetic (Samsung Voice Recorder, Russian)"
+}

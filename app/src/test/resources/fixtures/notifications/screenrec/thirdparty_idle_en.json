@@ -1,0 +1,23 @@
+{
+  "pkg": "com.example.screenrecorder",
+  "appLabel": "Screen Recorder",
+  "locale": "en-US",
+  "importance": 2,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Screen Recorder",
+    "android.text": "Tap to start"
+  },
+  "actions": [
+    {
+      "title": "Record"
+    },
+    {
+      "title": "Settings"
+    }
+  ],
+  "source": "synthetic (idle third-party recorder, B4.4 regression)"
+}

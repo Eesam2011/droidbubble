@@ -1,0 +1,27 @@
+{
+  "pkg": "com.google.android.dialer",
+  "appLabel": "Phone",
+  "locale": "en-US",
+  "category": "call",
+  "template": "android.app.Notification$CallStyle",
+  "importance": 4,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": -8000,
+  "intents": [
+    "android.hangUpIntent"
+  ],
+  "extras": {
+    "android.title": "Unknown caller",
+    "android.text": "Call Screen is answering",
+    "android.callType": 3
+  },
+  "actions": [
+    {
+      "title": "Hang up"
+    }
+  ],
+  "source": "synthetic (CallStyle.forScreeningCall, Google Phone Call Screen)"
+}

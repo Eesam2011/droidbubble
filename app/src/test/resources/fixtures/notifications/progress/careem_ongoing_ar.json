@@ -1,0 +1,14 @@
+{
+  "pkg": "com.careem.acma",
+  "appLabel": "كريم",
+  "locale": "ar-AE",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "الكابتن في الطريق",
+    "android.text": "يصل خلال 4 دقائق"
+  },
+  "source": "synthetic (ride tracking, Arabic)"
+}

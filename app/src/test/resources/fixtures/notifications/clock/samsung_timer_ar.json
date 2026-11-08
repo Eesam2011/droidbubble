@@ -1,0 +1,26 @@
+{
+  "pkg": "com.sec.android.app.clockpackage",
+  "appLabel": "الساعة",
+  "locale": "ar-SA",
+  "category": "alarm",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": 120000,
+  "extras": {
+    "android.title": "المؤقت",
+    "android.showChronometer": true,
+    "android.chronometerCountDown": true
+  },
+  "actions": [
+    {
+      "title": "إيقاف مؤقت"
+    },
+    {
+      "title": "إلغاء"
+    }
+  ],
+  "source": "synthetic (Samsung Clock running timer, Arabic)"
+}

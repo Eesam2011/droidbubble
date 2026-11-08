@@ -1,0 +1,24 @@
+{
+  "pkg": "com.whatsapp",
+  "appLabel": "WhatsApp",
+  "locale": "ar-EG",
+  "category": "msg",
+  "importance": 4,
+  "flags": [
+    "AUTO_CANCEL"
+  ],
+  "extras": {
+    "android.title": "سام",
+    "android.text": "مرحبا"
+  },
+  "actions": [
+    {
+      "title": "رد",
+      "remoteInput": true
+    },
+    {
+      "title": "تمييز كمقروء"
+    }
+  ],
+  "source": "synthetic (WhatsApp message, Arabic)"
+}

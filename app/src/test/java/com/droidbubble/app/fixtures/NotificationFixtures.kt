@@ -27,6 +27,9 @@ import java.io.File
  * - `extras` overlay the builder's extras. JSON booleans become Boolean, strings String, whole
  *   numbers Int (Long if they don't fit), other numbers Double. Suffix a key with `@long` to force
  *   a Long (for example `"android.chronometerBase@long": 1800000000000`).
+ * - `intents`: extras keys that get a `PendingIntent` (for example `"android.answerIntent"`).
+ *   `fullScreenIntent: true` sets one; `contentIntent` defaults to true. `visibility` is a
+ *   `Notification.VISIBILITY_*` value. `callPerson: {"name", "uri"}` sets `android.callPerson`.
  * - `importance` is a `NotificationManager.IMPORTANCE_*` value. The listener reads it from the
  *   ranking, which the framework owns; tests feed it through the listener's test seam (S5.3).
  *
@@ -91,8 +94,20 @@ object NotificationFixtures {
             for (i in 0 until actions.length()) builder.addAction(action(context, actions.getJSONObject(i)))
         }
 
+        if (json.optBoolean("fullScreenIntent", false)) builder.setFullScreenIntent(pendingIntent(context, "$name.fullScreen"), true)
+        if (json.optBoolean("contentIntent", true)) builder.setContentIntent(pendingIntent(context, "$name.content"))
+        if (json.has("visibility")) builder.setVisibility(json.getInt("visibility"))
+
         val notification = builder.build()
         extrasJson?.let { overlay(notification.extras, it) }
+        json.optJSONArray("intents")?.let { keys ->
+            for (i in 0 until keys.length()) notification.extras.putParcelable(keys.getString(i), pendingIntent(context, "$name.${keys.getString(i)}"))
+        }
+        json.optJSONObject("callPerson")?.let { p ->
+            val person = android.app.Person.Builder().setName(p.getString("name"))
+            p.optStringOrNull("uri")?.let { person.setUri(it) }
+            notification.extras.putParcelable("android.callPerson", person.build())
+        }
         json.optStringOrNull("template")?.let { notification.extras.putString(Notification.EXTRA_TEMPLATE, it) }
         json.optJSONArray("flags")?.let { flags ->
             for (i in 0 until flags.length()) notification.flags = notification.flags or flag(flags.getString(i))
@@ -115,15 +130,15 @@ object NotificationFixtures {
         )
     }
 
+    private fun pendingIntent(context: Context, id: String) = android.app.PendingIntent.getBroadcast(
+        context, id.hashCode(), android.content.Intent("fixture.$id"), android.app.PendingIntent.FLAG_IMMUTABLE
+    )
+
     private fun action(context: Context, a: JSONObject): Notification.Action {
-        val intent = android.app.PendingIntent.getBroadcast(
-            context, a.getString("title").hashCode(), android.content.Intent("fixture.${a.getString("title")}"),
-            android.app.PendingIntent.FLAG_IMMUTABLE
-        )
         val b = Notification.Action.Builder(
             android.graphics.drawable.Icon.createWithResource(context, android.R.drawable.ic_media_play),
             a.getString("title"),
-            intent
+            pendingIntent(context, "action.${a.getString("title")}")
         )
         if (a.has("semanticAction")) b.setSemanticAction(a.getInt("semanticAction"))
         if (a.optBoolean("remoteInput", false)) {

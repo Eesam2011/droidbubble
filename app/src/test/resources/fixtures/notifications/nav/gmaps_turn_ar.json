@@ -1,0 +1,22 @@
+{
+  "pkg": "com.google.android.apps.maps",
+  "appLabel": "خرائط",
+  "locale": "ar-EG",
+  "category": "navigation",
+  "importance": 2,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "انعطف يمينًا",
+    "android.text": "200 م",
+    "android.subText": "12 دقيقة"
+  },
+  "actions": [
+    {
+      "title": "الخروج من التنقل"
+    }
+  ],
+  "source": "synthetic (Google Maps turn-by-turn, Arabic)"
+}

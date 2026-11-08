@@ -1,0 +1,14 @@
+{
+  "pkg": "com.delta.mobile.android",
+  "appLabel": "Fly Delta",
+  "locale": "en-US",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "Boarding at 10:30 Gate B",
+    "android.text": "DL 123 to New York"
+  },
+  "source": "synthetic (flight status, B4.1 regression)"
+}

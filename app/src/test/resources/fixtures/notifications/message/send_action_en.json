@@ -1,0 +1,23 @@
+{
+  "pkg": "com.example.voip",
+  "appLabel": "Voip",
+  "locale": "en-US",
+  "category": "call",
+  "importance": 3,
+  "flags": [
+    "AUTO_CANCEL"
+  ],
+  "extras": {
+    "android.title": "Missed call",
+    "android.text": "Sam"
+  },
+  "actions": [
+    {
+      "title": "Call back"
+    },
+    {
+      "title": "Send"
+    }
+  ],
+  "source": "synthetic (call-category notification with a Send action, B4.3 regression)"
+}

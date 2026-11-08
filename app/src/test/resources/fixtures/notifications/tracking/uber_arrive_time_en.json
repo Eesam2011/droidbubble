@@ -1,0 +1,14 @@
+{
+  "pkg": "com.ubercab",
+  "appLabel": "Uber",
+  "locale": "en-US",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "Arrive at 10:45 PM",
+    "android.text": "Driver is on the way"
+  },
+  "source": "synthetic (ride ETA, B4.1 regression)"
+}

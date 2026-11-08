@@ -1,0 +1,24 @@
+{
+  "pkg": "org.telegram.messenger",
+  "appLabel": "Telegram",
+  "locale": "en-US",
+  "category": "msg",
+  "importance": 4,
+  "flags": [
+    "AUTO_CANCEL"
+  ],
+  "extras": {
+    "android.title": "Sam",
+    "android.text": "Hello there"
+  },
+  "actions": [
+    {
+      "title": "Reply",
+      "remoteInput": true
+    },
+    {
+      "title": "Mark as read"
+    }
+  ],
+  "source": "synthetic (Telegram message)"
+}

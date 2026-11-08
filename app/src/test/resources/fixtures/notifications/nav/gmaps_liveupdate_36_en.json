@@ -1,0 +1,25 @@
+{
+  "pkg": "com.google.android.apps.maps",
+  "appLabel": "Maps",
+  "locale": "en-US",
+  "category": "navigation",
+  "template": "android.app.Notification$ProgressStyle",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Turn left onto Park Ave",
+    "android.text": "350 m",
+    "android.progress": 40,
+    "android.progressMax": 100,
+    "android.shortCriticalText": "350 m"
+  },
+  "actions": [
+    {
+      "title": "Exit navigation"
+    }
+  ],
+  "source": "synthetic (Android 16 Live Update, ProgressStyle)"
+}

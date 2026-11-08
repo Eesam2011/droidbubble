@@ -1,0 +1,24 @@
+{
+  "pkg": "com.samsung.android.app.smartcapture",
+  "appLabel": "Captura inteligente",
+  "locale": "es-ES",
+  "channelId": "screen_recorder",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Grabando pantalla",
+    "android.text": "00:09"
+  },
+  "actions": [
+    {
+      "title": "Pausar"
+    },
+    {
+      "title": "Detener"
+    }
+  ],
+  "source": "synthetic (One UI screen recorder, Spanish)"
+}

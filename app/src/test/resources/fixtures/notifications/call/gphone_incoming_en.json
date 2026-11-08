@@ -1,0 +1,33 @@
+{
+  "pkg": "com.google.android.dialer",
+  "appLabel": "Phone",
+  "locale": "en-US",
+  "category": "call",
+  "template": "android.app.Notification$CallStyle",
+  "importance": 4,
+  "fullScreenIntent": true,
+  "flags": [
+    "FOREGROUND_SERVICE"
+  ],
+  "intents": [
+    "android.answerIntent",
+    "android.declineIntent"
+  ],
+  "callPerson": {
+    "name": "Sam Carter"
+  },
+  "extras": {
+    "android.title": "Sam Carter",
+    "android.text": "Incoming call",
+    "android.callType": 1
+  },
+  "actions": [
+    {
+      "title": "Decline"
+    },
+    {
+      "title": "Answer"
+    }
+  ],
+  "source": "synthetic (CallStyle.forIncomingCall, Google Phone)"
+}

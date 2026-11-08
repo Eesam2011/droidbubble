@@ -1,0 +1,14 @@
+{
+  "pkg": "com.ubercab",
+  "appLabel": "Uber",
+  "locale": "en-US",
+  "importance": 2,
+  "flags": [
+    "AUTO_CANCEL"
+  ],
+  "extras": {
+    "android.title": "50% off your next ride",
+    "android.text": "Offer ends tonight"
+  },
+  "source": "synthetic (marketing push, B4.2 regression)"
+}

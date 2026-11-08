@@ -1,0 +1,22 @@
+{
+  "pkg": "com.android.vending",
+  "appLabel": "Google Play Store",
+  "locale": "en-US",
+  "category": "progress",
+  "importance": 2,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "Droidbubble",
+    "android.text": "12 MB of 40 MB",
+    "android.progress": 30,
+    "android.progressMax": 100
+  },
+  "actions": [
+    {
+      "title": "Cancel"
+    }
+  ],
+  "source": "synthetic (Play Store app download)"
+}

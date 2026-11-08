@@ -1,0 +1,16 @@
+{
+  "pkg": "com.talabat",
+  "appLabel": "طلبات",
+  "locale": "ar-KW",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT"
+  ],
+  "extras": {
+    "android.title": "طلبك في الطريق",
+    "android.text": "سيصل خلال 15 دقيقة",
+    "android.progress": 40,
+    "android.progressMax": 100
+  },
+  "source": "synthetic (food delivery tracking, Arabic)"
+}

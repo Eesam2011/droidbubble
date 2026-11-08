@@ -1,0 +1,24 @@
+{
+  "pkg": "com.samsung.android.incallui",
+  "appLabel": "Telefon",
+  "locale": "tr-TR",
+  "category": "call",
+  "importance": 4,
+  "fullScreenIntent": true,
+  "flags": [
+    "FOREGROUND_SERVICE"
+  ],
+  "extras": {
+    "android.title": "Sam",
+    "android.text": "Gelen arama"
+  },
+  "actions": [
+    {
+      "title": "Reddet"
+    },
+    {
+      "title": "Yanıtla"
+    }
+  ],
+  "source": "synthetic (One UI in-call UI, Turkish)"
+}

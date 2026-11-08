@@ -1,0 +1,31 @@
+{
+  "pkg": "com.google.android.deskclock",
+  "appLabel": "Clock",
+  "locale": "en-US",
+  "category": "alarm",
+  "channelId": "Timers",
+  "importance": 3,
+  "flags": [
+    "ONGOING_EVENT",
+    "FOREGROUND_SERVICE"
+  ],
+  "when": 300000,
+  "extras": {
+    "android.title": "Timer",
+    "android.text": "",
+    "android.showChronometer": true,
+    "android.chronometerCountDown": true
+  },
+  "actions": [
+    {
+      "title": "Pause"
+    },
+    {
+      "title": "+1:00"
+    },
+    {
+      "title": "Reset"
+    }
+  ],
+  "source": "synthetic (Google Clock running timer)"
+}
