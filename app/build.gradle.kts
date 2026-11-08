@@ -30,6 +30,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // Release code for the macrobenchmark (S4.2): R8 on, debug signing, profileable
+        // (src/benchmark/AndroidManifest.xml). Uses the release source set's code via fallback.
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+        }
     }
 
     base {

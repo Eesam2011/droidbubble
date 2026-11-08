@@ -1,0 +1,9 @@
+Island expand / collapse frame timing baseline (S4.2)
+
+Not recorded yet: needs a real device (120 Hz preferred).
+Run:   ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
+Then paste here: device, Android version, build (git rev), date, and for each test the
+frameDurationCpuMs and frameOverrunMs P50 / P90 / P99 plus the jank count from
+~/.droidbubble-build/macrobenchmark/outputs/connected_android_test_additional_output/.../*-benchmarkData.json
+
+Fallback without the module: adb shell dumpsys gfxinfo com.droidbubble.app framestats

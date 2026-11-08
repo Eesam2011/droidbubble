@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Lets the macrobenchmark read frame timing from a release-like build (S4.2) -->
+    <application>
+        <profileable android:shell="true" />
+    </application>
+</manifest>

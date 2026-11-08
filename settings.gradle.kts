@@ -31,3 +31,4 @@ plugins {
 
 rootProject.name = "Droidbubble"
 include(":app")
+include(":macrobenchmark")
