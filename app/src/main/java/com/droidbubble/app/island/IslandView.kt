@@ -396,6 +396,7 @@ fun IslandOverlayRoot(
     settings: IslandSettings
 ) {
     com.droidbubble.app.util.IslandTraceCounters.rootComposed()
+    RecompositionProbe.onRoot?.invoke()
     val isExpanded by IslandStateManager.isExpanded.collectAsState()
     val isPopIn by IslandStateManager.isPopInActive.collectAsState()
     val media by IslandStateManager.activeMedia.collectAsState()

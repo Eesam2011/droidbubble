@@ -66,7 +66,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | S2.2 | Screenshot baseline (16 states) | done |
 | S3.1 | Extract window math verbatim | done |
 | S3.2 | Window table test with known-bug rows | done |
-| S4.1 | Recomposition counter and budget test | todo |
+| S4.1 | Recomposition counter and budget test | done |
 | S4.2 | Macrobenchmark for expand and collapse | todo |
 | S4.3 | Trace sections and Perfetto recipe | done |
 | S5.1 | Fixture JSON format and SBN builder | done |
