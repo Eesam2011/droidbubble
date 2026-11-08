@@ -395,6 +395,7 @@ object IslandTestTags {
 fun IslandOverlayRoot(
     settings: IslandSettings
 ) {
+    com.droidbubble.app.util.IslandTraceCounters.rootComposed()
     val isExpanded by IslandStateManager.isExpanded.collectAsState()
     val isPopIn by IslandStateManager.isPopInActive.collectAsState()
     val media by IslandStateManager.activeMedia.collectAsState()

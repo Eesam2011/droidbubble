@@ -21,6 +21,7 @@ import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.droidbubble.app.util.traced
 import android.util.Log
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandStateManager
@@ -340,7 +341,9 @@ class NotificationReceiverService : NotificationListenerService() {
         serviceScope.cancel()
     }
 
-    fun refreshMedia(candidateController: MediaController? = null) {
+    fun refreshMedia(candidateController: MediaController? = null) = traced("db.refreshMedia") { refreshMediaTraced(candidateController) }
+
+    private fun refreshMediaTraced(candidateController: MediaController?) {
         try {
             val componentName = ComponentName(this, NotificationReceiverService::class.java)
             val controllers = mediaSessionManager?.getActiveSessions(componentName)?.toMutableList() ?: mutableListOf()
@@ -481,7 +484,9 @@ class NotificationReceiverService : NotificationListenerService() {
         updateMediaInfo()
     }
 
-    private fun updateMediaInfo() {
+    private fun updateMediaInfo() = traced("db.updateMediaInfo") { updateMediaInfoTraced() }
+
+    private fun updateMediaInfoTraced() {
         if (!currentSettings.showMedia) {
             IslandStateManager.updateMedia(null)
             return
@@ -1034,6 +1039,10 @@ class NotificationReceiverService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
+        traced("db.posted") { handlePosted(sbn) }
+    }
+
+    private fun handlePosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         if (!currentSettings.showNotifications && !currentSettings.showLiveProgress && !currentSettings.showScreenRecording && !currentSettings.showCalls) return
 

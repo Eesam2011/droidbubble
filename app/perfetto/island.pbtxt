@@ -1,0 +1,61 @@
+# Perfetto config for island work (S4.3).
+#
+# Recipe (device connected, a debuggable or profileable build installed):
+#
+#   adb shell perfetto -o /data/misc/perfetto-traces/island.perfetto-trace --txt -c - < app/perfetto/island.pbtxt
+#   (use the island while it records: pop a notification, expand, collapse, play music)
+#   adb pull /data/misc/perfetto-traces/island.perfetto-trace
+#
+# On Windows PowerShell, pipe the file instead of redirecting:
+#   Get-Content app/perfetto/island.pbtxt | adb shell perfetto -o /data/misc/perfetto-traces/island.perfetto-trace --txt -c -
+#
+# Open the trace at https://ui.perfetto.dev and look at the com.droidbubble.app process:
+# - db.posted: one notification parsed (onNotificationPosted). If it overlaps a
+#   Choreographer#doFrame on the main thread, parsing is delaying a frame (06 P0-2, task B10.3).
+# - db.refreshMedia / db.updateMediaInfo: the media path; bursts here mean missing debounce (B10.2).
+# - db.applyLayoutParams / db.boostRefreshRate: overlay window updates (F5).
+# - The db.root.compositions counter steps once per composition of IslandOverlayRoot; a staircase
+#   during an animation means the root recomposes every frame (06 P0-1, S4.1, M2).
+#
+# The sections cost about nothing when no trace is recording.
+
+buffers {
+  size_kb: 65536
+  fill_policy: RING_BUFFER
+}
+
+data_sources {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      ftrace_events: "sched/sched_switch"
+      ftrace_events: "power/suspend_resume"
+      ftrace_events: "power/cpu_frequency"
+      atrace_categories: "gfx"
+      atrace_categories: "view"
+      atrace_categories: "wm"
+      atrace_categories: "am"
+      atrace_categories: "input"
+      atrace_categories: "sched"
+      atrace_categories: "freq"
+      atrace_apps: "com.droidbubble.app"
+    }
+  }
+}
+
+data_sources {
+  config {
+    name: "linux.process_stats"
+    process_stats_config {
+      scan_all_processes_on_start: true
+    }
+  }
+}
+
+data_sources {
+  config {
+    name: "android.surfaceflinger.frametimeline"
+  }
+}
+
+duration_ms: 15000

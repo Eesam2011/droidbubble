@@ -117,4 +117,7 @@ dependencies {
   // Installs the baseline profiles bundled with Compose at install time, so animations run
   // precompiled instead of JIT-warming (first expands no longer stutter on sideloaded APKs)
   implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+
+  // Labelled trace sections (util/IslandTrace.kt); already on the classpath through Compose
+  implementation("androidx.tracing:tracing:1.2.0")
 }

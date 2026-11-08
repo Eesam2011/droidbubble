@@ -76,6 +76,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
+import com.droidbubble.app.util.traced
 
 class IslandOverlayService : Service() {
 
@@ -840,7 +841,9 @@ class IslandOverlayService : Service() {
         }.getOrDefault(0f)
     }
 
-    private fun boostRefreshRate() {
+    private fun boostRefreshRate() = traced("db.boostRefreshRate") { boostRefreshRateTraced() }
+
+    private fun boostRefreshRateTraced() {
         val view = composeView ?: return
         val params = layoutParams ?: return
         val rate = maxRefreshRate
@@ -873,7 +876,7 @@ class IslandOverlayService : Service() {
         y: Int,
         gravity: Int,
         flags: Int
-    ) {
+    ): Unit = traced("db.applyLayoutParams") {
         if (params.width == width &&
             params.height == height &&
             params.x == x &&
@@ -881,7 +884,7 @@ class IslandOverlayService : Service() {
             params.gravity == gravity &&
             params.flags == flags
         ) {
-            return
+            return@traced
         }
         params.width = width
         params.height = height
