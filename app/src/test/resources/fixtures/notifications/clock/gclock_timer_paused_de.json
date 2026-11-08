@@ -1,0 +1,22 @@
+{
+  "pkg": "com.google.android.deskclock",
+  "appLabel": "Uhr",
+  "locale": "de-DE",
+  "category": "alarm",
+  "channelId": "Timers",
+  "flags": ["ONGOING_EVENT", "FOREGROUND_SERVICE"],
+  "template": "android.app.Notification$DecoratedCustomViewStyle",
+  "when": -31000,
+  "postTimeOffset": 0,
+  "importance": 3,
+  "extras": {
+    "android.title": "Timer",
+    "android.text": "Pausiert",
+    "android.showChronometer": false,
+    "android.chronometerCountDown": true
+  },
+  "actions": [
+    { "title": "Fortsetzen", "semanticAction": 0 }
+  ],
+  "source": "synthetic (AOSP DeskClock strings, de)"
+}

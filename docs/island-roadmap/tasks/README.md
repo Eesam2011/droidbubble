@@ -65,11 +65,11 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | S2.1 | Roborazzi setup and `IslandClock` seam | todo |
 | S2.2 | Screenshot baseline (16 states) | todo |
 | S3.1 | Extract window math verbatim | done |
-| S3.2 | Window table test with known-bug rows | todo |
+| S3.2 | Window table test with known-bug rows | done |
 | S4.1 | Recomposition counter and budget test | todo |
 | S4.2 | Macrobenchmark for expand and collapse | todo |
 | S4.3 | Trace sections and Perfetto recipe | todo |
-| S5.1 | Fixture JSON format and SBN builder | todo |
+| S5.1 | Fixture JSON format and SBN builder | done |
 | S5.2 | Fixture corpus | todo |
 | S5.3 | Fixture characterization through the real NRS | todo |
 | B1.1 | Debug receiver only in debug builds | todo |
