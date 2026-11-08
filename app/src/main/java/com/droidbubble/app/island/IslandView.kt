@@ -84,6 +84,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -2680,6 +2681,10 @@ fun CompactContent(
             contentAlignment = Alignment.CenterStart
         ) {
             when (priority) {
+                IslandPriority.CALL -> Icon(
+                    Icons.Default.Call, contentDescription = "Active call",
+                    tint = LiveActivityColors.CallGreen, modifier = Modifier.size(18.dp)
+                )
                 IslandPriority.SCREEN_RECORDING -> {
                     PulsingRecordingDot()
                 }
@@ -2872,6 +2877,15 @@ fun CompactContent(
             contentAlignment = Alignment.CenterEnd
         ) {
             when (priority) {
+                IslandPriority.CALL -> {
+                    val call by IslandStateManager.activeCallState.collectAsState()
+                    RollingNumberText(
+                        text = String.format(Locale.US, "%02d:%02d", call.durationSeconds / 60, call.durationSeconds % 60),
+                        color = LiveActivityColors.CallGreen,
+                        fontSize = IslandTokens.TypeCaption,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 IslandPriority.SCREEN_RECORDING -> {
                     val minutes = recording.durationSeconds / 60
                     val seconds = recording.durationSeconds % 60
@@ -2984,6 +2998,15 @@ fun ExpandedCardContent(
     onCollapse: () -> Unit
 ) {
     when (priority) {
+        IslandPriority.CALL -> {
+            val call by IslandStateManager.activeCallState.collectAsState()
+            Text(
+                text = call.callerName.ifBlank { "Active call" },
+                color = IslandTokens.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         IslandPriority.SCREEN_RECORDING -> {
             ExpandedRecordingView(recording, onCollapse, scale)
         }

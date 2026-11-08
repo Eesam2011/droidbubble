@@ -83,23 +83,12 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
             val cur = IslandStateManager.networkSpeedInfo.value
             IslandStateManager.updateNetworkSpeed(
                 cur.copy(
-                    sessionTotalMb = 0L,
-                    pingMs = (12..22).random()
+                    sessionTotalMb = 0L
                 )
             )
         }
         IslandStateManager.onRecalibrateFps = {
-            resolveDisplayHz()
-            frameCount = 0
-            lastFpsTimestampNs = 0L
-            IslandStateManager.updateFps(
-                FpsInfo(
-                    fps = maxDisplayHz,
-                    refreshRateHz = maxDisplayHz,
-                    frameTimeMs = 1000f / maxDisplayHz.coerceAtLeast(60),
-                    isSmooth = true
-                )
-            )
+            publishRefreshRate()
         }
         if (settings != null) {
             updateSettings(settings)
