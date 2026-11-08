@@ -59,7 +59,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 ### Phase 0–1: Safety net and fixes ([file](phase-0-1-safety-and-fixes.md))
 | ID | Title | Status |
 |---|---|---|
-| S1.1 | Shared island test harness | todo |
+| S1.1 | Shared island test harness | done |
 | S1.2 | Content probes (testTags per slot) | todo |
 | S1.3 | Settled bounds and content matrix | todo |
 | S2.1 | Roborazzi setup and `IslandClock` seam | todo |
