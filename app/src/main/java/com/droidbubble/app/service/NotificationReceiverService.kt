@@ -69,6 +69,29 @@ class NotificationReceiverService : NotificationListenerService() {
     private lateinit var settingsRepository: SettingsRepository
     private var currentSettings = IslandSettings()
 
+    /** Test seam (S5.3): settings without DataStore. */
+    @androidx.annotation.VisibleForTesting
+    internal fun setSettingsForTest(settings: IslandSettings) {
+        currentSettings = settings
+    }
+
+    /**
+     * Test seam (S5.3): importance per notification key, used instead of the framework ranking
+     * (which only exists while the listener is bound). Null in production.
+     */
+    @androidx.annotation.VisibleForTesting
+    internal var importanceForTest: ((String) -> Int?)? = null
+
+    private fun isLowImportance(key: String): Boolean {
+        importanceForTest?.let { lookup ->
+            val importance = lookup(key) ?: return false
+            return importance < android.app.NotificationManager.IMPORTANCE_DEFAULT
+        }
+        val ranking = Ranking()
+        return currentRanking?.getRanking(key, ranking) == true &&
+            ranking.importance < android.app.NotificationManager.IMPORTANCE_DEFAULT
+    }
+
     private var mediaSessionManager: MediaSessionManager? = null
     private var activeMediaController: MediaController? = null
     private val controllerCallbacks = mutableMapOf<MediaController, MediaController.Callback>()
@@ -1184,11 +1207,7 @@ class NotificationReceiverService : NotificationListenerService() {
         }
 
         // Silent / low-importance channels don't pop the island (calls and live activities always do)
-        val ranking = Ranking()
-        if (!isCall && !looksLikeTimer && !hasProgress && !isLiveCandidate &&
-            currentRanking?.getRanking(sbn.key, ranking) == true &&
-            ranking.importance < android.app.NotificationManager.IMPORTANCE_DEFAULT
-        ) {
+        if (!isCall && !looksLikeTimer && !hasProgress && !isLiveCandidate && isLowImportance(sbn.key)) {
             dropIfShown()
             return
         }

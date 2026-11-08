@@ -764,6 +764,7 @@ object IslandStateManager {
         _activeNotification.value = null
         _activeProgress.value = null
         _screenRecordingState.value = ScreenRecordingState()
+        _activeCallState.value = ActiveCallState()
         _isExpanded.value = false
         _expandedPriority.value = null
         _collapseSettled.value = true
