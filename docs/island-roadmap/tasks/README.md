@@ -61,7 +61,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 |---|---|---|
 | S1.1 | Shared island test harness | done |
 | S1.2 | Content probes (testTags per slot) | done |
-| S1.3 | Settled bounds and content matrix | todo |
+| S1.3 | Settled bounds and content matrix | done |
 | S2.1 | Roborazzi setup and `IslandClock` seam | todo |
 | S2.2 | Screenshot baseline (16 states) | todo |
 | S3.1 | Extract window math verbatim | done |

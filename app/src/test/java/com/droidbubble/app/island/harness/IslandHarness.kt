@@ -3,7 +3,11 @@ package com.droidbubble.app.island.harness
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -37,8 +41,21 @@ class IslandHarness(
     val rule: AndroidComposeTestRule<ActivityScenarioRule<ComponentActivity>, ComponentActivity>
 ) {
 
-    fun setContent(settings: MutableState<IslandSettings>) {
-        rule.setContent { IslandOverlayRoot(settings = settings.value) }
+    /**
+     * Renders the island. With [fontScale], the island sees that font scale, the way the service
+     * passes the phone's font size through `LocalDensity` (`IslandOverlayService`).
+     */
+    fun setContent(settings: MutableState<IslandSettings>, fontScale: MutableFloatState? = null) {
+        rule.setContent {
+            if (fontScale == null) {
+                IslandOverlayRoot(settings = settings.value)
+            } else {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.floatValue)) {
+                    IslandOverlayRoot(settings = settings.value)
+                }
+            }
+        }
     }
 
     fun settle(ms: Long = 1500L) {

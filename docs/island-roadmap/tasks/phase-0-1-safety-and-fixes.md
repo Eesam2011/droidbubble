@@ -101,6 +101,7 @@
   2. Add a record mode (`-Disland.record=true`) that prints the table as Kotlin source to paste into `IslandBoundsGolden.kt`. The default mode asserts against the table.
   3. Mark the rows that are known bugs with a `knownIssue = "B2.1"`-style field, for example row 14 (the card is hidden but the window still takes touches). Phase 1 tasks flip those rows on purpose.
 - **Acceptance criteria:** the table is recorded and committed. Two consecutive runs pass with no diff. The run takes under 2 min on the dev machine.
+- **Result (2026-11-08):** recorded and stable, but the run takes about 4 min (231 s) on the 4-core dev machine: each case settles about 100 frames, and today the whole root recomposes every frame (06 P0-1). Expect it to drop after M2. Columns use `showNotifications = true` as their base, so the fresh-install gate rows live in S3.2 and S5.3, not here.
 - **Tests:** the test itself.
 - **Depends on:** S1.2.
 - **Effort:** M   **Risk:** low — test-only. Watch for: `rememberMorphSpeed` uses `System.nanoTime()` (`island/IslandComponents.kt:630-638`), so assert only at settle, never mid-morph.

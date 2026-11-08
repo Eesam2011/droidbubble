@@ -55,6 +55,11 @@ android {
         unitTests.isReturnDefaultValues = true
         // Robolectric: the island crash tests render the real overlay Compose UI on the JVM
         unitTests.isIncludeAndroidResources = true
+        // Record mode for the golden tables (S1.3, S5.3):
+        // ./gradlew :app:testDebugUnitTest --tests "*IslandCharacterizationTest" -Pisland.record=true
+        unitTests.all { test ->
+            test.systemProperty("island.record", project.findProperty("island.record")?.toString() ?: "false")
+        }
     }
 
     packaging {
