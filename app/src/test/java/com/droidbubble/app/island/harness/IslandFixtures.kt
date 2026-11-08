@@ -43,7 +43,7 @@ object IslandFixtures {
             key = "call",
             packageName = "com.google.android.dialer",
             appName = "Phone",
-            title = "Essam medhat",
+            title = "Sam Carter",
             text = "Incoming call",
             isCall = true,
             isIncomingCall = true,

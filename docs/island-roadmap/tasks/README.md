@@ -63,7 +63,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | S1.2 | Content probes (testTags per slot) | done |
 | S1.3 | Settled bounds and content matrix | done |
 | S2.1 | Roborazzi setup and `IslandClock` seam | done |
-| S2.2 | Screenshot baseline (16 states) | todo |
+| S2.2 | Screenshot baseline (16 states) | done |
 | S3.1 | Extract window math verbatim | done |
 | S3.2 | Window table test with known-bug rows | done |
 | S4.1 | Recomposition counter and budget test | todo |
