@@ -1,14 +1,14 @@
 package com.droidbubble.app.service
 
 import android.content.Context
+import android.hardware.display.DisplayManager
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.TrafficStats
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.view.Choreographer
-import android.view.WindowManager
+import android.view.Display
 import com.droidbubble.app.island.IslandStateManager
 import com.droidbubble.app.model.FpsInfo
 import com.droidbubble.app.model.HourlyWeather
@@ -38,46 +38,35 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var networkJob: Job? = null
     private var weatherJob: Job? = null
-    private var isFpsRunning = false
+
+    // Widgets only run while they are enabled AND the screen is on (see applyState)
+    private var settings: IslandSettings? = null
+    private var isScreenOn = true
 
     private var prevRxBytes = -1L
     private var prevTxBytes = -1L
     private var totalSessionBytes = 0L
 
-    // FPS Tracking via Choreographer
-    private var frameCount = 0
-    private var lastFpsTimestampNs = 0L
+    @Volatile private var lastWeatherFetchMs = 0L
+
+    // Network type comes from a default-network callback instead of a ConnectivityManager query every second
+    private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    @Volatile private var isWifi = false
+    @Volatile private var isCellular = false
+    @Volatile private var linkDownKbps = 0
+
+    // FPS via display refresh-rate change events: nothing runs per frame. Requesting every
+    // Choreographer frame woke the app 60-120x/s and kept adaptive displays pinned at max Hz.
+    private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+    private var isFpsRunning = false
     private var maxDisplayHz = 60
 
-    private val frameCallback = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            if (!isFpsRunning) return
-            frameCount++
-            if (lastFpsTimestampNs == 0L) {
-                lastFpsTimestampNs = frameTimeNanos
-            } else {
-                val deltaNs = frameTimeNanos - lastFpsTimestampNs
-                if (deltaNs >= 1_000_000_000L) { // 1 second interval
-                    val elapsedSeconds = deltaNs.toDouble() / 1_000_000_000.0
-                    val measuredFps = (frameCount / elapsedSeconds).roundToInt().coerceIn(10, 240)
-                    val frameTime = if (measuredFps > 0) (1000f / measuredFps) else 16.6f
-                    val isSmooth = measuredFps >= (maxDisplayHz * 0.85f).roundToInt()
-
-                    IslandStateManager.updateFps(
-                        FpsInfo(
-                            fps = measuredFps,
-                            refreshRateHz = maxDisplayHz,
-                            frameTimeMs = frameTime,
-                            isSmooth = isSmooth
-                        )
-                    )
-                    frameCount = 0
-                    lastFpsTimestampNs = frameTimeNanos
-                }
-            }
-            if (isFpsRunning) {
-                Choreographer.getInstance().postFrameCallback(this)
-            }
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId == Display.DEFAULT_DISPLAY) publishRefreshRate()
         }
     }
 
@@ -118,30 +107,31 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     }
 
     fun updateSettings(settings: IslandSettings) {
-        if (settings.showFps) {
-            if (!isFpsRunning) {
-                resolveDisplayHz()
-                startFpsMonitoring()
-            }
+        this.settings = settings
+        applyState()
+    }
+
+    /** Pauses every widget while the screen is off; resumes (refreshing stale data) when it turns on. */
+    fun setScreenOn(on: Boolean) {
+        if (isScreenOn == on) return
+        isScreenOn = on
+        applyState()
+    }
+
+    private fun applyState() {
+        val active = settings?.takeIf { isScreenOn }
+
+        // FPS counter was removed from the app; make sure monitoring never runs
+        stopFpsMonitoring()
+
+        if (active?.showNetworkSpeed == true) {
+            if (networkJob == null) startNetworkSpeedMonitoring()
         } else {
-            if (isFpsRunning) {
-                stopFpsMonitoring()
-            }
+            stopNetworkSpeedMonitoring()
         }
 
-        if (settings.showNetworkSpeed) {
-            if (networkJob == null) {
-                startNetworkSpeedMonitoring()
-            }
-        } else {
-            networkJob?.cancel()
-            networkJob = null
-        }
-
-        if (settings.showWeather) {
-            if (weatherJob == null) {
-                startWeatherMonitoring()
-            }
+        if (active?.showWeather == true) {
+            if (weatherJob == null) startWeatherMonitoring()
         } else {
             weatherJob?.cancel()
             weatherJob = null
@@ -150,44 +140,54 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
 
     fun stop() {
         stopFpsMonitoring()
-        networkJob?.cancel()
+        stopNetworkSpeedMonitoring()
         weatherJob?.cancel()
         scope.cancel()
     }
 
-    private fun resolveDisplayHz() {
-        runCatching {
-            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
-            val rate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                context.display?.refreshRate ?: 60f
-            } else {
-                @Suppress("DEPRECATION")
-                wm?.defaultDisplay?.refreshRate ?: 60f
-            }
-            maxDisplayHz = rate.roundToInt().coerceIn(60, 240)
-        }.onFailure {
-            maxDisplayHz = 60
-        }
-    }
-
-    fun startFpsMonitoring() {
+    private fun startFpsMonitoring() {
         if (isFpsRunning) return
+        val dm = displayManager ?: return
         isFpsRunning = true
-        frameCount = 0
-        lastFpsTimestampNs = 0L
-        Choreographer.getInstance().postFrameCallback(frameCallback)
+        maxDisplayHz = runCatching {
+            dm.getDisplay(Display.DEFAULT_DISPLAY)?.supportedModes?.maxOfOrNull { it.refreshRate }?.roundToInt()
+        }.getOrNull()?.coerceIn(60, 240) ?: 60
+        dm.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
+        publishRefreshRate()
     }
 
-    fun stopFpsMonitoring() {
+    private fun stopFpsMonitoring() {
+        if (!isFpsRunning) return
         isFpsRunning = false
-        Choreographer.getInstance().removeFrameCallback(frameCallback)
+        runCatching { displayManager?.unregisterDisplayListener(displayListener) }
+    }
+
+    private fun publishRefreshRate() {
+        val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY) ?: return
+        val fps = display.refreshRate.roundToInt().coerceIn(10, 240)
+        IslandStateManager.updateFps(
+            FpsInfo(
+                fps = fps,
+                refreshRateHz = maxDisplayHz,
+                frameTimeMs = 1000f / fps,
+                isSmooth = fps >= 60
+            )
+        )
     }
 
     private fun startNetworkSpeedMonitoring() {
         networkJob?.cancel()
+        registerNetworkCallback()
         networkJob = scope.launch(Dispatchers.IO) {
-            prevRxBytes = TrafficStats.getTotalRxBytes()
-            prevTxBytes = TrafficStats.getTotalTxBytes()
+            val startRx = TrafficStats.getTotalRxBytes()
+            val startTx = TrafficStats.getTotalTxBytes()
+            // Resuming after a screen-off pause: count the traffic in the session total,
+            // but don't report it as a one-second speed spike.
+            if (prevRxBytes >= 0 && prevTxBytes >= 0 && startRx >= prevRxBytes && startTx >= prevTxBytes) {
+                totalSessionBytes += (startRx - prevRxBytes) + (startTx - prevTxBytes)
+            }
+            prevRxBytes = startRx
+            prevTxBytes = startTx
 
             while (isActive) {
                 delay(1000L)
@@ -199,12 +199,6 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
                     val deltaRx = currentRx - prevRxBytes
                     val deltaTx = currentTx - prevTxBytes
                     totalSessionBytes += deltaRx + deltaTx
-
-                    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-                    val activeNet = cm?.activeNetwork
-                    val caps = cm?.getNetworkCapabilities(activeNet)
-                    val isWifi = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-                    val isCellular = caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
 
                     val networkLabel = when {
                         isWifi -> "Wi-Fi"
@@ -219,10 +213,11 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
                         uploadBytesPerSec = deltaTx,
                         isWifi = isWifi,
                         networkLabel = networkLabel,
-                        pingMs = (14..26).random(),
+                        linkDownMbps = linkDownKbps / 1000,
                         sessionTotalMb = totalSessionBytes / (1024 * 1024)
                     )
 
+                    // Equal values are dropped by updateNetworkSpeed, so an idle link causes no redraws
                     withContext(Dispatchers.Main) {
                         IslandStateManager.updateNetworkSpeed(info)
                     }
@@ -231,6 +226,35 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
                 prevRxBytes = currentRx
                 prevTxBytes = currentTx
             }
+        }
+    }
+
+    private fun stopNetworkSpeedMonitoring() {
+        networkJob?.cancel()
+        networkJob = null
+        networkCallback?.let { cb -> runCatching { connectivityManager?.unregisterNetworkCallback(cb) } }
+        networkCallback = null
+    }
+
+    private fun registerNetworkCallback() {
+        if (networkCallback != null) return
+        val cm = connectivityManager ?: return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                isWifi = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                isCellular = caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                linkDownKbps = caps.linkDownstreamBandwidthKbps
+            }
+
+            override fun onLost(network: Network) {
+                isWifi = false
+                isCellular = false
+                linkDownKbps = 0
+            }
+        }
+        runCatching {
+            cm.registerDefaultNetworkCallback(cb)
+            networkCallback = cb
         }
     }
 
@@ -246,12 +270,21 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     private fun startWeatherMonitoring() {
         weatherJob?.cancel()
         weatherJob = scope.launch(Dispatchers.IO) {
+            // After a screen-off pause, refetch right away only if the data is actually stale
+            val sinceLastFetch = System.currentTimeMillis() - lastWeatherFetchMs
+            if (lastWeatherFetchMs > 0L && sinceLastFetch in 0 until WEATHER_REFRESH_MS) {
+                delay(WEATHER_REFRESH_MS - sinceLastFetch)
+            }
             while (isActive) {
                 fetchWeather()
-                // Refresh weather every 20 minutes
-                delay(20 * 60 * 1000L)
+                lastWeatherFetchMs = System.currentTimeMillis()
+                delay(WEATHER_REFRESH_MS)
             }
         }
+    }
+
+    private companion object {
+        const val WEATHER_REFRESH_MS = 20 * 60 * 1000L
     }
 
     private suspend fun fetchWeather() {

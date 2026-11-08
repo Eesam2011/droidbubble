@@ -38,6 +38,6 @@ data class NetworkSpeedInfo(
     val uploadBytesPerSec: Long = 0L,
     val isWifi: Boolean = true,
     val networkLabel: String = "Wi-Fi",
-    val pingMs: Int = 18,
+    val linkDownMbps: Int = 0, // estimated link bandwidth from the system; 0 = unknown
     val sessionTotalMb: Long = 0L
 )

@@ -21,6 +21,11 @@ data class PermissionItem(
 
 object PermissionHelper {
 
+    const val RECORD_AUDIO_ID = "record_audio"
+
+    fun isRecordAudioGranted(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
     fun isOverlayGranted(context: Context): Boolean {
         return Settings.canDrawOverlays(context)
     }
@@ -130,6 +135,23 @@ object PermissionHelper {
                     createIntent = { ctx ->
                         Intent(
                             Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:${ctx.packageName}")
+                        )
+                    }
+                )
+            )
+        }
+
+        if (!isRecordAudioGranted(context)) {
+            list.add(
+                PermissionItem(
+                    id = RECORD_AUDIO_ID,
+                    title = "Live Audio Visualizer",
+                    description = "Lets the music equalizer and recorder waveform follow the real sound. The music visualizer only reads what's playing, not the mic",
+                    isGranted = false,
+                    createIntent = { ctx ->
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                             Uri.parse("package:${ctx.packageName}")
                         )
                     }

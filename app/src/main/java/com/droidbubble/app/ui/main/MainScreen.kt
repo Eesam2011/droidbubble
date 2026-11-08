@@ -35,6 +35,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Menu
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
@@ -61,6 +63,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.BlurOn
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Science
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -210,6 +216,8 @@ fun MainScreen(
     val showUpdateSheet by viewModel.showUpdateSheet.collectAsState()
 
     var showAppFilterSheet by remember { mutableStateOf(false) }
+    var showPriorityAppsSheet by remember { mutableStateOf(false) }
+    var priorityAppsQuery by remember { mutableStateOf("") }
     var appFilterQuery by remember { mutableStateOf("") }
 
     var showDimensionsPage by remember { mutableStateOf(false) }
@@ -228,6 +236,27 @@ fun MainScreen(
         if (uri != null) {
             attachmentUri = uri
             attachmentName = getAttachmentFileName(context, uri)
+        }
+    }
+
+    // Microphone permission for the live audio visualizer: ask in-app, and once Android stops
+    // showing the prompt ("don't ask again"), send the user to the app's settings page instead
+    val recordAudioLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.checkPermissions(context)
+        val activity = context as? android.app.Activity
+        if (!granted && activity != null &&
+            !activity.shouldShowRequestPermissionRationale(android.Manifest.permission.RECORD_AUDIO)
+        ) {
+            runCatching {
+                context.startActivity(
+                    Intent(
+                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                )
+            }
         }
     }
 
@@ -397,7 +426,11 @@ fun MainScreen(
                                     trailingContent = {
                                         Button(
                                             onClick = {
-                                                runCatching { context.startActivity(perm.createIntent(context)) }
+                                                if (perm.id == PermissionHelper.RECORD_AUDIO_ID) {
+                                                    recordAudioLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                                                } else {
+                                                    runCatching { context.startActivity(perm.createIntent(context)) }
+                                                }
                                             },
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
@@ -837,6 +870,42 @@ fun MainScreen(
                 }
             }
 
+            // SECTION 5A: PRIORITY APPS (their notifications take over the main pill)
+            item {
+                SectionHeader(
+                    title = "Priority Apps",
+                    icon = Icons.Default.Star
+                )
+            }
+
+            item {
+                SettingsCardItem(position = GroupPosition.SINGLE, isActive = settings.priorityApps.isNotEmpty()) {
+                    ListItem(
+                        modifier = Modifier.clickable {
+                            viewModel.loadInstalledApps(context)
+                            showPriorityAppsSheet = true
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = { Text("Priority App Notifications", fontWeight = FontWeight.SemiBold) },
+                        supportingContent = {
+                            Text(
+                                if (settings.priorityApps.isEmpty()) {
+                                    "Pick apps whose notifications show in the main pill instead of next to it"
+                                } else {
+                                    "${settings.priorityApps.size} app${if (settings.priorityApps.size == 1) "" else "s"} selected"
+                                }
+                            )
+                        },
+                        leadingContent = {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        trailingContent = {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        }
+                    )
+                }
+            }
+
             // SECTION 5B: SYSTEM ALERTS & INDICATORS (ALWAYS TOP PRIORITY)
             item {
                 SectionHeader(
@@ -862,6 +931,24 @@ fun MainScreen(
                                     checked = settings.showBluetooth,
                                     onCheckedChange = { show ->
                                         viewModel.updateSettings { it.copy(showBluetooth = show) }
+                                    }
+                                )
+                            }
+                        )
+                    }
+
+                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.showWifi) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = { Text("Wi-Fi Connecting", fontWeight = FontWeight.SemiBold) },
+                            leadingContent = {
+                                Icon(Icons.Default.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.showWifi,
+                                    onCheckedChange = { show ->
+                                        viewModel.updateSettings { it.copy(showWifi = show) }
                                     }
                                 )
                             }
@@ -899,6 +986,74 @@ fun MainScreen(
                                     onCheckedChange = { show ->
                                         viewModel.updateSettings { it.copy(showRingerMode = show) }
                                     }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            // TEST LIVE ACTIVITIES: fake call / timer / ride... to check the designs
+            item {
+                SectionHeader(
+                    title = "Test Live Activities",
+                    icon = Icons.Default.Science
+                )
+            }
+            item {
+                LiveActivityTestPanel(islandRunning = settings.isEnabled && pendingPermissions.none { it.id == "overlay" })
+            }
+
+            // SECTION 6: PERSISTENT ISLAND VIEWS
+            item {
+                SectionHeader(
+                    title = "Persistent Island Views",
+                    icon = Icons.Default.Widgets,
+                    badge = "Coming soon",
+                    badgeColor = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .alpha(0.5f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    SettingsCardItem(position = GroupPosition.TOP) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text("Weather & Temperature", fontWeight = FontWeight.SemiBold)
+                            },
+                            leadingContent = {
+                                Icon(Icons.Default.WbSunny, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = false,
+                                    onCheckedChange = null,
+                                    enabled = false
+                                )
+                            }
+                        )
+                    }
+
+                    SettingsCardItem(position = GroupPosition.BOTTOM) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text("Wi-Fi & Network Speed", fontWeight = FontWeight.SemiBold)
+                            },
+                            leadingContent = {
+                                Icon(Icons.Default.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = false,
+                                    onCheckedChange = null,
+                                    enabled = false
                                 )
                             }
                         )
@@ -985,6 +1140,104 @@ fun MainScreen(
                                     onCheckedChange = {
                                         viewModel.toggleAppBlocked(app.packageName)
                                     }
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
+    // Priority Apps bottom sheet
+    if (showPriorityAppsSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        ModalBottomSheet(
+            onDismissRequest = { showPriorityAppsSheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Priority Apps",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Notifications from these apps take over the main pill, even while music or other activities are running.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = priorityAppsQuery,
+                    onValueChange = { priorityAppsQuery = it },
+                    placeholder = { Text("Search installed apps...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Selected apps first, then alphabetical
+                val priorityList = remember(installedApps, priorityAppsQuery, settings.priorityApps) {
+                    installedApps
+                        .filter {
+                            priorityAppsQuery.isBlank() ||
+                                it.appName.contains(priorityAppsQuery, ignoreCase = true) ||
+                                it.packageName.contains(priorityAppsQuery, ignoreCase = true)
+                        }
+                        .sortedByDescending { it.packageName in settings.priorityApps }
+                }
+
+                if (isLoadingApps && installedApps.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(priorityList, key = { it.packageName }) { app ->
+                        ListItem(
+                            headlineContent = { Text(app.appName, fontWeight = FontWeight.Medium) },
+                            leadingContent = {
+                                if (app.icon != null) {
+                                    val bitmap = remember(app.icon) { app.icon.toBitmap(96, 96) }
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(36.dp))
+                                }
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = app.packageName in settings.priorityApps,
+                                    onCheckedChange = { viewModel.togglePriorityApp(app.packageName) }
                                 )
                             }
                         )
@@ -1657,16 +1910,6 @@ fun DimensionsPage(
 
                     SettingsCardItem(position = GroupPosition.MIDDLE) {
                         SliderSettingItem(
-                            label = "Corner Radius",
-                            value = settings.cornerRadiusDp.toFloat(),
-                            unit = "dp",
-                            valueRange = 10f..28f,
-                            onValueChange = { onUpdateSettings { s -> s.copy(cornerRadiusDp = it.roundToInt()) } }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE) {
-                        SliderSettingItem(
                             label = "Top Offset (Notch Line-up)",
                             value = settings.topOffsetDp.toFloat(),
                             unit = "dp",
@@ -1970,6 +2213,36 @@ fun AppearancePage(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                IslandStylePicker(
+                    selectedStyle = settings.islandStyle,
+                    onSelect = { style -> onUpdateSettings { it.copy(islandStyle = style) } }
+                )
+            }
+
+            item {
+                SettingsCardItem(position = GroupPosition.SINGLE, isActive = settings.liquidGlassCards) {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = { Text("Liquid Glass Cards", fontWeight = FontWeight.SemiBold) },
+                        supportingContent = {
+                            Text("Expanded cards fade from black to clear over a blur of what's behind them. The pill stays solid.")
+                        },
+                        leadingContent = {
+                            Icon(Icons.Default.BlurOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = settings.liquidGlassCards,
+                                onCheckedChange = { enabled ->
+                                    onUpdateSettings { it.copy(liquidGlassCards = enabled) }
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -2280,7 +2553,84 @@ fun AccessibilityPage(
                     }
                 }
             }
+
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    SettingsCardItem(position = GroupPosition.TOP, isActive = settings.highContrast) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = { Text("High Contrast", fontWeight = FontWeight.SemiBold) },
+                            supportingContent = { Text("Brighter text and buttons, and an outline around the island") },
+                            leadingContent = {
+                                Icon(Icons.Default.Contrast, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.highContrast,
+                                    onCheckedChange = { on -> onUpdateSettings { it.copy(highContrast = on) } }
+                                )
+                            }
+                        )
+                    }
+                    SettingsCardItem(position = GroupPosition.BOTTOM, isActive = settings.spokenAlerts) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = { Text("Spoken Alerts", fontWeight = FontWeight.SemiBold) },
+                            supportingContent = { Text("Reads \"Time's up\", alarms and who's calling aloud. Stays quiet in silent and vibrate mode.") },
+                            leadingContent = {
+                                Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.spokenAlerts,
+                                    onCheckedChange = { on -> onUpdateSettings { it.copy(spokenAlerts = on) } }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            item {
+                CrashReportItem()
+            }
         }
+    }
+}
+
+/** Shows the last crash (if any) so it can be copied into a bug report, then cleared. */
+@Composable
+private fun CrashReportItem() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var report by remember { mutableStateOf(com.droidbubble.app.util.CrashLog.read(context)) }
+    val crash = report ?: return
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    SettingsCardItem(position = GroupPosition.SINGLE, isActive = true) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = { Text("Last crash report", fontWeight = FontWeight.SemiBold) },
+            supportingContent = {
+                Text(crash.lineSequence().drop(4).firstOrNull { it.isNotBlank() } ?: crash.lineSequence().first(), maxLines = 2)
+            },
+            leadingContent = {
+                Icon(Icons.Default.BugReport, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            },
+            trailingContent = {
+                Row {
+                    TextButton(onClick = {
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(crash))
+                        android.widget.Toast.makeText(context, "Crash report copied", android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text("Copy") }
+                    TextButton(onClick = {
+                        com.droidbubble.app.util.CrashLog.clear(context)
+                        report = null
+                    }) { Text("Clear") }
+                }
+            }
+        )
     }
 }
 
@@ -2303,7 +2653,7 @@ fun AnimationCurveEditor(
 ) {
     val targets = listOf("Expand", "Appear", "Split")
     var selected by remember { mutableStateOf(0) }
-    val defaults = listOf(0.74f to 380f, 0.60f to 280f, 0.63f to 320f)
+    val defaults = listOf(0.8f to 380f, 0.60f to 280f, 0.63f to 320f)
     val damping = when (selected) { 0 -> settings.expandDamping; 1 -> settings.appearDamping; else -> settings.splitDamping }
     val stiffness = when (selected) { 0 -> settings.expandStiffness; 1 -> settings.appearStiffness; else -> settings.splitStiffness }
     val isDefault = damping == defaults[selected].first && stiffness == defaults[selected].second

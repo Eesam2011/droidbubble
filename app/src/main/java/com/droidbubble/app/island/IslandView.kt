@@ -15,16 +15,22 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateValueAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -32,6 +38,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -49,6 +57,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,8 +70,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -71,8 +84,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -83,8 +94,6 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -95,8 +104,15 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.WbSunny
@@ -104,21 +120,32 @@ import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import com.droidbubble.app.model.FpsInfo
+import kotlinx.coroutines.flow.first
 import com.droidbubble.app.model.HourlyWeather
 import com.droidbubble.app.model.WeatherInfo
 import com.droidbubble.app.model.NetworkSpeedInfo
 import com.droidbubble.app.island.IslandStateManager.RingerMode
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.material.icons.rounded.CallEnd
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -132,9 +159,12 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -148,6 +178,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -157,15 +188,11 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -177,26 +204,25 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.droidbubble.app.model.ActiveCallState
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
 import java.util.Locale
-import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 
 private val blurredBitmapCache = java.util.WeakHashMap<Bitmap, Bitmap>()
@@ -351,95 +377,11 @@ fun extractMediaAccentColor(bitmap: Bitmap?): Color {
     }
 }
 
-private val LocalIslandHapticsEnabled = androidx.compose.runtime.compositionLocalOf { true }
-
-@Composable
-private fun rememberBounceButtonState(
-    pressedScale: Float = 0.92f
-): Pair<MutableInteractionSource, Modifier> {
-    val interactionSource = remember { MutableInteractionSource() }
-    val view = LocalView.current
-    val hapticsEnabled = LocalIslandHapticsEnabled.current
-    val scale = remember { Animatable(1f) }
-
-    LaunchedEffect(interactionSource, hapticsEnabled) {
-        interactionSource.interactions.collect { interaction ->
-            when (interaction) {
-                is androidx.compose.foundation.interaction.PressInteraction.Press -> {
-                    if (hapticsEnabled) {
-                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    }
-                    launch {
-                        scale.animateTo(
-                            targetValue = pressedScale,
-                            animationSpec = tween(durationMillis = 65, easing = FastOutSlowInEasing)
-                        )
-                    }
-                }
-                is androidx.compose.foundation.interaction.PressInteraction.Release -> {
-                    launch {
-                        scale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = spring(dampingRatio = 0.48f, stiffness = 520f)
-                        )
-                    }
-                }
-                is androidx.compose.foundation.interaction.PressInteraction.Cancel -> {
-                    launch {
-                        scale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = spring(dampingRatio = 0.65f, stiffness = 480f)
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    return interactionSource to Modifier.graphicsLayer {
-        scaleX = scale.value
-        scaleY = scale.value
-    }
-}
-
-@Composable
-private fun BouncyFilledTonalButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    shape: Shape = ButtonDefaults.filledTonalShape,
-    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.filledTonalButtonColors(),
-    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
-    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit
-) {
-    val (interactionSource, bounceModifier) = rememberBounceButtonState()
-    FilledTonalButton(
-        onClick = onClick,
-        modifier = modifier.then(bounceModifier),
-        enabled = enabled,
-        shape = shape,
-        colors = colors,
-        contentPadding = contentPadding,
-        interactionSource = interactionSource,
-        content = content
-    )
-}
-
-@Composable
-private fun BouncyIconButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val (interactionSource, bounceModifier) = rememberBounceButtonState()
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.then(bounceModifier),
-        enabled = enabled,
-        interactionSource = interactionSource,
-        content = content
-    )
+/** Semantics tags for the island's touch targets (used by the crash tests). */
+object IslandTestTags {
+    const val PILL = "island_pill"
+    const val BUBBLE = "island_bubble"
+    const val CARD = "island_card"
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -448,17 +390,14 @@ fun IslandOverlayRoot(
     settings: IslandSettings,
     onBoundsChange: (widthPx: Int, heightPx: Int) -> Unit
 ) {
-    androidx.compose.runtime.CompositionLocalProvider(LocalIslandHapticsEnabled provides settings.hapticsEnabled) {
     val isExpanded by IslandStateManager.isExpanded.collectAsState()
     val isPopIn by IslandStateManager.isPopInActive.collectAsState()
     val media by IslandStateManager.activeMedia.collectAsState()
     val notification by IslandStateManager.activeNotification.collectAsState()
     val progressNotification by IslandStateManager.activeProgress.collectAsState()
     val recording by IslandStateManager.screenRecordingState.collectAsState()
-    val activeCall by IslandStateManager.activeCallState.collectAsState()
     val charging by IslandStateManager.activeCharging.collectAsState()
     val isUnlocked by IslandStateManager.isUnlocked.collectAsState()
-    val isDeviceLocked by IslandStateManager.isDeviceLocked.collectAsState()
     val isBluetoothConnected by IslandStateManager.isBluetoothConnected.collectAsState()
     val activeRingerMode by IslandStateManager.activeRingerMode.collectAsState()
     val isFlashlightOn by IslandStateManager.isFlashlightOn.collectAsState()
@@ -468,6 +407,19 @@ fun IslandOverlayRoot(
     val fpsInfo by IslandStateManager.fpsInfo.collectAsState()
     val weatherInfo by IslandStateManager.weatherInfo.collectAsState()
     val networkSpeedInfo by IslandStateManager.networkSpeedInfo.collectAsState()
+    val connectionAlert by IslandStateManager.connectionAlert.collectAsState()
+    val foregroundPackage by IslandStateManager.foregroundPackage.collectAsState()
+    val userHidden by IslandStateManager.userHidden.collectAsState()
+    val userMinimized by IslandStateManager.userMinimized.collectAsState()
+    val expandedPriority by IslandStateManager.expandedPriority.collectAsState()
+
+    // Tapping the flashlight expands only the flashlight control in the main pill (like iOS)
+    // instead of every active card. Latched until the collapse finishes so the card's content
+    // doesn't swap to another activity halfway through the animation.
+    var flashlightSolo by remember { mutableStateOf(false) }
+    LaunchedEffect(isExpanded, expandedPriority) {
+        if (isExpanded) flashlightSolo = expandedPriority == IslandPriority.FLASHLIGHT
+    }
 
     val view = LocalView.current
     val context = LocalContext.current
@@ -485,10 +437,10 @@ fun IslandOverlayRoot(
 
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val allowInOrientation = settings.isEnabled && (settings.showInLandscape || !isLandscape) && (!settings.hideOnLockScreen || !isDeviceLocked)
+    val allowInOrientation = settings.isEnabled && (settings.showInLandscape || !isLandscape)
 
     if (!allowInOrientation || !settings.isEnabled) {
-        return@CompositionLocalProvider
+        return
     }
 
     val currentMedia = media
@@ -498,76 +450,95 @@ fun IslandOverlayRoot(
     val mediaAccentColor = remember(mediaArt) { extractMediaAccentColor(mediaArt) }
     val blurredMediaArt = remember(mediaArt, settings.blurredAlbumArtBackground) {
         if (settings.blurredAlbumArtBackground && mediaArt != null) {
-            createBlurredBitmap(mediaArt)
+            // Stronger one-time blur: replaces the per-frame RenderEffect blur that used to sit on top
+            createBlurredBitmap(mediaArt, blurRadius = 20)
         } else {
             null
         }
     }
-    val isCall = allowInOrientation && activeCall.isActive && settings.showCalls
     val isRecording = allowInOrientation && recording.isRecording && settings.showScreenRecording
-    val isProgress = allowInOrientation && currentProgress != null && settings.showLiveProgress
-    val isNotification = allowInOrientation && currentNotif != null && settings.showNotifications
-    val isMedia = allowInOrientation && currentMedia != null && (!settings.dismissMediaOnPause || currentMedia.isPlaying) && (currentMedia.isPlaying || currentMedia.title.isNotBlank()) && settings.showMedia
+    val isProgress = allowInOrientation && currentProgress != null && settings.showLiveProgress &&
+        currentProgress.packageName != foregroundPackage
+    // A ringing call always shows, even if the phone app's call screen is the foreground window
+    val isNotification = allowInOrientation && currentNotif != null && settings.showNotifications &&
+        (currentNotif.packageName != foregroundPackage || currentNotif.isIncomingCall)
+    val isMedia = allowInOrientation && currentMedia != null && currentMedia.packageName != foregroundPackage && (!settings.dismissMediaOnPause || currentMedia.isPlaying) && (currentMedia.isPlaying || currentMedia.title.isNotBlank()) && settings.showMedia
     val isFlashlight = allowInOrientation && settings.showFlashlight && isFlashlightOn
     val isCharging = allowInOrientation && settings.showCharging && charging != null
     val isUnlock = allowInOrientation && isUnlocked && !isCharging
-    val isBluetooth = allowInOrientation && settings.showBluetooth && isBluetoothConnected && !isCharging && !isUnlock
+    val connectionAlertEnabled = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) settings.showWifi else settings.showBluetooth
+    val isBluetooth = allowInOrientation && connectionAlertEnabled && isBluetoothConnected && !isCharging && !isUnlock
     val isRingerMode = allowInOrientation && settings.showRingerMode && activeRingerMode != null && !isCharging && !isUnlock && !isBluetooth
 
-    val isFps = allowInOrientation && settings.showFps
+    val isFps = false // FPS counter removed
     val isWeather = allowInOrientation && settings.showWeather
     val isNetworkSpeed = allowInOrientation && settings.showNetworkSpeed
     val hasPersistent = isFps || isWeather || isNetworkSpeed
 
-    val isOccupied = allowInOrientation && (isCall || isRecording || isNotification || isMedia || isProgress || isCharging || isUnlock || isBluetooth || isFlashlight || isRingerMode || hasPersistent)
+    val isOccupied = allowInOrientation && (isRecording || isNotification || isMedia || isProgress || isCharging || isUnlock || isBluetooth || isFlashlight || isRingerMode || hasPersistent)
 
-    // Unified priority list ordered dynamically by settings.featurePriorities (with persistent views at the bottom by default):
-    val orderedActivePriorities = buildList {
+    val persistentList = buildList {
+        if (isFps) add(IslandPriority.FPS)
+        if (isWeather) add(IslandPriority.WEATHER)
+        if (isNetworkSpeed) add(IslandPriority.NETWORK_SPEED)
+    }
+    val persistentPrimary = persistentList.firstOrNull()
+    val persistentSecondary = if (persistentList.size > 1) persistentList[1] else null
+
+    // Determine dual-island state (when 2+ activities occupy the island, temporarily overshadowed by charging, unlock, bluetooth, or ringer)
+    val activeCount = (if (isRecording) 1 else 0) +
+            (if (isNotification) 1 else 0) +
+            (if (isMedia) 1 else 0) +
+            (if (isProgress) 1 else 0) +
+            (if (isFlashlight) 1 else 0)
+    val ephemeralCount = activeCount
+    val isDual = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && (
+        ephemeralCount >= 2 || (ephemeralCount == 0 && persistentList.size >= 2)
+    )
+
+    // Primary & Secondary activity assignment ordered dynamically by settings.featurePriorities:
+    val orderedEphemeralPriorities = buildList {
+        if (isNotification && (currentNotif?.isCall == true || currentNotif?.packageName in settings.priorityApps)) {
+            add(IslandPriority.POP_NOTIFICATION)
+        }
         for (featureKey in settings.featurePriorities) {
             when (featureKey) {
-                "CALL" -> if (isCall) add(IslandPriority.CALL)
                 "MEDIA" -> if (isMedia) add(IslandPriority.MEDIA)
                 "PROGRESS" -> if (isProgress) add(IslandPriority.PROGRESS)
                 "RECORDING" -> if (isRecording) add(IslandPriority.SCREEN_RECORDING)
-                "NOTIFICATION" -> if (isNotification) add(IslandPriority.POP_NOTIFICATION)
+                "NOTIFICATION" -> if (isNotification && IslandPriority.POP_NOTIFICATION !in this) add(IslandPriority.POP_NOTIFICATION)
                 "FLASHLIGHT" -> if (isFlashlight) add(IslandPriority.FLASHLIGHT)
-                "FPS" -> if (isFps) add(IslandPriority.FPS)
-                "WEATHER" -> if (isWeather) add(IslandPriority.WEATHER)
-                "NETWORK_SPEED" -> if (isNetworkSpeed) add(IslandPriority.NETWORK_SPEED)
             }
         }
-        if (isCall && IslandPriority.CALL !in this) add(0, IslandPriority.CALL)
-        if (isMedia && IslandPriority.MEDIA !in this) add(IslandPriority.MEDIA)
-        if (isProgress && IslandPriority.PROGRESS !in this) add(IslandPriority.PROGRESS)
-        if (isRecording && IslandPriority.SCREEN_RECORDING !in this) add(IslandPriority.SCREEN_RECORDING)
-        if (isNotification && IslandPriority.POP_NOTIFICATION !in this) add(IslandPriority.POP_NOTIFICATION)
-        if (isFlashlight && IslandPriority.FLASHLIGHT !in this) add(IslandPriority.FLASHLIGHT)
-        if (isFps && IslandPriority.FPS !in this) add(IslandPriority.FPS)
-        if (isWeather && IslandPriority.WEATHER !in this) add(IslandPriority.WEATHER)
-        if (isNetworkSpeed && IslandPriority.NETWORK_SPEED !in this) add(IslandPriority.NETWORK_SPEED)
+        if (isFlashlight && "FLASHLIGHT" !in settings.featurePriorities) {
+            add(IslandPriority.FLASHLIGHT)
+        }
     }
 
-    val activeCount = orderedActivePriorities.size
-    val isDual = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && activeCount >= 2
-    val isTriple = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && activeCount >= 3
+    val basePrimaryPriority: IslandPriority = when {
+        orderedEphemeralPriorities.isNotEmpty() -> orderedEphemeralPriorities.first()
+        persistentPrimary != null -> persistentPrimary
+        else -> IslandPriority.IDLE
+    }
 
-    val primaryPriority: IslandPriority = orderedActivePriorities.firstOrNull() ?: IslandPriority.IDLE
-
-    val secondaryPriority: IslandPriority? = when {
+    val baseSecondaryPriority: IslandPriority? = when {
         !isDual -> null
-        isPopIn && isNotification && primaryPriority != IslandPriority.POP_NOTIFICATION -> IslandPriority.POP_NOTIFICATION
-        orderedActivePriorities.size >= 2 -> orderedActivePriorities[1]
+        orderedEphemeralPriorities.size >= 2 -> {
+            if (isPopIn && isNotification && basePrimaryPriority != IslandPriority.POP_NOTIFICATION) {
+                IslandPriority.POP_NOTIFICATION
+            } else {
+                orderedEphemeralPriorities[1]
+            }
+        }
+        ephemeralCount == 0 -> persistentSecondary
         else -> null
     }
 
-    val tertiaryPriority: IslandPriority? = when {
-        !isTriple -> null
-        orderedActivePriorities.size >= 3 -> orderedActivePriorities.firstOrNull { it != primaryPriority && it != secondaryPriority }
-        else -> null
-    }
+    val isFlashlightSolo = flashlightSolo && isFlashlight
+    val primaryPriority: IslandPriority = if (isFlashlightSolo) IslandPriority.FLASHLIGHT else basePrimaryPriority
+    val secondaryPriority: IslandPriority? = if (isFlashlightSolo) null else baseSecondaryPriority
 
     // Dynamic non-customizable outline colors (around 15% opacity):
-    val greenCallOutline = Color(0xFF30D158).copy(alpha = 0.15f)
     val redRecordingOutline = Color(0xFFFF3B30).copy(alpha = 0.15f)
     val defaultTaskOutline = Color.White.copy(alpha = 0.15f)
     val mediaOutline = if (mediaAccentColor != Color.Transparent) {
@@ -579,8 +550,7 @@ fun IslandOverlayRoot(
 
     // Card 1 (Main Island):
     val primaryOutlineColor = when {
-        isCharging -> defaultTaskOutline
-        primaryPriority == IslandPriority.CALL -> greenCallOutline
+        isCharging -> Color(0xFF30D158).copy(alpha = 0.30f)
         primaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
         primaryPriority == IslandPriority.MEDIA -> mediaOutline
         primaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
@@ -588,25 +558,50 @@ fun IslandOverlayRoot(
     }
 
     // Card 2 / Auxiliary Bubble (Secondary Island):
+    // Secondary islands have the color of their respective task (15% opacity white usually, or red for recording) instead of the media color
     val secondaryOutlineColor = when {
-        secondaryPriority == IslandPriority.CALL -> greenCallOutline
         secondaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
         secondaryPriority == IslandPriority.MEDIA -> mediaOutline
         secondaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
         else -> defaultTaskOutline
     }
 
-    // Card 3 (Tertiary Expanded Island):
-    val tertiaryOutlineColor = when {
-        tertiaryPriority == IslandPriority.CALL -> greenCallOutline
-        tertiaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
-        tertiaryPriority == IslandPriority.MEDIA -> mediaOutline
-        tertiaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
-        else -> defaultTaskOutline
-    }
-
     val speed = settings.animationSpeed.coerceIn(0.5f, 2.0f)
     val speedSq = speed * speed
+    // Collapse uses a critically damped spring (no overshoot) instead of a fixed tween, so an
+    // interrupted expand keeps its velocity and the card lands softly like iOS.
+    val collapseStiffness = settings.expandStiffness * 1.4f * speedSq
+
+    // Squash & stretch when the pill switches to a different activity (the iOS "breath")
+    // The leaving content's blur rides this squash (see the compact content swap), so it follows
+    // the shape change instead of a separate timer
+    val swapSquash = remember { Animatable(0f) }
+    var lastCompactPriority by remember { mutableStateOf(primaryPriority) }
+    // Battery Saver turns morph blurs off (steppedBlurEffect); start listening for it
+    LaunchedEffect(Unit) { AudioPowerPolicy.ensure(context) }
+    LaunchedEffect(primaryPriority) {
+        if (primaryPriority == lastCompactPriority) return@LaunchedEffect
+        lastCompactPriority = primaryPriority
+        if (isExpanded) return@LaunchedEffect
+        swapSquash.animateTo(0.06f, tween(110, easing = FastOutSlowInEasing))
+        swapSquash.animateTo(0f, spring(dampingRatio = 0.5f, stiffness = 380f * speedSq))
+    }
+
+    // Press feedback: the pill and bubble sink slightly under the finger and spring back
+    val pillInteraction = remember { MutableInteractionSource() }
+    val pillPressed by pillInteraction.collectIsPressedAsState()
+    val pillPressScale by animateFloatAsState(
+        targetValue = if (pillPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 700f),
+        label = "pillPress"
+    )
+    val bubbleInteraction = remember { MutableInteractionSource() }
+    val bubblePressed by bubbleInteraction.collectIsPressedAsState()
+    val bubblePressScale by animateFloatAsState(
+        targetValue = if (bubblePressed) 0.9f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 700f),
+        label = "bubblePress"
+    )
 
     // Animation Specs (dynamically scaled by settings.animationSpeed):
     val sizeAnimSpecDp = when {
@@ -618,9 +613,10 @@ fun IslandOverlayRoot(
             dampingRatio = settings.expandDamping,
             stiffness = settings.expandStiffness * speedSq
         )
-        else -> tween<androidx.compose.ui.unit.Dp>(
-            durationMillis = (190 / speed).roundToInt(),
-            easing = CubicBezierEasing(0.28f, 0.0f, 0.20f, 1.0f)
+        else -> spring<androidx.compose.ui.unit.Dp>(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = collapseStiffness,
+            visibilityThreshold = Dp.VisibilityThreshold
         )
     }
 
@@ -633,9 +629,30 @@ fun IslandOverlayRoot(
             dampingRatio = settings.expandDamping,
             stiffness = settings.expandStiffness * speedSq
         )
-        else -> tween<Float>(
-            durationMillis = (190 / speed).roundToInt(),
-            easing = CubicBezierEasing(0.28f, 0.0f, 0.20f, 1.0f)
+        else -> spring<Float>(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = collapseStiffness,
+            visibilityThreshold = 0.002f
+        )
+    }
+
+    // One spring drives the card's width, height, corner radius and drop position together,
+    // so the pill-to-card morph moves as a single shape instead of four separate animations.
+    val cardMorphAnimSpec: AnimationSpec<CardMorph> = when {
+        isCharging || isUnlock || isBluetooth || isRingerMode -> spring(
+            dampingRatio = settings.appearDamping,
+            stiffness = settings.appearStiffness * speedSq,
+            visibilityThreshold = CardMorph.VisibilityThreshold
+        )
+        isExpanded -> spring(
+            dampingRatio = settings.expandDamping,
+            stiffness = settings.expandStiffness * speedSq,
+            visibilityThreshold = CardMorph.VisibilityThreshold
+        )
+        else -> spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = collapseStiffness,
+            visibilityThreshold = CardMorph.VisibilityThreshold
         )
     }
 
@@ -645,9 +662,10 @@ fun IslandOverlayRoot(
             stiffness = settings.expandStiffness * speedSq
         )
     } else {
-        tween<androidx.compose.ui.unit.Dp>(
-            durationMillis = (200 / speed).roundToInt(),
-            easing = CubicBezierEasing(0.28f, 0.0f, 0.20f, 1.0f)
+        spring<androidx.compose.ui.unit.Dp>(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = collapseStiffness,
+            visibilityThreshold = Dp.VisibilityThreshold
         )
     }
 
@@ -872,21 +890,11 @@ fun IslandOverlayRoot(
         label = "chargingProgress"
     )
 
-    val teardropEarRadius = if (settings.isTeardropCutout) 11.dp else 0.dp
-    val chargingIslandWidth = (settings.widthDp + 20).dp.coerceAtLeast(140.dp) + (teardropEarRadius * 2f)
-    val unlockIslandWidth = (settings.widthDp * 0.82f).dp.coerceAtLeast(108.dp) + (teardropEarRadius * 2f)
-    val ringerIslandWidth = (settings.widthDp * 0.95f).dp.coerceAtLeast(130.dp) + (teardropEarRadius * 2f)
+    val chargingIslandWidth = (settings.widthDp + 20).dp.coerceAtLeast(140.dp)
+    val unlockIslandWidth = (settings.widthDp * 0.82f).dp.coerceAtLeast(108.dp)
+    val ringerIslandWidth = (settings.widthDp * 0.95f).dp.coerceAtLeast(130.dp)
 
-    val bubbleSize = settings.heightDp.dp
-    val dualMainShiftLeft = if (!settings.isLeftCutout) (-1).dp else 0.dp
-    val compactMainFull = if (settings.isLeftCutout) {
-        (settings.widthDp * 0.76f).dp.coerceIn(132.dp, 156.dp)
-    } else {
-        96.dp
-    }
-    val compactMainHalf = compactMainFull / 2f
-
-    // Minimised Island Pill: sits docked at settings.topOffsetDp.dp (or flush at 0.dp in Tear-drop mode).
+    // Minimised Island Pill: sits docked at settings.topOffsetDp.dp.
     // When expanding, it animates from its compact width down to 0.dp.
     // When minimising, it animates from 0.dp back to its compact width.
     val targetCompactWidth = when {
@@ -895,116 +903,88 @@ fun IslandOverlayRoot(
         isCharging -> chargingIslandWidth
         isRingerMode -> ringerIslandWidth
         isUnlock || isBluetooth -> unlockIslandWidth
-        isDual -> compactMainFull + (teardropEarRadius * 2f)
-        isOccupied || hasPersistent -> settings.widthDp.dp.coerceAtLeast(124.dp) + (teardropEarRadius * 2f)
-        else -> settings.widthDp.dp + (teardropEarRadius * 2f)
+        // Swiped right: gone. Swiped left: shrunk into a circle around the camera.
+        userHidden -> 0.dp
+        userMinimized -> settings.heightDp.dp
+        // Dual mode keeps the main pill at full size; the secondary bubble sits beside it
+        else -> settings.widthDp.dp
     }
 
     // Expanded Cards: Card 1 (and Card 2 if dual mode).
     // When expanded, Card 1 slides down to (settings.topOffsetDp + 52).dp, widening to 340.dp * scale.
     // When minimising, Card 1 shrinks back to 0.dp width (transitioning into the small circle at the punch hole) as it slides back up.
     val screenWidth = configuration.screenWidthDp.dp
+    val expandedCardWidth = (340.dp * settings.expandedScale).coerceAtMost(screenWidth - 16.dp)
     val targetCard1Width = if (isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
-        (340.dp * settings.expandedScale).coerceAtMost(screenWidth - 16.dp)
+        expandedCardWidth
     } else {
         0.dp
     }
 
-    val notifText = currentNotif?.text ?: ""
-    val isLongNotif = notifText.length > 55 || notifText.contains('\n')
-    val notifBaseHeight = when {
-        isKeyboardFocused -> 188.dp
-        isLongNotif -> 168.dp
-        else -> 144.dp
+    // Notification card height is measured from its real content (title, wrapped body, actions)
+    val notifTextMeasurer = rememberTextMeasurer()
+    val notifBaseTextStyle = LocalTextStyle.current
+    val notifDensity = LocalDensity.current
+    val notifBaseHeight = remember(currentNotif, isKeyboardFocused, settings.expandedScale, expandedCardWidth, notifBaseTextStyle, notifDensity) {
+        measureNotificationCardHeight(
+            notification = currentNotif,
+            title = notificationDisplayTitle(currentNotif, null),
+            scale = settings.expandedScale,
+            cardWidth = expandedCardWidth,
+            isReplying = isKeyboardFocused,
+            textMeasurer = notifTextMeasurer,
+            baseStyle = notifBaseTextStyle,
+            density = notifDensity
+        )
     }
 
-    val targetCard1Height = when {
-        isExpanded && (primaryPriority == IslandPriority.SCREEN_RECORDING || primaryPriority == IslandPriority.CALL || primaryPriority == IslandPriority.FPS || primaryPriority == IslandPriority.WEATHER || primaryPriority == IslandPriority.NETWORK_SPEED) -> (78.dp * settings.expandedScale).coerceAtLeast(68.dp)
-        isExpanded && primaryPriority == IslandPriority.PROGRESS -> (84.dp * settings.expandedScale).coerceAtLeast(74.dp)
-        isExpanded && primaryPriority == IslandPriority.POP_NOTIFICATION -> (notifBaseHeight * settings.expandedScale).coerceAtLeast(136.dp)
-        isExpanded && primaryPriority == IslandPriority.FLASHLIGHT -> (205.dp * settings.expandedScale).coerceAtLeast(165.dp)
-        isExpanded -> (195.dp * settings.expandedScale).coerceAtLeast(155.dp)
-        else -> settings.heightDp.dp
+    // Single height table shared by Card 1 and Card 2 (see cardHeightFor).
+    // Content is laid out once at this final size and revealed by the growing card,
+    // so it doesn't re-measure / reflow on every frame of the morph.
+    val progressBaseHeight = remember(currentProgress, settings.expandedScale, notifBaseTextStyle, notifDensity) {
+        measureProgressCardHeight(currentProgress, settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
+    }
+    val card1ContentHeight = cardHeightFor(primaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
+    val targetCard1Height = if (isExpanded) {
+        card1ContentHeight
+    } else {
+        settings.heightDp.dp
     }
 
+    // One corner radius for every expanded card, concentric with the round controls of the live
+    // activity cards (see LiveLayout), so corners don't change from card to card. The squircle
+    // caps it at half the height, so a one-row card is a capsule.
     val targetCornerRadius = when {
-        isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode -> 28.dp
+        isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode ->
+            liveActivityCornerRadius(settings.expandedScale, notifDensity.fontScale)
         else -> settings.cornerRadiusDp.dp
     }
 
-    // Card 2 & Card 3 staggered delayed appearance: starts a split second after Card 1 when expanding so multiple cards look organic!
+    // Card 2 delayed appearance: starts a split frame after Card 1 when expanding
     var card2Expanded by remember { mutableStateOf(false) }
-    var card3Expanded by remember { mutableStateOf(false) }
     LaunchedEffect(isExpanded) {
         if (isExpanded) {
-            kotlinx.coroutines.delay((85L / speed).toLong().coerceAtLeast(35L))
+            kotlinx.coroutines.delay((45L / speed).toLong())
             card2Expanded = true
-            kotlinx.coroutines.delay((85L / speed).toLong().coerceAtLeast(35L))
-            card3Expanded = true
         } else {
-            card3Expanded = false
             card2Expanded = false
         }
     }
 
-    fun getExpandedHeightForPriority(priority: IslandPriority?): Dp {
-        val baseH = when (priority) {
-            IslandPriority.CALL,
-            IslandPriority.SCREEN_RECORDING,
-            IslandPriority.FPS,
-            IslandPriority.WEATHER,
-            IslandPriority.NETWORK_SPEED -> 78.dp
-            IslandPriority.PROGRESS -> 84.dp
-            IslandPriority.POP_NOTIFICATION -> notifBaseHeight
-            IslandPriority.FLASHLIGHT -> 205.dp
-            else -> 180.dp
-        }
-        val minH = when (priority) {
-            IslandPriority.CALL,
-            IslandPriority.SCREEN_RECORDING,
-            IslandPriority.FPS,
-            IslandPriority.WEATHER,
-            IslandPriority.NETWORK_SPEED -> 68.dp
-            IslandPriority.PROGRESS -> 74.dp
-            IslandPriority.POP_NOTIFICATION -> 136.dp
-            IslandPriority.FLASHLIGHT -> 165.dp
-            else -> 150.dp
-        }
-        return (baseH * settings.expandedScale).coerceAtLeast(minH)
-    }
-
-    val showSecondaryCard = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && secondaryPriority != null
+    val showSecondaryCard = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && activeCount >= 2 && secondaryPriority != null
     val targetCard2Height = if (card2Expanded && showSecondaryCard) {
-        getExpandedHeightForPriority(secondaryPriority)
+        cardHeightFor(secondaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
     } else 0.dp
     val targetCard2Alpha = if (card2Expanded && showSecondaryCard) 1f else 0f
     val targetCard2OffsetY = if (card2Expanded && showSecondaryCard) 0.dp else (-14).dp
 
-    val showTertiaryCard = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isTriple && tertiaryPriority != null
-    val targetCard3Height = if (card3Expanded && showTertiaryCard) {
-        getExpandedHeightForPriority(tertiaryPriority)
-    } else 0.dp
-    val targetCard3Alpha = if (card3Expanded && showTertiaryCard) 1f else 0f
-    val targetCard3OffsetY = if (card3Expanded && showTertiaryCard) 0.dp else (-14).dp
+    val bubbleSize = settings.heightDp.dp
+    val compactMainHalf = settings.widthDp.dp / 2f
+    val bubbleGap = 6.dp
+    val restingBubbleCenterX = compactMainHalf + bubbleGap + (bubbleSize / 2f)
 
-    val targetDualMainShiftX = if (!isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && !isExpanded && !settings.isLeftCutout) {
-        -dualMainShiftLeft
-    } else {
-        0.dp
-    }
-    val animatedDualMainShiftX by animateDpAsState(
-        targetValue = targetDualMainShiftX,
-        animationSpec = compactPillWidthAnimSpec,
-        label = "dualMainShiftX"
-    )
-    val bubbleGap = 5.dp
-    val restingBubbleCenterX = if (settings.isLeftCutout) {
-        compactMainFull + bubbleGap + (bubbleSize / 2f)
-    } else {
-        (compactMainHalf - dualMainShiftLeft) + bubbleGap + (bubbleSize / 2f)
-    }
-
-    val shouldEmergeSecondary = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && !isExpanded && (isOccupied || hasPersistent)
+    val shouldEmergeSecondary = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && !isExpanded && (isOccupied || hasPersistent) &&
+        !userHidden && !userMinimized
     var secondaryBubbleEmerged by remember { mutableStateOf(false) }
     LaunchedEffect(shouldEmergeSecondary) {
         if (shouldEmergeSecondary) {
@@ -1018,7 +998,6 @@ fun IslandOverlayRoot(
 
     val targetBubbleOffsetX = when {
         secondaryBubbleEmerged && shouldEmergeSecondary -> restingBubbleCenterX
-        settings.isLeftCutout -> bubbleSize / 2f
         else -> 0.dp
     }
 
@@ -1034,49 +1013,78 @@ fun IslandOverlayRoot(
         )
     }
 
-    val leftCutoutAnchorCenterX = (-screenWidth / 2f) + 28.dp + settings.horizontalOffsetDp.dp
     val targetHorizontalOffset = if (isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
         0.dp
-    } else if (settings.isLeftCutout) {
-        leftCutoutAnchorCenterX
-    } else {
+    } else if (!isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
         settings.horizontalOffsetDp.dp
+    } else {
+        0.dp
     }
 
     val targetTopOffset = if (isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
-        if (settings.isTeardropCutout) {
-            (settings.topOffsetDp + 44).dp
-        } else {
-            (settings.topOffsetDp + 52).dp // Sits way below initial position (comfortably below status bar) when expanded!
-        }
-    } else if (settings.isTeardropCutout) {
-        0.dp // Docks flush at the top bezel in Tear-drop mode
+        (settings.topOffsetDp + 52).dp // Sits way below initial position (comfortably below status bar) when expanded!
     } else {
         settings.topOffsetDp.dp // Docks right over the punch hole when minimised or charging/unlock/bluetooth/ringer
     }
 
     val targetCardSpacing = if (isExpanded && showSecondaryCard) 10.dp else 0.dp
 
-    val animatedCompactWidth by animateDpAsState(targetValue = targetCompactWidth, animationSpec = compactPillWidthAnimSpec, label = "compactWidth")
-    val animatedCard1Width by animateDpAsState(targetValue = targetCard1Width, animationSpec = sizeAnimSpecDp, label = "card1Width")
-    val animatedCard1Height by animateDpAsState(targetValue = targetCard1Height, animationSpec = sizeAnimSpecDp, label = "card1Height")
-    val animatedCornerRadius by animateDpAsState(targetValue = targetCornerRadius, animationSpec = sizeAnimSpecDp, label = "cornerRadius")
+    val animatedCompactWidthRaw by animateDpAsState(targetValue = targetCompactWidth, animationSpec = compactPillWidthAnimSpec, label = "compactWidth")
+    // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
+    // pill retracting); a negative width throws in layout and crashed the island
+    val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
+    val animatedCardMorph by animateValueAsState(
+        targetValue = CardMorph(targetCard1Width, targetCard1Height, targetCornerRadius, targetTopOffset),
+        typeConverter = CardMorph.VectorConverter,
+        animationSpec = cardMorphAnimSpec,
+        label = "cardMorph"
+    )
+    val animatedCard1Width = animatedCardMorph.width.coerceAtLeast(0.dp)
+    val animatedCard1Height = animatedCardMorph.height.coerceAtLeast(0.dp)
+    val animatedCornerRadius = animatedCardMorph.corner.coerceAtLeast(0.dp)
     val animatedCard2Height by animateDpAsState(targetValue = targetCard2Height, animationSpec = sizeAnimSpecDp, label = "card2Height")
     val animatedCard2Alpha by animateFloatAsState(targetValue = targetCard2Alpha, animationSpec = sizeAnimSpecFloat, label = "card2Alpha")
     val animatedCard2OffsetY by animateDpAsState(targetValue = targetCard2OffsetY, animationSpec = sizeAnimSpecDp, label = "card2OffsetY")
-    val animatedCard3Height by animateDpAsState(targetValue = targetCard3Height, animationSpec = sizeAnimSpecDp, label = "card3Height")
-    val animatedCard3Alpha by animateFloatAsState(targetValue = targetCard3Alpha, animationSpec = sizeAnimSpecFloat, label = "card3Alpha")
-    val animatedCard3OffsetY by animateDpAsState(targetValue = targetCard3OffsetY, animationSpec = sizeAnimSpecDp, label = "card3OffsetY")
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
     val animatedHorizontalOffset by animateDpAsState(targetValue = targetHorizontalOffset, animationSpec = positionAnimSpecDp, label = "horizontalOffset")
-    val animatedTopOffset by animateDpAsState(targetValue = targetTopOffset, animationSpec = positionAnimSpecDp, label = "topOffset")
+    val animatedTopOffset = animatedCardMorph.top
     val animatedCardSpacing by animateDpAsState(targetValue = targetCardSpacing, animationSpec = sizeAnimSpecDp, label = "cardSpacing")
+
+    // How fast the card and the pill are changing size right now. Leaving content blurs with
+    // these and the card stretches with them, so both peak mid-morph and vanish as it settles.
+    val cardSpeed = rememberMorphSpeed(animatedCard1Width, animatedCard1Height, targetCard1Width, targetCard1Height)
+    val pillSpeed = rememberMorphSpeed(animatedCompactWidth, 0.dp, targetCompactWidth.coerceAtLeast(0.dp), 0.dp)
+
+    // On-screen rects of card 1 / card 2, for the liquid glass blur windows
+    val glassCardBounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(2) }
+
+    LaunchedEffect(isExpanded) {
+        if (!isExpanded) {
+            snapshotFlow { animatedCardMorph.width <= 0.5.dp && animatedCard2Height <= 0.5.dp }.first { it }
+            glassCardBounds[0] = null
+            glassCardBounds[1] = null
+            IslandStateManager.setGlassPanes(emptyList())
+            IslandStateManager.notifyCollapseSettled()
+            flashlightSolo = false
+        }
+    }
+
+    // Liquid glass: cards fade from black to clear and the overlay service blurs what's behind them
+    val glassBlurAvailable by IslandStateManager.glassBlurAvailable.collectAsState()
+    val cardBackgroundBrush: Brush = if (settings.liquidGlassCards) {
+        // With a real blur behind it the card can go nearly clear; without one keep it readable
+        val bottomAlpha = if (glassBlurAvailable) 0.3f else 0.72f
+        Brush.verticalGradient(
+            listOf(Color.Black.copy(alpha = 0.92f), Color.Black.copy(alpha = (bottomAlpha + 0.92f) / 2f), Color.Black.copy(alpha = bottomAlpha))
+        )
+    } else {
+        SolidColor(Color.Black)
+    }
 
     val cardContainerAlpha = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
 
     var card1OffsetX by remember { mutableFloatStateOf(0f) }
     var card2OffsetX by remember { mutableFloatStateOf(0f) }
-    var card3OffsetX by remember { mutableFloatStateOf(0f) }
 
     val animatedCard1OffsetX by animateFloatAsState(
         targetValue = card1OffsetX,
@@ -1088,18 +1096,59 @@ fun IslandOverlayRoot(
         animationSpec = spring(dampingRatio = 0.76f, stiffness = 420f * speedSq),
         label = "card2OffsetX"
     )
-    val animatedCard3OffsetX by animateFloatAsState(
-        targetValue = card3OffsetX,
-        animationSpec = spring(dampingRatio = 0.76f, stiffness = 420f * speedSq),
-        label = "card3OffsetX"
-    )
 
     LaunchedEffect(isExpanded) {
         if (!isExpanded) {
             card1OffsetX = 0f
             card2OffsetX = 0f
-            card3OffsetX = 0f
         }
+    }
+
+    // Liquid glass blur: the cards' on-screen rects go to the overlay service every frame (from
+    // layout and from each animated recomposition), so the blur windows under them move, grow and
+    // fade in together with the cards instead of appearing after they settle.
+    val glassDensity = LocalDensity.current
+    val latestGlassEnabled by rememberUpdatedState(settings.liquidGlassCards)
+    val latestGlassExpandProgress by rememberUpdatedState(expandProgress)
+    val latestGlassCard2Alpha by rememberUpdatedState(if (showSecondaryCard) animatedCard2Alpha else 0f)
+    val latestGlassCornerPx by rememberUpdatedState(with(glassDensity) { animatedCornerRadius.toPx() })
+    val glassMotionInsetPx = with(glassDensity) { 3.dp.toPx() }
+    val publishGlass: () -> Unit = remember {
+        {
+            val panes = if (!latestGlassEnabled) emptyList() else buildList {
+                val strengths = floatArrayOf(
+                    latestGlassExpandProgress.coerceIn(0f, 1f),
+                    (latestGlassCard2Alpha * latestGlassExpandProgress).coerceIn(0f, 1f)
+                )
+                for (i in 0..1) {
+                    val r = glassCardBounds[i] ?: continue
+                    val strength = strengths[i]
+                    if (strength < 0.03f || r.width < 8f || r.height < 8f) continue
+                    // While moving, tuck the pane a few px inside the card so a one-frame lag of
+                    // the blur window can never peek out past the card's edge
+                    val inset = if (strength < 0.98f) glassMotionInsetPx else 0f
+                    val w = (r.width - inset * 2f).roundToInt()
+                    val h = (r.height - inset * 2f).roundToInt()
+                    if (w < 4 || h < 4) continue
+                    add(
+                        IslandStateManager.GlassPane(
+                            left = (r.left + inset).roundToInt(),
+                            top = (r.top + inset).roundToInt(),
+                            width = w,
+                            height = h,
+                            cornerRadiusPx = (latestGlassCornerPx - inset).coerceAtLeast(0f),
+                            // Coarse steps: smooth to the eye, far fewer window updates
+                            strength = (strength * 20f).roundToInt() / 20f
+                        )
+                    )
+                }
+            }
+            IslandStateManager.setGlassPanes(panes)
+        }
+    }
+    SideEffect { publishGlass() }
+    LaunchedEffect(isExpanded, showSecondaryCard) {
+        if (!isExpanded && !showSecondaryCard) glassCardBounds[1] = null
     }
 
     // Parentheses overshoot animation: curve shoots out with dynamic spring physics and settles
@@ -1145,20 +1194,56 @@ fun IslandOverlayRoot(
         }
     }
 
+    // Light tap for expand / taps, a barely-there tick for collapse, a firm press only for long-press
     fun triggerHaptic() {
+        if (settings.hapticsEnabled) {
+            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+        }
+    }
+
+    fun triggerCollapseHaptic() {
+        if (settings.hapticsEnabled) {
+            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        }
+    }
+
+    fun triggerLongPressHaptic() {
         if (settings.hapticsEnabled) {
             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         }
     }
 
+    // Auto-collapse: an expanded island folds back after 3s without any touch on it
+    // (never while a finger is down or while typing a reply)
+    var lastTouchAt by remember { mutableLongStateOf(0L) }
+    var isTouching by remember { mutableStateOf(false) }
+    val isCallRinging = currentNotif?.isIncomingCall == true
+    LaunchedEffect(isExpanded, lastTouchAt, isTouching, isKeyboardFocused, isCallRinging) {
+        if (isExpanded && !isTouching && !isKeyboardFocused && !isCallRinging) {
+            delay(3000)
+            IslandStateManager.collapse()
+        }
+    }
+
     // Completely idle and collapsed: nothing is visible on screen. Skip rendering the view hierarchy to preserve CPU & battery.
     if (!isOccupied && !settings.alwaysShowPill && animatedCompactWidth <= 0.1.dp && !isExpanded && expandProgress <= 0.001f) {
-        return@CompositionLocalProvider
+        return
     }
 
     // Outer container: full touch bounds when expanded to capture outside tap, or exact bounds when minimised
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            // Observe (never consume) every touch so the auto-collapse timer restarts
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        isTouching = event.changes.any { it.pressed }
+                        lastTouchAt = android.os.SystemClock.uptimeMillis()
+                    }
+                }
+            },
         contentAlignment = Alignment.TopCenter
     ) {
         // Tap outside backdrop when expanded (active during whole expand and collapse animation)
@@ -1170,7 +1255,7 @@ fun IslandOverlayRoot(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
-                        triggerHaptic()
+                        triggerCollapseHaptic()
                         IslandStateManager.collapse()
                     }
             )
@@ -1195,13 +1280,27 @@ fun IslandOverlayRoot(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(animatedCardSpacing),
                     modifier = if (isExpanded && primaryPriority != IslandPriority.FLASHLIGHT) {
-                        Modifier.pointerInput(Unit) {
-                            detectVerticalDragGestures { _, dragAmount ->
-                                if (dragAmount < -15f) {
-                                    triggerHaptic()
-                                    IslandStateManager.collapse()
+                        // Swipe up to collapse only from the pill zone at the top of the island
+                        // (where the pill morphed from), never from card content such as the
+                        // media slider, buttons or the second card
+                        Modifier.pointerInput(settings.heightDp) {
+                            val pillZonePx = (settings.heightDp + 20).dp.toPx()
+                            var fromPillZone = false
+                            var collapsed = false
+                            detectVerticalDragGestures(
+                                onDragStart = { start ->
+                                    fromPillZone = start.y <= pillZonePx
+                                    collapsed = false
+                                },
+                                onVerticalDrag = { change, dragAmount ->
+                                    if (fromPillZone && !collapsed && dragAmount < -15f) {
+                                        change.consume()
+                                        collapsed = true
+                                        triggerCollapseHaptic()
+                                        IslandStateManager.collapse()
+                                    }
                                 }
-                            }
+                            )
                         }
                     } else Modifier
                 ) {
@@ -1209,25 +1308,32 @@ fun IslandOverlayRoot(
                     if (animatedCard1Width > 1.dp && (expandProgress > 0.001f || isExpanded)) {
                         Box(
                             modifier = Modifier
+                                .testTag(IslandTestTags.CARD)
                                 .offset { IntOffset(animatedCard1OffsetX.roundToInt(), 0) }
                                 .width(animatedCard1Width)
                                 .height(animatedCard1Height)
+                                .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
                                     alpha = cardContainerAlpha
-                                    if (settings.isTeardropCutout) {
+                                    // Liquid stretch: while the card grows it widens a touch and
+                                    // flattens, and springs back as the morph slows. It hangs from
+                                    // the top edge so it stays docked under the camera. Off for
+                                    // glass cards, whose blur window behind follows the unscaled
+                                    // bounds and would no longer line up.
+                                    if (cardSpeed.growing && !settings.liquidGlassCards) {
                                         transformOrigin = TransformOrigin(0.5f, 0f)
-                                        val morphScaleY = 0.88f + 0.12f * expandProgress.coerceIn(0f, 1f)
-                                        scaleY = morphScaleY
+                                        scaleX = 1f + 0.035f * cardSpeed.speed
+                                        scaleY = 1f - 0.02f * cardSpeed.speed
                                     }
                                 }
-                                .clip(RoundedCornerShape(animatedCornerRadius))
-                                .background(if (animatedCard1Width > 2.dp) Color.Black else Color.Transparent)
+                                .clip(islandShape(animatedCornerRadius))
+                                .background(if (animatedCard1Width > 2.dp) cardBackgroundBrush else SolidColor(Color.Transparent))
                                 .then(
                                     if (settings.showOutline && animatedCard1Width > 8.dp) {
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = primaryOutlineColor,
-                                            shape = RoundedCornerShape(animatedCornerRadius)
+                                            shape = islandShape(animatedCornerRadius)
                                         )
                                     } else Modifier
                                 )
@@ -1242,27 +1348,18 @@ fun IslandOverlayRoot(
                                                             if (abs(card1OffsetX) > threshold) {
                                                                 triggerHaptic()
                                                                 IslandStateManager.dismissMedia()
-                                                                if (activeCount <= 1) {
-                                                                    IslandStateManager.collapse()
-                                                                }
                                                             }
                                                         }
                                                         IslandPriority.POP_NOTIFICATION -> {
                                                             if (abs(card1OffsetX) > threshold) {
                                                                 triggerHaptic()
-                                                                val dismissed = IslandStateManager.dismissCurrentNotification()
-                                                                if (dismissed && activeCount <= 1) {
-                                                                    IslandStateManager.collapse()
-                                                                }
+                                                                IslandStateManager.clearCurrentNotification()
                                                             }
                                                         }
                                                         IslandPriority.PROGRESS -> {
                                                             if (abs(card1OffsetX) > threshold) {
                                                                 triggerHaptic()
-                                                                val dismissed = IslandStateManager.dismissProgress()
-                                                                if (dismissed && activeCount <= 1) {
-                                                                    IslandStateManager.collapse()
-                                                                }
+                                                                IslandStateManager.dismissProgress()
                                                             }
                                                         }
                                                         else -> Unit
@@ -1274,11 +1371,7 @@ fun IslandOverlayRoot(
                                                 },
                                                 onHorizontalDrag = { _, dragAmount ->
                                                     when (primaryPriority) {
-                                                        IslandPriority.CALL,
-                                                        IslandPriority.SCREEN_RECORDING,
-                                                        IslandPriority.FPS,
-                                                        IslandPriority.WEATHER,
-                                                        IslandPriority.NETWORK_SPEED -> {
+                                                        IslandPriority.SCREEN_RECORDING -> {
                                                             card1OffsetX += dragAmount * 0.18f
                                                         }
                                                         else -> {
@@ -1295,46 +1388,13 @@ fun IslandOverlayRoot(
                             // Subtle ambient gradient background or blurred album art for media player or flashlight
                             if (isExpanded) {
                                 if (primaryPriority == IslandPriority.MEDIA && settings.blurredAlbumArtBackground && mediaArt != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(animatedCornerRadius))
-                                    ) {
-                                        Image(
-                                            bitmap = (blurredMediaArt ?: mediaArt).asImageBitmap(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .blur(radius = 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                                                .graphicsLayer {
-                                                    scaleX = 1.35f
-                                                    scaleY = 1.35f
-                                                    alpha = expandProgress * 0.75f
-                                                }
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.38f))
-                                        )
-                                        // Black gradient coming from the bottom
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.verticalGradient(
-                                                        colors = listOf(
-                                                            Color.Transparent,
-                                                            Color.Transparent,
-                                                            Color.Black.copy(alpha = 0.40f),
-                                                            Color.Black.copy(alpha = 0.82f),
-                                                            Color.Black
-                                                        )
-                                                    )
-                                                )
-                                        )
-                                    }
+                                    MediaArtBackdrop(
+                                        art = blurredMediaArt ?: mediaArt,
+                                        needsBlur = blurredMediaArt == null,
+                                        alpha = expandProgress,
+                                        glass = settings.liquidGlassCards,
+                                        shape = islandShape(animatedCornerRadius)
+                                    )
                                 } else {
                                     val ambientBrush = when {
                                         primaryPriority == IslandPriority.MEDIA && mediaAccentColor != Color.Transparent -> {
@@ -1366,28 +1426,6 @@ fun IslandOverlayRoot(
                                                 )
                                             )
                                         }
-                                        primaryPriority == IslandPriority.CALL -> {
-                                            val greenTint = Color(0xFF30D158)
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    greenTint.copy(alpha = 0.16f * expandProgress),
-                                                    greenTint.copy(alpha = 0.05f * expandProgress),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
-                                        primaryPriority == IslandPriority.PROGRESS ||
-                                        primaryPriority == IslandPriority.FPS ||
-                                        primaryPriority == IslandPriority.WEATHER ||
-                                        primaryPriority == IslandPriority.NETWORK_SPEED -> {
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.White.copy(alpha = 0.12f * expandProgress),
-                                                    Color.White.copy(alpha = 0.04f * expandProgress),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
                                         else -> null
                                     }
                                     if (ambientBrush != null) {
@@ -1398,43 +1436,34 @@ fun IslandOverlayRoot(
                                         )
                                     }
                                 }
-
-                                if (primaryPriority == IslandPriority.MEDIA && settings.mediaWaveAnimation) {
-                                    MediaBottomWaveOverlay(
-                                        accentColor = if (mediaAccentColor != Color.Transparent) mediaAccentColor else Color(0xFF64D2FF),
-                                        isPlaying = currentMedia?.isPlaying == true,
-                                        alphaMultiplier = expandProgress,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
                             }
 
                             // Expanded Card 1 Content (e.g. Media Player or Primary Notification)
+                            // Arriving content waits until the card is ~60% of the way to its
+                            // shape, so it never shows stretched while the card is still growing.
+                            // Fade and scale come from expandProgress, which runs on the same
+                            // spring as the card's size, so an interrupted morph reverses together.
                             val expandedAlpha = if (isExpanded) {
-                                ((expandProgress - 0.30f) / 0.70f).coerceIn(0f, 1f)
+                                ((expandProgress - 0.60f) / 0.40f).coerceIn(0f, 1f)
                             } else {
                                 ((expandProgress - 0.45f) / 0.55f).coerceIn(0f, 1f)
                             }
 
                             if (!isCharging && expandedAlpha > 0.01f) {
-                                val isCompactRowCard1 = primaryPriority == IslandPriority.FLASHLIGHT ||
-                                        primaryPriority == IslandPriority.SCREEN_RECORDING ||
-                                        primaryPriority == IslandPriority.CALL ||
-                                        primaryPriority == IslandPriority.PROGRESS ||
-                                        primaryPriority == IslandPriority.FPS ||
-                                        primaryPriority == IslandPriority.WEATHER ||
-                                        primaryPriority == IslandPriority.NETWORK_SPEED
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            horizontal = ((if (primaryPriority == IslandPriority.FLASHLIGHT) 16.dp else 20.dp) * settings.expandedScale).coerceIn(14.dp, 24.dp),
-                                            vertical = ((if (isCompactRowCard1) 12.dp else if (primaryPriority == IslandPriority.POP_NOTIFICATION) 16.dp else 20.dp) * settings.expandedScale).coerceIn(10.dp, 22.dp)
-                                        )
+                                        .wrapContentSize(Alignment.TopCenter, unbounded = true)
+                                        .requiredSize(expandedCardWidth, card1ContentHeight)
+                                        // Inner padding lives in each view (islandCardContentPadding)
                                         .graphicsLayer {
                                             alpha = expandedAlpha
                                             scaleX = 0.94f + (0.06f * expandedAlpha)
                                             scaleY = 0.94f + (0.06f * expandedAlpha)
+                                            // Only leaving content blurs: sharp on the way in, blurred
+                                            // with the card's speed (or its fade) on the way out
+                                            renderEffect = if (isExpanded) null else steppedBlurEffect(
+                                                maxOf(1f - expandedAlpha, cardSpeed.speed), 10.dp.toPx()
+                                            )
                                         }
                                 ) {
                                     ExpandedCardContent(
@@ -1442,17 +1471,14 @@ fun IslandOverlayRoot(
                                         media = currentMedia,
                                         notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
                                         recording = recording,
-                                        activeCall = activeCall,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
                                         fpsInfo = fpsInfo,
                                         weatherInfo = weatherInfo,
                                         networkSpeedInfo = networkSpeedInfo,
                                         scale = settings.expandedScale,
-                                        spinningAlbumArt = settings.spinningAlbumArt,
-                                        wavyProgressBar = settings.wavyProgressBar,
                                         onCollapse = {
-                                            triggerHaptic()
+                                            triggerCollapseHaptic()
                                             IslandStateManager.collapse()
                                         }
                                     )
@@ -1468,19 +1494,20 @@ fun IslandOverlayRoot(
                                 .offset { IntOffset(animatedCard2OffsetX.roundToInt(), animatedCard2OffsetY.roundToPx()) }
                                 .width(animatedCard1Width)
                                 .height(animatedCard2Height)
+                                .onGloballyPositioned { glassCardBounds[1] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
                                     alpha = animatedCard2Alpha
                                     scaleX = 0.92f + (0.08f * animatedCard2Alpha.coerceIn(0f, 1f))
                                     scaleY = 0.92f + (0.08f * animatedCard2Alpha.coerceIn(0f, 1f))
                                 }
-                                .clip(RoundedCornerShape(animatedCornerRadius))
-                                .background(Color.Black)
+                                .clip(islandShape(animatedCornerRadius))
+                                .background(cardBackgroundBrush)
                                 .then(
                                     if (settings.showOutline) {
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = secondaryOutlineColor,
-                                            shape = RoundedCornerShape(animatedCornerRadius)
+                                            shape = islandShape(animatedCornerRadius)
                                         )
                                     } else Modifier
                                 )
@@ -1500,7 +1527,7 @@ fun IslandOverlayRoot(
                                                         IslandPriority.POP_NOTIFICATION -> {
                                                             if (abs(card2OffsetX) > threshold) {
                                                                 triggerHaptic()
-                                                                IslandStateManager.dismissCurrentNotification()
+                                                                IslandStateManager.clearCurrentNotification()
                                                             }
                                                         }
                                                         IslandPriority.PROGRESS -> {
@@ -1518,11 +1545,8 @@ fun IslandOverlayRoot(
                                                 },
                                                 onHorizontalDrag = { _, dragAmount ->
                                                     when (secondaryPriority) {
-                                                        IslandPriority.CALL,
-                                                        IslandPriority.SCREEN_RECORDING,
-                                                        IslandPriority.FPS,
-                                                        IslandPriority.WEATHER,
-                                                        IslandPriority.NETWORK_SPEED -> {
+                                                        IslandPriority.PROGRESS,
+                                                        IslandPriority.SCREEN_RECORDING -> {
                                                             card2OffsetX += dragAmount * 0.18f
                                                         }
                                                         else -> {
@@ -1538,46 +1562,13 @@ fun IslandOverlayRoot(
                             // Subtle ambient gradient background or blurred album art for secondary card if it's the media player or flashlight
                             if (isExpanded) {
                                 if (secondaryPriority == IslandPriority.MEDIA && settings.blurredAlbumArtBackground && mediaArt != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(animatedCornerRadius))
-                                    ) {
-                                        Image(
-                                            bitmap = (blurredMediaArt ?: mediaArt).asImageBitmap(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .blur(radius = 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                                                .graphicsLayer {
-                                                    scaleX = 1.35f
-                                                    scaleY = 1.35f
-                                                    alpha = animatedCard2Alpha * 0.75f
-                                                }
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.38f))
-                                        )
-                                        // Black gradient coming from the bottom
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.verticalGradient(
-                                                        colors = listOf(
-                                                            Color.Transparent,
-                                                            Color.Transparent,
-                                                            Color.Black.copy(alpha = 0.40f),
-                                                            Color.Black.copy(alpha = 0.82f),
-                                                            Color.Black
-                                                        )
-                                                    )
-                                                )
-                                        )
-                                    }
+                                    MediaArtBackdrop(
+                                        art = blurredMediaArt ?: mediaArt,
+                                        needsBlur = blurredMediaArt == null,
+                                        alpha = animatedCard2Alpha,
+                                        glass = settings.liquidGlassCards,
+                                        shape = islandShape(animatedCornerRadius)
+                                    )
                                 } else {
                                     val ambientBrush = when {
                                         secondaryPriority == IslandPriority.MEDIA && mediaAccentColor != Color.Transparent -> {
@@ -1609,28 +1600,6 @@ fun IslandOverlayRoot(
                                                 )
                                             )
                                         }
-                                        secondaryPriority == IslandPriority.CALL -> {
-                                            val greenTint = Color(0xFF30D158)
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    greenTint.copy(alpha = 0.16f * animatedCard2Alpha),
-                                                    greenTint.copy(alpha = 0.05f * animatedCard2Alpha),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
-                                        secondaryPriority == IslandPriority.PROGRESS ||
-                                        secondaryPriority == IslandPriority.FPS ||
-                                        secondaryPriority == IslandPriority.WEATHER ||
-                                        secondaryPriority == IslandPriority.NETWORK_SPEED -> {
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.White.copy(alpha = 0.12f * animatedCard2Alpha),
-                                                    Color.White.copy(alpha = 0.04f * animatedCard2Alpha),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
                                         else -> null
                                     }
                                     if (ambientBrush != null) {
@@ -1641,278 +1610,36 @@ fun IslandOverlayRoot(
                                         )
                                     }
                                 }
-
-                                if (secondaryPriority == IslandPriority.MEDIA && settings.mediaWaveAnimation) {
-                                    MediaBottomWaveOverlay(
-                                        accentColor = if (mediaAccentColor != Color.Transparent) mediaAccentColor else Color(0xFF64D2FF),
-                                        isPlaying = currentMedia?.isPlaying == true,
-                                        alphaMultiplier = animatedCard2Alpha,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
                             }
 
                             if (animatedCard2Alpha > 0.15f && secondaryPriority != null) {
-                                val isCompactRowCard2 = secondaryPriority == IslandPriority.FLASHLIGHT ||
-                                        secondaryPriority == IslandPriority.SCREEN_RECORDING ||
-                                        secondaryPriority == IslandPriority.CALL ||
-                                        secondaryPriority == IslandPriority.PROGRESS ||
-                                        secondaryPriority == IslandPriority.FPS ||
-                                        secondaryPriority == IslandPriority.WEATHER ||
-                                        secondaryPriority == IslandPriority.NETWORK_SPEED
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            horizontal = ((if (secondaryPriority == IslandPriority.FLASHLIGHT) 16.dp else 20.dp) * settings.expandedScale).coerceIn(14.dp, 24.dp),
-                                            vertical = ((if (isCompactRowCard2) 12.dp else if (secondaryPriority == IslandPriority.POP_NOTIFICATION) 16.dp else 20.dp) * settings.expandedScale).coerceIn(10.dp, 22.dp)
+                                        .wrapContentSize(Alignment.TopCenter, unbounded = true)
+                                        .requiredSize(
+                                            expandedCardWidth,
+                                            cardHeightFor(secondaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
                                         )
+                                        .graphicsLayer {
+                                            renderEffect = if (card2Expanded) null else steppedBlurEffect(
+                                                maxOf(1f - animatedCard2Alpha, cardSpeed.speed), 10.dp.toPx()
+                                            )
+                                        }
+                                        // Inner padding lives in each view (islandCardContentPadding)
                                 ) {
                                     ExpandedCardContent(
                                         priority = secondaryPriority,
                                         media = currentMedia,
                                         notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
                                         recording = recording,
-                                        activeCall = activeCall,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
                                         fpsInfo = fpsInfo,
                                         weatherInfo = weatherInfo,
                                         networkSpeedInfo = networkSpeedInfo,
                                         scale = settings.expandedScale,
-                                        spinningAlbumArt = settings.spinningAlbumArt,
-                                        wavyProgressBar = settings.wavyProgressBar,
                                         onCollapse = {
-                                            triggerHaptic()
-                                            IslandStateManager.collapse()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Card 3: Tertiary Action Card (smoothly expands with an extra split-second stagger when 3 activities are active!)
-                    if (animatedCard3Height > 1.dp) {
-                        Box(
-                            modifier = Modifier
-                                .offset { IntOffset(animatedCard3OffsetX.roundToInt(), animatedCard3OffsetY.roundToPx()) }
-                                .width(animatedCard1Width)
-                                .height(animatedCard3Height)
-                                .graphicsLayer {
-                                    alpha = animatedCard3Alpha
-                                    scaleX = 0.92f + (0.08f * animatedCard3Alpha.coerceIn(0f, 1f))
-                                    scaleY = 0.92f + (0.08f * animatedCard3Alpha.coerceIn(0f, 1f))
-                                }
-                                .clip(RoundedCornerShape(animatedCornerRadius))
-                                .background(Color.Black)
-                                .then(
-                                    if (settings.showOutline) {
-                                        Modifier.border(
-                                            width = settings.outlineThicknessDp.dp,
-                                            color = tertiaryOutlineColor,
-                                            shape = RoundedCornerShape(animatedCornerRadius)
-                                        )
-                                    } else Modifier
-                                )
-                                .then(
-                                    if (isExpanded && tertiaryPriority != null) {
-                                        Modifier.pointerInput(tertiaryPriority) {
-                                            detectHorizontalDragGestures(
-                                                onDragEnd = {
-                                                    val threshold = 160f
-                                                    when (tertiaryPriority) {
-                                                        IslandPriority.MEDIA -> {
-                                                            if (abs(card3OffsetX) > threshold) {
-                                                                triggerHaptic()
-                                                                IslandStateManager.dismissMedia()
-                                                            }
-                                                        }
-                                                        IslandPriority.POP_NOTIFICATION -> {
-                                                            if (abs(card3OffsetX) > threshold) {
-                                                                triggerHaptic()
-                                                                IslandStateManager.dismissCurrentNotification()
-                                                            }
-                                                        }
-                                                        IslandPriority.PROGRESS -> {
-                                                            if (abs(card3OffsetX) > threshold) {
-                                                                triggerHaptic()
-                                                                IslandStateManager.dismissProgress()
-                                                            }
-                                                        }
-                                                        else -> Unit
-                                                    }
-                                                    card3OffsetX = 0f
-                                                },
-                                                onDragCancel = {
-                                                    card3OffsetX = 0f
-                                                },
-                                                onHorizontalDrag = { _, dragAmount ->
-                                                    when (tertiaryPriority) {
-                                                        IslandPriority.CALL,
-                                                        IslandPriority.SCREEN_RECORDING,
-                                                        IslandPriority.FPS,
-                                                        IslandPriority.WEATHER,
-                                                        IslandPriority.NETWORK_SPEED -> {
-                                                            card3OffsetX += dragAmount * 0.18f
-                                                        }
-                                                        else -> {
-                                                            card3OffsetX += dragAmount
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    } else Modifier
-                                )
-                        ) {
-                            if (isExpanded) {
-                                if (tertiaryPriority == IslandPriority.MEDIA && settings.blurredAlbumArtBackground && mediaArt != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(animatedCornerRadius))
-                                    ) {
-                                        Image(
-                                            bitmap = (blurredMediaArt ?: mediaArt).asImageBitmap(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .blur(radius = 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                                                .graphicsLayer {
-                                                    scaleX = 1.35f
-                                                    scaleY = 1.35f
-                                                    alpha = animatedCard3Alpha * 0.75f
-                                                }
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.38f))
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.verticalGradient(
-                                                        colors = listOf(
-                                                            Color.Transparent,
-                                                            Color.Transparent,
-                                                            Color.Black.copy(alpha = 0.40f),
-                                                            Color.Black.copy(alpha = 0.82f),
-                                                            Color.Black
-                                                        )
-                                                    )
-                                                )
-                                        )
-                                    }
-                                } else {
-                                    val ambientBrush = when {
-                                        tertiaryPriority == IslandPriority.MEDIA && mediaAccentColor != Color.Transparent -> {
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    mediaAccentColor.copy(alpha = 0.35f * animatedCard3Alpha),
-                                                    mediaAccentColor.copy(alpha = 0.12f * animatedCard3Alpha),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
-                                        tertiaryPriority == IslandPriority.FLASHLIGHT -> {
-                                            val blurpleTint = Color(0xFFD2D6FF)
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    blurpleTint.copy(alpha = 0.06f * animatedCard3Alpha),
-                                                    blurpleTint.copy(alpha = 0.20f * animatedCard3Alpha)
-                                                )
-                                            )
-                                        }
-                                        tertiaryPriority == IslandPriority.SCREEN_RECORDING -> {
-                                            val redTint = Color(0xFFFF453A)
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    redTint.copy(alpha = 0.16f * animatedCard3Alpha),
-                                                    redTint.copy(alpha = 0.05f * animatedCard3Alpha),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
-                                        tertiaryPriority == IslandPriority.CALL -> {
-                                            val greenTint = Color(0xFF30D158)
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    greenTint.copy(alpha = 0.16f * animatedCard3Alpha),
-                                                    greenTint.copy(alpha = 0.05f * animatedCard3Alpha),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
-                                        tertiaryPriority == IslandPriority.PROGRESS ||
-                                        tertiaryPriority == IslandPriority.FPS ||
-                                        tertiaryPriority == IslandPriority.WEATHER ||
-                                        tertiaryPriority == IslandPriority.NETWORK_SPEED -> {
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.White.copy(alpha = 0.12f * animatedCard3Alpha),
-                                                    Color.White.copy(alpha = 0.04f * animatedCard3Alpha),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                        }
-                                        else -> null
-                                    }
-                                    if (ambientBrush != null) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(ambientBrush)
-                                        )
-                                    }
-                                }
-
-                                if (tertiaryPriority == IslandPriority.MEDIA && settings.mediaWaveAnimation) {
-                                    MediaBottomWaveOverlay(
-                                        accentColor = if (mediaAccentColor != Color.Transparent) mediaAccentColor else Color(0xFF64D2FF),
-                                        isPlaying = currentMedia?.isPlaying == true,
-                                        alphaMultiplier = animatedCard3Alpha,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-
-                            if (animatedCard3Alpha > 0.15f && tertiaryPriority != null) {
-                                val isCompactRowCard3 = tertiaryPriority == IslandPriority.FLASHLIGHT ||
-                                        tertiaryPriority == IslandPriority.SCREEN_RECORDING ||
-                                        tertiaryPriority == IslandPriority.CALL ||
-                                        tertiaryPriority == IslandPriority.PROGRESS ||
-                                        tertiaryPriority == IslandPriority.FPS ||
-                                        tertiaryPriority == IslandPriority.WEATHER ||
-                                        tertiaryPriority == IslandPriority.NETWORK_SPEED
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            horizontal = ((if (tertiaryPriority == IslandPriority.FLASHLIGHT) 16.dp else 20.dp) * settings.expandedScale).coerceIn(14.dp, 24.dp),
-                                            vertical = ((if (isCompactRowCard3) 12.dp else if (tertiaryPriority == IslandPriority.POP_NOTIFICATION) 16.dp else 20.dp) * settings.expandedScale).coerceIn(10.dp, 22.dp)
-                                        )
-                                ) {
-                                    ExpandedCardContent(
-                                        priority = tertiaryPriority,
-                                        media = currentMedia,
-                                        notification = if (tertiaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                        recording = recording,
-                                        activeCall = activeCall,
-                                        flashlightLevel = flashlightLevel,
-                                        maxFlashlightLevel = maxFlashlightLevel,
-                                        fpsInfo = fpsInfo,
-                                        weatherInfo = weatherInfo,
-                                        networkSpeedInfo = networkSpeedInfo,
-                                        scale = settings.expandedScale,
-                                        spinningAlbumArt = settings.spinningAlbumArt,
-                                        wavyProgressBar = settings.wavyProgressBar,
-                                        onCollapse = {
-                                            triggerHaptic()
+                                            triggerCollapseHaptic()
                                             IslandStateManager.collapse()
                                         }
                                     )
@@ -1924,29 +1651,14 @@ fun IslandOverlayRoot(
             }
         }
 
-        // Minimised Island Container: Positioned strictly at camera cutout level (settings.topOffsetDp.dp, or 0.dp in Tear-drop mode)
+        // Minimised Island Container: Positioned strictly at camera cutout level (settings.topOffsetDp.dp)
         // Shrinks horizontally to 0 width while the card expands downwards, and blossoms from 0 width when minimising!
-        val compactContainerOffsetX = if (settings.isLeftCutout) {
-            leftCutoutAnchorCenterX
-        } else {
-            animatedHorizontalOffset
-        }
-        val compactContainerOffsetY = if (settings.isTeardropCutout) {
-            0.dp
-        } else {
-            settings.topOffsetDp.dp
-        }
-        val compactPillHeight = if (settings.isTeardropCutout) {
-            settings.heightDp.dp + (settings.topOffsetDp.dp * 0.25f)
-        } else {
-            settings.heightDp.dp
-        }
         Box(
             modifier = Modifier
                 .offset {
                     IntOffset(
-                        x = compactContainerOffsetX.roundToPx(),
-                        y = compactContainerOffsetY.roundToPx()
+                        x = animatedHorizontalOffset.roundToPx(),
+                        y = settings.topOffsetDp.dp.roundToPx()
                     )
                 },
             contentAlignment = Alignment.TopCenter
@@ -1959,19 +1671,9 @@ fun IslandOverlayRoot(
             val compactPillAlpha = emergenceProgress * emergenceProgress * (3f - 2f * emergenceProgress)
 
             // 1. Auxiliary Circular Island Bubble: Placed on the LAYER BELOW (rendered first so main pill covers it!)
-            // Fixed circular shape & size; emerges and retracts purely along the X axis from the punch hole
+            // Fixed circular shape & size; emerges and retracts purely along the X axis from the middle of the punch hole (x = 0)
             if (isDual || animatedBubbleOffsetX > 1.dp) {
-                val bubbleCenterRelativeToAnchor = if (settings.isLeftCutout) {
-                    animatedBubbleOffsetX - (bubbleSize / 2f)
-                } else {
-                    animatedBubbleOffsetX
-                }
-                val bubbleOffsetXPx = with(LocalDensity.current) { bubbleCenterRelativeToAnchor.roundToPx() }
-                val bubbleOffsetYPx = with(LocalDensity.current) {
-                    if (settings.isTeardropCutout) {
-                        ((compactPillHeight - bubbleSize) / 2f).coerceAtLeast(2.dp).roundToPx()
-                    } else 0
-                }
+                val bubbleOffsetXPx = with(LocalDensity.current) { animatedBubbleOffsetX.roundToPx() }
                 val baseBubbleAlpha = if (isExpanded) {
                     ((1f - expandProgress * 4f).coerceIn(0f, 1f))
                 } else if (!isOccupied && !hasPersistent) {
@@ -1984,19 +1686,23 @@ fun IslandOverlayRoot(
                 val bubbleAlpha = baseBubbleAlpha * compactPillAlpha
 
                 if (bubbleAlpha > 0.01f) {
-                    val mainRightEdgeFromOrigin = if (settings.isLeftCutout) compactMainFull else (compactMainHalf + animatedDualMainShiftX)
-                    val emergedDistance = animatedBubbleOffsetX - (mainRightEdgeFromOrigin - bubbleSize / 2f)
+                    val emergedDistance = animatedBubbleOffsetX - (compactMainHalf - bubbleSize / 2f)
                     val contentAlpha = ((emergedDistance - bubbleSize * 0.35f) / (bubbleSize * 0.55f)).coerceIn(0f, 1f) * bubbleAlpha
 
                     Box(
                         modifier = Modifier
-                            .offset { IntOffset(x = bubbleOffsetXPx, y = bubbleOffsetYPx) }
+                            .testTag(IslandTestTags.BUBBLE)
+                            .offset { IntOffset(x = bubbleOffsetXPx, y = 0) }
                             .size(bubbleSize)
-                            .graphicsLayer { alpha = bubbleAlpha }
+                            .graphicsLayer {
+                                alpha = bubbleAlpha
+                                scaleX = bubblePressScale
+                                scaleY = bubblePressScale
+                            }
                             .clip(CircleShape)
                             .background(Color.Black)
                             .then(
-                                if (settings.showOutline && animatedBubbleOffsetX > mainRightEdgeFromOrigin * 0.7f) {
+                                if (settings.showOutline && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
                                     Modifier.border(
                                         width = settings.outlineThicknessDp.dp,
                                         color = secondaryOutlineColor,
@@ -2005,21 +1711,20 @@ fun IslandOverlayRoot(
                                 } else Modifier
                             )
                             .combinedClickable(
-                                interactionSource = remember { MutableInteractionSource() },
+                                interactionSource = bubbleInteraction,
                                 indication = null,
                                 onClick = {
                                     triggerHaptic()
                                     IslandStateManager.expand(secondaryPriority)
                                 },
                                 onLongClick = {
-                                    triggerHaptic()
+                                    triggerLongPressHaptic()
                                     openAppForPriority(
                                         context = context,
                                         priority = secondaryPriority,
                                         media = currentMedia,
                                         notification = currentNotif,
                                         progress = currentProgress,
-                                        activeCall = activeCall,
                                         onDismissNotification = {
                                             IslandStateManager.dismissCurrentNotification()
                                         }
@@ -2042,8 +1747,7 @@ fun IslandOverlayRoot(
                                     recording = recording,
                                     fpsInfo = fpsInfo,
                                     weatherInfo = weatherInfo,
-                                    networkSpeedInfo = networkSpeedInfo,
-                                    spinningAlbumArt = settings.spinningAlbumArt
+                                    networkSpeedInfo = networkSpeedInfo
                                 )
                             }
                         }
@@ -2051,71 +1755,134 @@ fun IslandOverlayRoot(
                 }
             }
 
-            // 2. Main Compact Pill: Rendered on top of the bubble (covers it when sliding near x = 0)
-            if (animatedCompactWidth > 0.5.dp) {
-                val mainPillOffsetXPx = with(LocalDensity.current) {
-                    if (settings.isLeftCutout) {
-                        ((animatedCompactWidth - settings.heightDp.dp) / 2f).roundToPx()
-                    } else {
-                        animatedDualMainShiftX.roundToPx()
+            // Liquid split: while the secondary bubble separates from the pill, a black "neck" with
+            // concave sides joins them and thins until it snaps, like two drops pulling apart.
+            // Only drawn during the split itself, so it costs nothing at rest.
+            if (isDual && !isExpanded && animatedBubbleOffsetX > 1.dp && animatedCompactWidth > settings.heightDp.dp) {
+                val pillH = settings.heightDp.dp
+                val pillRight = animatedCompactWidth / 2f
+                val gap = (animatedBubbleOffsetX - bubbleSize / 2f) - pillRight
+                val snapGap = 5.dp
+                // 1 while the shapes overlap, 0 once the gap reaches snapGap
+                val neck = (1f - gap / snapGap).coerceIn(0f, 1f)
+                // Both ends tuck inside the round caps so only the concave waist is visible
+                val neckStart = pillRight - pillH * 0.3f
+                val neckEnd = animatedBubbleOffsetX - bubbleSize * 0.2f
+                if (neck > 0.02f && neckEnd > neckStart && gap > -bubbleSize * 0.6f) {
+                    val neckCenterX = (neckStart + neckEnd) / 2f
+                    Canvas(
+                        modifier = Modifier
+                            .offset { IntOffset(x = neckCenterX.roundToPx(), y = 0) }
+                            .size(neckEnd - neckStart, pillH)
+                            .graphicsLayer { alpha = compactPillAlpha }
+                    ) {
+                        val w = size.width
+                        val cy = size.height / 2f
+                        val edgeHalf = size.height * 0.42f
+                        val waistHalf = (size.height / 2f) * neck * 0.85f
+                        // Quadratic control point that puts the curve's midpoint at the waist
+                        val ctrlTop = cy - 2f * waistHalf + edgeHalf
+                        val ctrlBottom = cy + 2f * waistHalf - edgeHalf
+                        val neckPath = Path().apply {
+                            moveTo(0f, cy - edgeHalf)
+                            quadraticTo(w / 2f, ctrlTop, w, cy - edgeHalf)
+                            lineTo(w, cy + edgeHalf)
+                            quadraticTo(w / 2f, ctrlBottom, 0f, cy + edgeHalf)
+                            close()
+                        }
+                        drawPath(neckPath, Color.Black)
                     }
                 }
-                val compactPillShape: Shape = if (settings.isTeardropCutout) {
-                    TeardropIslandShape(
-                        topEarRadius = teardropEarRadius,
-                        bottomCornerRadius = settings.cornerRadiusDp.dp
-                    )
-                } else {
-                    RoundedCornerShape(settings.cornerRadiusDp.dp)
-                }
-                val teardropScaleY = if (settings.isTeardropCutout) {
-                    (0.32f + 0.68f * emergenceProgress) * idleBounceScale.value
-                } else {
-                    idleBounceScale.value
-                }
-                Box(
+            }
+
+            // Notch style: a black bridge with concave "ears" joins the pill to the top edge of the
+            // screen. Drawn under the pill and follows its width, so every morph still works.
+            val compactPillShape = if (settings.isNotch) {
+                notchPillShape(settings.heightDp.dp * 0.45f)
+            } else {
+                islandShape(settings.heightDp.dp / 2)
+            }
+            if (settings.isNotch && animatedCompactWidth > 0.5.dp) {
+                val notchEar = (8.dp * compactPillAlpha).coerceAtLeast(0.dp)
+                val bridgeHeight = settings.topOffsetDp.dp + settings.heightDp.dp / 2f
+                Canvas(
                     modifier = Modifier
-                        .offset { IntOffset(x = mainPillOffsetXPx, y = 0) }
-                        .width(animatedCompactWidth)
-                        .height(compactPillHeight)
+                        .offset { IntOffset(x = 0, y = -settings.topOffsetDp.dp.roundToPx()) }
+                        .size(animatedCompactWidth + notchEar * 2, bridgeHeight)
                         .graphicsLayer {
                             alpha = compactPillAlpha
-                            if (settings.isTeardropCutout) {
-                                transformOrigin = TransformOrigin(0.5f, 0f)
-                            }
-                            translationY = idleBounceY.value.dp.toPx()
-                            scaleX = idleBounceScale.value
-                            scaleY = teardropScaleY
+                            transformOrigin = TransformOrigin(0.5f, 0f)
+                            scaleX = pillPressScale * (1f + swapSquash.value)
+                        }
+                ) {
+                    drawPath(notchBridgePath(size.width, size.height, notchEar.toPx()), Color.Black)
+                }
+            }
+
+            // 2. Main Compact Pill: Rendered on top of the bubble (covers it when sliding near x = 0)
+            if (animatedCompactWidth > 0.5.dp) {
+                Box(
+                    modifier = Modifier
+                        .testTag(IslandTestTags.PILL)
+                        .width(animatedCompactWidth)
+                        .height(settings.heightDp.dp)
+                        .graphicsLayer {
+                            alpha = compactPillAlpha
+                            // A notch stays attached to the top edge: no bounce away from it
+                            translationY = if (settings.isNotch) 0f else idleBounceY.value.dp.toPx()
+                            if (settings.isNotch) transformOrigin = TransformOrigin(0.5f, 0f)
+                            scaleX = idleBounceScale.value * pillPressScale * (1f + swapSquash.value)
+                            scaleY = idleBounceScale.value * pillPressScale * (1f - swapSquash.value * 0.5f)
                         }
                         .clip(compactPillShape)
                         .background(if (animatedCompactWidth > 2.dp) Color.Black else Color.Transparent)
                         .then(
-                            if (settings.showOutline && animatedCompactWidth > 8.dp) {
-                                val outlineAlpha = primaryOutlineColor.alpha * compactPillAlpha
-                                if (settings.isTeardropCutout) {
-                                    Modifier.drawWithContent {
-                                        drawContent()
-                                        drawTeardropOutline(
-                                            topEarRadius = teardropEarRadius,
-                                            bottomCornerRadius = settings.cornerRadiusDp.dp,
-                                            strokeWidth = settings.outlineThicknessDp.dp,
-                                            color = primaryOutlineColor.copy(alpha = outlineAlpha)
-                                        )
-                                    }
-                                } else {
-                                    Modifier.border(
-                                        width = settings.outlineThicknessDp.dp,
-                                        color = primaryOutlineColor.copy(alpha = outlineAlpha),
-                                        shape = RoundedCornerShape(settings.cornerRadiusDp.dp)
-                                    )
-                                }
+                            if (settings.showOutline && !settings.isNotch && animatedCompactWidth > 8.dp) {
+                                Modifier.border(
+                                    width = settings.outlineThicknessDp.dp,
+                                    color = primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)),
+                                    shape = compactPillShape
+                                )
                             } else Modifier
                         )
+                        // Swipe right: hide the pill. Swipe left: shrink it into the camera circle.
+                        // On the camera circle, a right swipe (or a tap) brings the pill back.
+                        .pointerInput(isExpanded, userMinimized) {
+                            var dragTotal = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragTotal = 0f },
+                                onHorizontalDrag = { change, amount ->
+                                    change.consume()
+                                    dragTotal += amount
+                                },
+                                onDragEnd = {
+                                    val threshold = 32.dp.toPx()
+                                    when {
+                                        isExpanded -> Unit
+                                        userMinimized && dragTotal > threshold -> {
+                                            triggerHaptic()
+                                            IslandStateManager.restoreIsland()
+                                        }
+                                        dragTotal > threshold -> {
+                                            triggerHaptic()
+                                            IslandStateManager.hideIsland()
+                                        }
+                                        dragTotal < -threshold && !userMinimized -> {
+                                            triggerHaptic()
+                                            IslandStateManager.minimizeIsland()
+                                        }
+                                    }
+                                }
+                            )
+                        }
                         .combinedClickable(
-                            interactionSource = remember { MutableInteractionSource() },
+                            interactionSource = pillInteraction,
                             indication = null,
                             onClick = {
-                                if (!isExpanded && (isOccupied || hasPersistent) && !isUnlock && !isBluetooth && !isRingerMode) {
+                                if (userMinimized) {
+                                    triggerHaptic()
+                                    IslandStateManager.restoreIsland()
+                                } else if (!isExpanded && (isOccupied || hasPersistent) && !isUnlock && !isBluetooth && !isRingerMode) {
                                     triggerHaptic()
                                     IslandStateManager.expand(primaryPriority)
                                 } else if (!isExpanded && !isOccupied && !hasPersistent && settings.alwaysShowPill) {
@@ -2168,14 +1935,13 @@ fun IslandOverlayRoot(
                             },
                             onLongClick = {
                                 if (!isExpanded && !isUnlock && !isBluetooth && !isRingerMode) {
-                                    triggerHaptic()
+                                    triggerLongPressHaptic()
                                     openAppForPriority(
                                         context = context,
                                         priority = primaryPriority,
                                         media = currentMedia,
                                         notification = currentNotif,
                                         progress = currentProgress,
-                                        activeCall = activeCall,
                                         onDismissNotification = {
                                             IslandStateManager.dismissCurrentNotification()
                                         }
@@ -2185,169 +1951,119 @@ fun IslandOverlayRoot(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    val compactAlpha = if (isExpanded) {
+                    val compactAlpha = if (userMinimized && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) 0f else if (isExpanded) {
                         (1f - (expandProgress * 3.0f)).coerceIn(0f, 1f)
                     } else {
                         (1f - (expandProgress * 1.8f)).coerceIn(0f, 1f)
                     }
 
+                    // Background darker green progress bar for charging status:
+                    if (isCharging || chargingContentAlpha > 0.01f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer { alpha = chargingContentAlpha }
+                                .background(Color(0xFF04190B))
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(fraction = animatedChargingProgress.coerceIn(0.001f, 1f))
+                                .align(Alignment.CenterStart)
+                                .graphicsLayer { alpha = chargingContentAlpha }
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color(0xFF062B12),
+                                            Color(0xFF0D3D1B)
+                                        )
+                                    )
+                                )
+                        )
+                    }
+
                     // 1. Compact Content or Charging Content: strictly clear 36dp center over punch-hole
                     if (isCharging || chargingContentAlpha > 0.01f) {
                         val wattage = charging?.wattage
-                        val chargingLabel = if (wattage != null && wattage >= 0.5) {
-                            "${wattage.roundToInt().coerceAtLeast(1)}W"
+                        val chargingLabel = if (wattage != null && wattage >= 1.0) {
+                            if (wattage >= 10.0 || (wattage % 1.0) < 0.05 || (wattage % 1.0) > 0.95) {
+                                "${wattage.roundToInt()}W"
+                            } else {
+                                String.format(Locale.US, "%.1fW", wattage)
+                            }
                         } else {
                             "Charging"
                         }
-                        val mintChargingGreen = Color(0xFF7CE8A0)
 
-                        if (settings.isLeftCutout) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 38.dp, end = 10.dp)
-                                    .graphicsLayer { alpha = chargingContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp)
+                                .graphicsLayer { alpha = chargingContentAlpha },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left: Wattage (e.g. "33W") or "Charging" to save extreme space
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
                             ) {
                                 Text(
                                     text = chargingLabel,
-                                    color = Color.White,
-                                    fontSize = 13.5.sp,
+                                    color = Color(0xFF30D158),
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false)
+                                    overflow = TextOverflow.Ellipsis
                                 )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    Text(
-                                        text = "${charging?.percentage ?: 100}%",
-                                        color = mintChargingGreen,
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Box(
-                                        modifier = Modifier.size(22.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(22.dp)
-                                                .background(
-                                                    Brush.radialGradient(
-                                                        colors = listOf(
-                                                            mintChargingGreen.copy(alpha = 0.52f),
-                                                            mintChargingGreen.copy(alpha = 0.20f),
-                                                            Color.Transparent
-                                                        )
-                                                    ),
-                                                    shape = CircleShape
-                                                )
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Default.Bolt,
-                                            contentDescription = "Charging",
-                                            tint = Color(0xFFB8FFD0),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
                             }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 15.dp + teardropEarRadius, end = 10.dp + teardropEarRadius)
-                                    .graphicsLayer { alpha = chargingContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically
+
+                            // Center: 36dp deadzone strictly over camera cutout
+                            Spacer(modifier = Modifier.width(36.dp))
+
+                            // Right: Current battery percentage in green
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterEnd
                             ) {
-                                // Left: Rounded Wattage in crisp white (e.g. "90W")
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Text(
-                                        text = chargingLabel,
-                                        color = Color.White,
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                // Center: 36dp deadzone strictly over camera cutout
-                                Spacer(modifier = Modifier.width(36.dp))
-
-                                // Right: Current battery percentage in mint green + glowing lightning bolt
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Text(
-                                            text = "${charging?.percentage ?: 100}%",
-                                            color = mintChargingGreen,
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Box(
-                                            modifier = Modifier.size(22.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(22.dp)
-                                                    .background(
-                                                        Brush.radialGradient(
-                                                            colors = listOf(
-                                                                mintChargingGreen.copy(alpha = 0.52f),
-                                                                mintChargingGreen.copy(alpha = 0.20f),
-                                                                Color.Transparent
-                                                            )
-                                                        ),
-                                                        shape = CircleShape
-                                                    )
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Default.Bolt,
-                                                contentDescription = "Charging",
-                                                tint = Color(0xFFB8FFD0),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                }
+                                Text(
+                                    text = "${charging?.percentage ?: 100}%",
+                                    color = Color(0xFF30D158),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
                             }
                         }
                     } else if (isUnlock || unlockContentAlpha > 0.01f) {
-                        if (settings.isLeftCutout) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 38.dp, end = 12.dp)
-                                    .graphicsLayer { alpha = unlockContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp)
+                                .graphicsLayer { alpha = unlockContentAlpha },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left: Unlocked lock icon at the slight edge of the island
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.LockOpen,
                                     contentDescription = "Unlocked",
                                     tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(19.dp)
                                 )
+                            }
+
+                            // Center: 36dp deadzone strictly over camera cutout
+                            Spacer(modifier = Modifier.width(36.dp))
+
+                            // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
                                 if (unlockCheckmarkAlpha > 0.01f) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
@@ -2359,72 +2075,40 @@ fun IslandOverlayRoot(
                                                 scaleX = unlockCheckmarkScale
                                                 scaleY = unlockCheckmarkScale
                                             }
-                                            .size(18.dp)
+                                            .size(19.dp)
                                     )
-                                }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp + teardropEarRadius)
-                                    .graphicsLayer { alpha = unlockContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Left: Unlocked lock icon at the slight edge of the island
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LockOpen,
-                                        contentDescription = "Unlocked",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-
-                                // Center: 36dp deadzone strictly over camera cutout
-                                Spacer(modifier = Modifier.width(36.dp))
-
-                                // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    if (unlockCheckmarkAlpha > 0.01f) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Success",
-                                            tint = Color.White,
-                                            modifier = Modifier
-                                                .graphicsLayer {
-                                                    alpha = unlockCheckmarkAlpha
-                                                    scaleX = unlockCheckmarkScale
-                                                    scaleY = unlockCheckmarkScale
-                                                }
-                                                .size(19.dp)
-                                        )
-                                    }
                                 }
                             }
                         }
                     } else if (isBluetooth || bluetoothContentAlpha > 0.01f) {
-                        if (settings.isLeftCutout) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 38.dp, end = 12.dp)
-                                    .graphicsLayer { alpha = bluetoothContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp)
+                                .graphicsLayer { alpha = bluetoothContentAlpha },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left: Bluetooth icon at the slight edge of the island
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Bluetooth,
-                                    contentDescription = "Bluetooth",
+                                    imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) Icons.Default.Wifi else Icons.Default.Bluetooth,
+                                    contentDescription = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth",
                                     tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(19.dp)
                                 )
+                            }
+
+                            // Center: 36dp deadzone strictly over camera cutout
+                            Spacer(modifier = Modifier.width(36.dp))
+
+                            // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
                                 if (bluetoothCheckmarkAlpha > 0.01f) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
@@ -2436,87 +2120,35 @@ fun IslandOverlayRoot(
                                                 scaleX = bluetoothCheckmarkScale
                                                 scaleY = bluetoothCheckmarkScale
                                             }
-                                            .size(18.dp)
+                                            .size(19.dp)
                                     )
-                                }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp + teardropEarRadius)
-                                    .graphicsLayer { alpha = bluetoothContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Left: Bluetooth icon at the slight edge of the island
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Bluetooth,
-                                        contentDescription = "Bluetooth",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-
-                                // Center: 36dp deadzone strictly over camera cutout
-                                Spacer(modifier = Modifier.width(36.dp))
-
-                                // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    if (bluetoothCheckmarkAlpha > 0.01f) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Connected",
-                                            tint = Color.White,
-                                            modifier = Modifier
-                                                .graphicsLayer {
-                                                    alpha = bluetoothCheckmarkAlpha
-                                                    scaleX = bluetoothCheckmarkScale
-                                                    scaleY = bluetoothCheckmarkScale
-                                                }
-                                                .size(19.dp)
-                                        )
-                                    }
                                 }
                             }
                         }
                     } else if (isRingerMode || ringerContentAlpha > 0.01f) {
-                        val icon = when (displayRingerMode) {
-                            RingerMode.SILENT -> Icons.Default.NotificationsOff
-                            RingerMode.VIBRATE -> Icons.Default.Vibration
-                            RingerMode.RING -> Icons.Default.Notifications
-                        }
-                        val iconTint = if (displayRingerMode == RingerMode.SILENT) {
-                            Color(0xFFFF3B30)
-                        } else {
-                            Color.White
-                        }
-                        val labelText = when (displayRingerMode) {
-                            RingerMode.SILENT -> "Silent"
-                            RingerMode.VIBRATE -> "Vibrate"
-                            RingerMode.RING -> "Ring"
-                        }
-                        val labelColor = if (displayRingerMode == RingerMode.SILENT) {
-                            Color(0xFFFF3B30)
-                        } else {
-                            Color.White
-                        }
-
-                        if (settings.isLeftCutout) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 38.dp, end = 12.dp)
-                                    .graphicsLayer { alpha = ringerContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp)
+                                .graphicsLayer { alpha = ringerContentAlpha },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left: Ringer icon (Bell, Slashed Bell, or Vibration)
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
                             ) {
+                                val icon = when (displayRingerMode) {
+                                    RingerMode.SILENT -> Icons.Default.NotificationsOff
+                                    RingerMode.VIBRATE -> Icons.Default.Vibration
+                                    RingerMode.RING -> Icons.Default.Notifications
+                                }
+                                val iconTint = if (displayRingerMode == RingerMode.SILENT) {
+                                    Color(0xFFFF3B30) // Red icon for silent
+                                } else {
+                                    Color.White
+                                }
+
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = displayRingerMode.name,
@@ -2533,82 +2165,45 @@ fun IslandOverlayRoot(
                                                 transformOrigin = TransformOrigin.Center
                                             }
                                         }
-                                        .size(18.dp)
+                                        .size(19.dp)
                                 )
+                            }
+
+                            // Center: 36dp deadzone strictly over camera cutout
+                            Spacer(modifier = Modifier.width(36.dp))
+
+                            // Right: Text label (Silent, Vibrate, Ring) with smooth bounce scaling & alpha
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
                                 if (ringerSecondaryAlpha > 0.01f) {
-                                    Text(
-                                        text = labelText,
-                                        color = labelColor,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
+                                    val labelText = when (displayRingerMode) {
+                                        RingerMode.SILENT -> "Silent"
+                                        RingerMode.VIBRATE -> "Vibrate"
+                                        RingerMode.RING -> "Ring"
+                                    }
+                                    val labelColor = if (displayRingerMode == RingerMode.SILENT) {
+                                        Color(0xFFFF3B30) // Red text for silent
+                                    } else {
+                                        Color.White
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.End,
                                         modifier = Modifier.graphicsLayer {
                                             alpha = ringerSecondaryAlpha
                                             scaleX = ringerSecondaryScale
                                             scaleY = ringerSecondaryScale
                                         }
-                                    )
-                                }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp + teardropEarRadius)
-                                    .graphicsLayer { alpha = ringerContentAlpha },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Left: Ringer icon (Bell, Slashed Bell, or Vibration)
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = displayRingerMode.name,
-                                        tint = iconTint,
-                                        modifier = Modifier
-                                            .graphicsLayer {
-                                                if (displayRingerMode == RingerMode.RING) {
-                                                    transformOrigin = TransformOrigin(0.5f, 0.0f)
-                                                    rotationZ = bellShakeRotation.value
-                                                } else if (displayRingerMode == RingerMode.VIBRATE) {
-                                                    transformOrigin = TransformOrigin.Center
-                                                    translationX = vibrateShakeOffset.value.dp.toPx()
-                                                } else {
-                                                    transformOrigin = TransformOrigin.Center
-                                                }
-                                            }
-                                            .size(19.dp)
-                                    )
-                                }
-
-                                // Center: 36dp deadzone strictly over camera cutout
-                                Spacer(modifier = Modifier.width(36.dp))
-
-                                // Right: Text label (Silent, Vibrate, Ring) with smooth bounce scaling & alpha
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    if (ringerSecondaryAlpha > 0.01f) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.End,
-                                            modifier = Modifier.graphicsLayer {
-                                                alpha = ringerSecondaryAlpha
-                                                scaleX = ringerSecondaryScale
-                                                scaleY = ringerSecondaryScale
-                                            }
-                                        ) {
-                                            Text(
-                                                text = labelText,
-                                                color = labelColor,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                maxLines = 1
-                                            )
-                                        }
+                                    ) {
+                                        Text(
+                                            text = labelText,
+                                            color = labelColor,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
                                     }
                                 }
                             }
@@ -2617,27 +2212,56 @@ fun IslandOverlayRoot(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .graphicsLayer { alpha = compactAlpha },
+                                .graphicsLayer {
+                                    alpha = compactAlpha
+                                    // Pill content leaving for the card blurs out with the morph
+                                    renderEffect = if (isExpanded) steppedBlurEffect(
+                                        maxOf(1f - compactAlpha, cardSpeed.speed), 10.dp.toPx()
+                                    ) else null
+                                },
                             contentAlignment = Alignment.Center
                         ) {
-                            CompactContent(
-                                priority = primaryPriority,
-                                media = currentMedia,
-                                notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                recording = recording,
-                                activeCall = activeCall,
-                                isCompactDual = isDual,
-                                isLeftCutout = settings.isLeftCutout,
-                                isTeardropCutout = settings.isTeardropCutout,
-                                teardropEarInset = teardropEarRadius,
-                                spinningAlbumArt = settings.spinningAlbumArt,
-                                flashlightLevel = flashlightLevel,
-                                maxFlashlightLevel = maxFlashlightLevel,
-                                fpsInfo = fpsInfo,
-                                weatherInfo = weatherInfo,
-                                networkSpeedInfo = networkSpeedInfo,
-                                secondaryPriority = secondaryPriority
-                            )
+                            // Switching activity: old content shrinks and blurs out while the new one
+                            // springs in sharp, instead of swapping instantly
+                            AnimatedContent(
+                                targetState = primaryPriority,
+                                transitionSpec = {
+                                    (fadeIn(tween(200, delayMillis = 50)) +
+                                        scaleIn(initialScale = 0.85f, animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f))) togetherWith
+                                        (fadeOut(tween(120)) + scaleOut(targetScale = 0.85f, animationSpec = tween(120))) using
+                                        SizeTransform(clip = false)
+                                },
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize(),
+                                label = "compactContentSwap"
+                            ) { shownPriority ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            // Only the leaving activity blurs, with the swap's squash
+                                            // and the pill's width change; the new one stays sharp
+                                            renderEffect = if (shownPriority != primaryPriority) steppedBlurEffect(
+                                                maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillSpeed.speed), 12.dp.toPx()
+                                            ) else null
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CompactContent(
+                                        priority = shownPriority,
+                                        media = currentMedia,
+                                        notification = if (shownPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+                                        recording = recording,
+                                        flashlightLevel = flashlightLevel,
+                                        maxFlashlightLevel = maxFlashlightLevel,
+                                        fpsInfo = fpsInfo,
+                                        weatherInfo = weatherInfo,
+                                        networkSpeedInfo = networkSpeedInfo,
+                                        secondaryPriority = secondaryPriority,
+                                        horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -2645,7 +2269,8 @@ fun IslandOverlayRoot(
 
             // 3. Parentheses Accents: Neat parentheses-shaped brackets on each side of the island
             // Shorter than the height of the island, smoothly positioning symmetrically around 1 or 2 activities, and neatly close to the edges.
-            val targetParenthesisAlpha = if (!isOccupied && !hasPersistent) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
+            // Hidden while two activities share the island (main pill + secondary bubble)
+            val targetParenthesisAlpha = if ((!isOccupied && !hasPersistent) || isDual || userHidden || userMinimized || settings.isNotch) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
             val parenthesisAlphaAnim by animateFloatAsState(
                 targetValue = targetParenthesisAlpha,
                 animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
@@ -2664,16 +2289,12 @@ fun IslandOverlayRoot(
                 val parenthesisStroke = 1.8.dp
                 val density = LocalDensity.current
 
-                val pYPx = with(density) { ((compactPillHeight - parenthesisHeight) / 2f).roundToPx() }
+                val pYPx = with(density) { ((settings.heightDp.dp - parenthesisHeight) / 2f).roundToPx() }
                 val tipOffsetFromCenter = (parenthesisWidth - parenthesisStroke) / 2f
 
                 // Left parenthesis `(`: tips facing right are at centerX + tipOffsetFromCenter.
                 // Sits at islandLeft - parenthesisGap - extraShootDp.
-                val islandLeftDp = when {
-                    settings.isLeftCutout -> -settings.heightDp.dp / 2f
-                    settings.isTeardropCutout -> -(animatedCompactWidth / 2f - teardropEarRadius) + animatedDualMainShiftX
-                    else -> -animatedCompactWidth / 2f + animatedDualMainShiftX
-                }
+                val islandLeftDp = -animatedCompactWidth / 2f
                 val leftCenterXPx = with(density) {
                     (islandLeftDp - parenthesisGap - extraShootDp - tipOffsetFromCenter).roundToPx()
                 }
@@ -2681,20 +2302,11 @@ fun IslandOverlayRoot(
                 // Right parenthesis `)`: tips facing left are at centerX - tipOffsetFromCenter.
                 // Sits at rightContentEdgeDp + parenthesisGap + extraShootDp.
                 // When emerging, curve shoots out slightly further from the island and settles back.
-                val mainPillRightEdge = when {
-                    settings.isLeftCutout -> animatedCompactWidth - settings.heightDp.dp / 2f
-                    settings.isTeardropCutout -> (animatedCompactWidth / 2f - teardropEarRadius) + animatedDualMainShiftX
-                    else -> animatedCompactWidth / 2f + animatedDualMainShiftX
-                }
-                val bubbleRightEdge = if (settings.isLeftCutout) {
-                    animatedBubbleOffsetX
-                } else {
-                    animatedBubbleOffsetX + (bubbleSize / 2f)
-                }
+                val bubbleRightEdge = animatedBubbleOffsetX + (bubbleSize / 2f)
                 val rightContentEdgeDp = if (!isCharging && !isUnlock && !isBluetooth && !isRingerMode && animatedBubbleOffsetX > 1.dp) {
-                    maxOf(mainPillRightEdge, bubbleRightEdge)
+                    maxOf(animatedCompactWidth / 2f, bubbleRightEdge)
                 } else {
-                    mainPillRightEdge
+                    animatedCompactWidth / 2f
                 }
                 val rightCenterXPx = with(density) {
                     (rightContentEdgeDp + parenthesisGap + extraShootDp + tipOffsetFromCenter).roundToPx()
@@ -2727,7 +2339,6 @@ fun IslandOverlayRoot(
                 )
             }
         }
-    }
     }
 }
 
@@ -2780,15 +2391,9 @@ fun openAppForPriority(
     media: MediaInfo?,
     notification: NotificationInfo?,
     progress: NotificationInfo?,
-    activeCall: ActiveCallState? = null,
     onDismissNotification: (() -> Unit)? = null
 ) {
     when (priority) {
-        IslandPriority.CALL -> {
-            if (activeCall != null) {
-                launchAppOrIntent(context, activeCall.packageName, activeCall.contentIntent)
-            }
-        }
         IslandPriority.POP_NOTIFICATION -> {
             if (notification != null) {
                 launchAppOrIntent(context, notification.packageName, notification.contentIntent)
@@ -2805,162 +2410,7 @@ fun openAppForPriority(
                 launchAppOrIntent(context, media.packageName, media.sessionActivity)
             }
         }
-        IslandPriority.FPS -> {
-            runCatching {
-                context.startActivity(Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-            }
-        }
-        IslandPriority.NETWORK_SPEED -> {
-            runCatching {
-                context.startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-            }
-        }
         else -> {}
-    }
-}
-
-class TeardropIslandShape(
-    private val topEarRadius: Dp,
-    private val bottomCornerRadius: Dp
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        val w = size.width
-        val h = size.height
-        val earPx = with(density) { topEarRadius.toPx() }.coerceIn(0f, (w * 0.24f).coerceAtLeast(0f))
-        val innerW = (w - 2f * earPx).coerceAtLeast(0f)
-        val bottomR = with(density) { bottomCornerRadius.toPx() }
-            .coerceIn(0f, minOf(innerW / 2f, (h - earPx).coerceAtLeast(0f)))
-
-        val path = Path().apply {
-            moveTo(0f, 0f)
-            // Top-left outward-rounded corner (concave flare from top bezel down into left side)
-            quadraticTo(earPx, 0f, earPx, earPx)
-            // Left vertical side down to bottom-left corner
-            lineTo(earPx, h - bottomR)
-            // Bottom-left rounded corner (convex)
-            quadraticTo(earPx, h, earPx + bottomR, h)
-            // Bottom horizontal edge
-            lineTo(w - earPx - bottomR, h)
-            // Bottom-right rounded corner (convex)
-            quadraticTo(w - earPx, h, w - earPx, h - bottomR)
-            // Right vertical side up to top-right ear
-            lineTo(w - earPx, earPx)
-            // Top-right outward-rounded corner (concave flare back up to top bezel)
-            quadraticTo(w - earPx, 0f, w, 0f)
-            close()
-        }
-        return Outline.Generic(path)
-    }
-}
-
-fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTeardropOutline(
-    topEarRadius: Dp,
-    bottomCornerRadius: Dp,
-    strokeWidth: Dp,
-    color: Color
-) {
-    val w = size.width
-    val h = size.height
-    val strokePx = strokeWidth.toPx()
-    val halfStroke = strokePx / 2f
-    val earPx = topEarRadius.toPx().coerceIn(0f, (w * 0.24f).coerceAtLeast(0f))
-    val innerW = (w - 2f * earPx).coerceAtLeast(0f)
-    val bottomR = bottomCornerRadius.toPx()
-        .coerceIn(0f, minOf(innerW / 2f, (h - earPx - halfStroke).coerceAtLeast(0f)))
-
-    val path = Path().apply {
-        moveTo(0f, halfStroke)
-        quadraticTo(earPx, halfStroke, earPx, earPx)
-        lineTo(earPx, h - bottomR - halfStroke)
-        quadraticTo(earPx, h - halfStroke, earPx + bottomR, h - halfStroke)
-        lineTo(w - earPx - bottomR, h - halfStroke)
-        quadraticTo(w - earPx, h - halfStroke, w - earPx, h - bottomR - halfStroke)
-        lineTo(w - earPx, earPx)
-        quadraticTo(w - earPx, halfStroke, w, halfStroke)
-    }
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(width = strokePx, cap = StrokeCap.Round)
-    )
-}
-
-@Composable
-fun CompactSpinningVinylCover(
-    bitmap: Bitmap?,
-    isPlaying: Boolean,
-    size: Dp,
-    modifier: Modifier = Modifier
-) {
-    val vinylRotation = remember { Animatable(0f) }
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            while (isActive) {
-                val startRot = vinylRotation.value % 360f
-                vinylRotation.snapTo(startRot)
-                vinylRotation.animateTo(
-                    targetValue = startRot + 360f,
-                    animationSpec = tween(durationMillis = 9000, easing = LinearEasing)
-                )
-            }
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .size(size)
-            .graphicsLayer {
-                rotationZ = vinylRotation.value
-            }
-            .clip(CircleShape)
-            .background(Color(0xFF1C1C1E)),
-        contentAlignment = Alignment.Center
-    ) {
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "Vinyl Cover",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.MusicNote,
-                contentDescription = null,
-                tint = Color(0xFFA1A1AA),
-                modifier = Modifier.size(size * 0.52f)
-            )
-        }
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val r = this.size.minDimension / 2f
-            drawCircle(
-                color = Color.White.copy(alpha = 0.24f),
-                radius = r - 0.6.dp.toPx(),
-                style = Stroke(width = 0.9.dp.toPx())
-            )
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.30f),
-                radius = r * 0.66f,
-                style = Stroke(width = 0.75.dp.toPx())
-            )
-            drawCircle(
-                color = Color(0xFF141416).copy(alpha = 0.92f),
-                radius = r * 0.24f
-            )
-            drawCircle(
-                color = Color.White.copy(alpha = 0.72f),
-                radius = r * 0.09f
-            )
-        }
     }
 }
 
@@ -3016,23 +2466,31 @@ fun AuxiliaryBubbleContent(
     recording: ScreenRecordingState,
     fpsInfo: FpsInfo = FpsInfo(),
     weatherInfo: WeatherInfo = WeatherInfo(),
-    networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
-    spinningAlbumArt: Boolean = false
+    networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo()
 ) {
+    // Keep showing the last activity while the bubble animates away, instead of a generic bell
+    val notification = rememberLastNonNull(notification)
     when (priority) {
-        IslandPriority.CALL -> {
-            Icon(
-                imageVector = Icons.Default.Call,
-                contentDescription = "Active Call",
-                tint = Color(0xFF30D158),
-                modifier = Modifier.size(16.dp)
-            )
-        }
         IslandPriority.SCREEN_RECORDING -> {
             PulsingRecordingDot()
         }
         IslandPriority.POP_NOTIFICATION -> {
-            if (notification?.iconBitmap != null) {
+            val liveKind = liveActivityKind(notification)
+            if (notification != null && liveKind == LiveActivityKind.RECORDING) {
+                Icon(Icons.Rounded.Mic, contentDescription = "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(17.dp))
+            } else if (notification != null && liveKind != LiveActivityKind.NONE) {
+                LiveActivityCompactIcon(liveKind, notification)
+            } else if (notification != null && notification.liveTimerBaseMs > 0L) {
+                TimerClockIcon(
+                    baseMs = notification.liveTimerBaseMs,
+                    countDown = notification.liveTimerCountDown,
+                    size = 18.dp,
+                    color = IslandTokens.AccentOrange
+                )
+            } else if (notification?.avatarBitmap != null) {
+                // The sender's photo fills the split bubble, with the same even ring as the pill
+                CompactContactAvatar(notification = notification, centered = true)
+            } else if (notification?.iconBitmap != null) {
                 Image(
                     bitmap = notification.iconBitmap.asImageBitmap(),
                     contentDescription = "Notification Icon",
@@ -3075,22 +2533,17 @@ fun AuxiliaryBubbleContent(
                         text = "${(pct * 100).roundToInt()}",
                         color = Color.White,
                         fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
         }
         IslandPriority.MEDIA -> {
             val displayArt = media?.albumArt ?: media?.appIcon
-            if (spinningAlbumArt) {
-                CompactSpinningVinylCover(
-                    bitmap = displayArt,
-                    isPlaying = media?.isPlaying == true,
-                    size = 24.dp
-                )
-            } else if (displayArt != null) {
-                Image(
-                    bitmap = displayArt.asImageBitmap(),
+            if (displayArt != null) {
+                FlippingCoverArt(
+                    art = displayArt,
+                    trackKey = mediaTrackKey(media),
                     contentDescription = "Media Art",
                     modifier = Modifier
                         .size(18.dp)
@@ -3143,7 +2596,7 @@ fun AuxiliaryBubbleContent(
                     text = "${weatherInfo.temperatureC}°",
                     color = Color(0xFFFF9F0A),
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -3161,327 +2614,356 @@ fun AuxiliaryBubbleContent(
     }
 }
 
+/**
+ * A contact photo in a compact slot, as large as its space allows. Its two limits are the pill's
+ * outer edge and the camera gap: it fills the pill's rounded end with an even ring of black all
+ * round (concentric with the end cap) and never crosses into the camera gap. Both limits set
+ * one diameter and the photo is always laid out square, so when the pill narrows during a morph
+ * it shrinks as a circle instead of being squeezed into an oval (a plain `size()` gave way only
+ * in width).
+ *
+ * [edgeReach] is the row padding between the slot and the pill's edge, which the photo may use.
+ * [centered] fills a round bubble instead of the pill's leading end.
+ */
+@Composable
+private fun CompactContactAvatar(
+    notification: NotificationInfo,
+    edgeReach: Dp = 0.dp,
+    centered: Boolean = false,
+    maxDiameter: Dp = Dp.Infinity
+) {
+    BoxWithConstraints(contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
+        val slotHeight = if (constraints.hasBoundedHeight) maxHeight else 30.dp
+        val ring = (slotHeight * 0.13f).coerceIn(3.dp, 6.dp)
+        val reach = if (centered) 0.dp else (edgeReach - ring).coerceAtLeast(0.dp)
+        val slotWidth = if (!constraints.hasBoundedWidth) slotHeight else if (centered) maxWidth - ring * 2 else maxWidth + reach
+        val diameter = minOf(slotHeight - ring * 2, slotWidth, maxDiameter).coerceAtLeast(0.dp)
+        NotificationAvatar(
+            notification = notification,
+            size = diameter,
+            showAppBadge = false,
+            modifier = Modifier
+                .offset(x = -reach)
+                .wrapContentWidth(if (centered) Alignment.CenterHorizontally else Alignment.Start, unbounded = true)
+                .requiredSize(diameter)
+        )
+    }
+}
+
 @Composable
 fun CompactContent(
     priority: IslandPriority,
     media: MediaInfo?,
     notification: NotificationInfo?,
     recording: ScreenRecordingState,
-    activeCall: ActiveCallState = ActiveCallState(),
     isCompactDual: Boolean = false,
-    isLeftCutout: Boolean = false,
-    isTeardropCutout: Boolean = false,
-    teardropEarInset: Dp = 0.dp,
-    spinningAlbumArt: Boolean = false,
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
     fpsInfo: FpsInfo = FpsInfo(),
     weatherInfo: WeatherInfo = WeatherInfo(),
     networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
-    secondaryPriority: IslandPriority? = null
+    secondaryPriority: IslandPriority? = null,
+    horizontalInset: Dp = 10.dp
 ) {
-    val leadingElement = @Composable {
-        when (priority) {
-            IslandPriority.CALL -> {
-                Icon(
-                    imageVector = Icons.Default.Call,
-                    contentDescription = "Active Call",
-                    tint = Color(0xFF30D158),
-                    modifier = Modifier.size(17.dp)
-                )
-            }
+    // Keep showing the last activity while the pill animates away, instead of a generic bell
+    val notification = rememberLastNonNull(notification)
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = if (isCompactDual) IslandTokens.SpaceSm else horizontalInset),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        // Leading content: Pinned strictly to the left of the camera punch hole
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            when (priority) {
+                IslandPriority.SCREEN_RECORDING -> {
+                    PulsingRecordingDot()
+                }
 
-            IslandPriority.SCREEN_RECORDING -> {
-                PulsingRecordingDot()
-            }
-
-            IslandPriority.FLASHLIGHT -> {
-                Box(
-                    modifier = if (isLeftCutout || isCompactDual) Modifier else Modifier.offset(x = (-4).dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                IslandPriority.FLASHLIGHT -> {
                     Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = 0.50f),
-                                        Color.White.copy(alpha = 0.16f),
-                                        Color.Transparent
-                                    )
-                                ),
-                                shape = CircleShape
+                        modifier = Modifier.offset(x = (-4).dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = 0.50f),
+                                            Color.White.copy(alpha = 0.16f),
+                                            Color.Transparent
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                )
+                        )
+                        Icon(
+                            imageVector = Icons.Default.FlashlightOn,
+                            contentDescription = "Flashlight",
+                            tint = Color.White,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
+
+                IslandPriority.POP_NOTIFICATION -> {
+                    val liveKind = liveActivityKind(notification)
+                    if (notification != null && liveKind != LiveActivityKind.NONE) {
+                        LiveActivityCompactIcon(liveKind, notification)
+                    } else if (notification != null && notification.liveTimerBaseMs > 0L) {
+                        TimerClockIcon(
+                            baseMs = notification.liveTimerBaseMs,
+                            countDown = notification.liveTimerCountDown,
+                            size = 18.dp,
+                            color = IslandTokens.AccentOrange
+                        )
+                    } else if (notification?.avatarBitmap != null || notification?.iconBitmap != null) {
+                        CompactContactAvatar(
+                            notification = notification,
+                            edgeReach = if (isCompactDual) IslandTokens.SpaceSm else horizontalInset,
+                            // A contact photo fills the pill's end; a bare app icon stays icon-sized
+                            maxDiameter = if (notification.avatarBitmap != null) Dp.Infinity else 20.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = Color(0xFFE5E5EA),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                IslandPriority.PROGRESS -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (notification?.iconBitmap != null) {
+                            Image(
+                                bitmap = notification.iconBitmap.asImageBitmap(),
+                                contentDescription = "Download Icon",
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
                             )
-                    )
-                    Icon(
-                        imageVector = Icons.Default.FlashlightOn,
-                        contentDescription = "Flashlight",
-                        tint = Color.White,
-                        modifier = Modifier.size(17.dp)
-                    )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = null,
+                                tint = Color(0xFFE5E5EA),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        if (!isCompactDual) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = notification?.appName ?: "Download",
+                                color = Color(0xFFE5E5EA),
+                                fontSize = IslandTokens.TypeCaption,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
-            }
 
-            IslandPriority.POP_NOTIFICATION -> {
-                if (notification?.iconBitmap != null) {
-                    Image(
-                        bitmap = notification.iconBitmap.asImageBitmap(),
-                        contentDescription = "Notification Icon",
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = Color(0xFFE5E5EA),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            IslandPriority.PROGRESS -> {
-                if (notification?.iconBitmap != null) {
-                    Image(
-                        bitmap = notification.iconBitmap.asImageBitmap(),
-                        contentDescription = "Download Icon",
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = null,
-                        tint = Color(0xFFE5E5EA),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            IslandPriority.MEDIA -> {
-                val displayArt = media?.albumArt ?: media?.appIcon
-                if (spinningAlbumArt) {
-                    CompactSpinningVinylCover(
-                        bitmap = displayArt,
-                        isPlaying = media?.isPlaying == true,
-                        size = 24.dp,
-                        modifier = if (isLeftCutout || isCompactDual) Modifier else Modifier.offset(x = (-4).dp)
-                    )
-                } else if (displayArt != null) {
-                    Image(
-                        bitmap = displayArt.asImageBitmap(),
+                IslandPriority.MEDIA -> {
+                    FlippingCoverArt(
+                        art = media?.albumArt ?: media?.appIcon,
+                        trackKey = mediaTrackKey(media),
                         contentDescription = "Media Art",
                         modifier = Modifier
                             .size(20.dp)
-                            .clip(RoundedCornerShape(5.dp))
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = Color(0xFFA1A1AA),
-                        modifier = Modifier.size(18.dp)
+                            .clip(RoundedCornerShape(5.dp)),
+                        placeholder = {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = Color(0xFFA1A1AA),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     )
                 }
-            }
 
-            IslandPriority.FPS -> {
-                Icon(
-                    imageVector = Icons.Default.Speed,
-                    contentDescription = "FPS",
-                    tint = if (fpsInfo.isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A),
-                    modifier = Modifier.size(15.dp)
-                )
-            }
-
-            IslandPriority.WEATHER -> {
-                val weatherIcon = when {
-                    weatherInfo.condition.contains("Sun", ignoreCase = true) || weatherInfo.condition.contains("Clear", ignoreCase = true) -> Icons.Default.WbSunny
-                    weatherInfo.condition.contains("Rain", ignoreCase = true) -> Icons.Default.WaterDrop
-                    else -> Icons.Default.Cloud
+                IslandPriority.FPS -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Speed,
+                            contentDescription = "FPS",
+                            tint = if (fpsInfo.isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        if (!isCompactDual) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "FPS",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
-                Icon(
-                    imageVector = weatherIcon,
-                    contentDescription = "Weather",
-                    tint = Color(0xFFFF9F0A),
-                    modifier = Modifier.size(15.dp)
-                )
-            }
 
-            IslandPriority.NETWORK_SPEED -> {
-                Icon(
-                    imageVector = if (networkSpeedInfo.isWifi) Icons.Default.Wifi else Icons.Default.ArrowDownward,
-                    contentDescription = "Speed",
-                    tint = Color(0xFF64D2FF),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
+                IslandPriority.WEATHER -> {
+                    val weatherIcon = when {
+                        weatherInfo.condition.contains("Sun", ignoreCase = true) || weatherInfo.condition.contains("Clear", ignoreCase = true) -> Icons.Default.WbSunny
+                        weatherInfo.condition.contains("Rain", ignoreCase = true) -> Icons.Default.WaterDrop
+                        else -> Icons.Default.Cloud
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = weatherIcon,
+                            contentDescription = "Weather",
+                            tint = Color(0xFFFF9F0A),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        if (!isCompactDual) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = weatherInfo.condition,
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
 
-            IslandPriority.IDLE -> Unit
+                IslandPriority.NETWORK_SPEED -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (networkSpeedInfo.isWifi) Icons.Default.Wifi else Icons.Default.ArrowDownward,
+                            contentDescription = "Speed",
+                            tint = Color(0xFF64D2FF),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        if (!isCompactDual) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (networkSpeedInfo.isWifi) "Wi-Fi" else "5G",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                IslandPriority.IDLE -> Unit
+            }
         }
-    }
 
-    val trailingElement = @Composable {
-        when (priority) {
-            IslandPriority.CALL -> {
-                val minutes = activeCall.durationSeconds / 60
-                val seconds = activeCall.durationSeconds % 60
-                Text(
-                    text = String.format(Locale.US, "%02d:%02d", minutes, seconds),
-                    color = Color(0xFF30D158),
-                    fontSize = if (isCompactDual) 10.5.sp else 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
+        // Camera punch-hole deadzone: STRICTLY 36dp EMPTY SPACE IN THE MIDDLE!
+        // No UI elements will EVER enter or overlap the camera cutout area
+        Spacer(modifier = Modifier.width(36.dp))
 
-            IslandPriority.SCREEN_RECORDING -> {
-                val minutes = recording.durationSeconds / 60
-                val seconds = recording.durationSeconds % 60
-                Text(
-                    text = String.format(Locale.US, "%02d:%02d", minutes, seconds),
-                    color = Color(0xFFE5E5EA),
-                    fontSize = if (isCompactDual) 10.5.sp else 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-
-            IslandPriority.FLASHLIGHT -> Unit
-
-            IslandPriority.POP_NOTIFICATION -> {
-                Text(
-                    text = notification?.title ?: "Notification",
-                    color = Color(0xFFE5E5EA),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            IslandPriority.PROGRESS -> {
-                val pct = notification?.progressFraction ?: 0f
-                val isIndet = notification?.isIndeterminate == true
-                if (isIndet) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFFE5E5EA),
-                        trackColor = Color(0xFF2C2C2E)
+        // Trailing content: Pinned strictly to the right of the camera punch hole
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            when (priority) {
+                IslandPriority.SCREEN_RECORDING -> {
+                    val minutes = recording.durationSeconds / 60
+                    val seconds = recording.durationSeconds % 60
+                    RollingNumberText(
+                        text = String.format(Locale.US, "%02d:%02d", minutes, seconds),
+                        color = LiveActivityColors.RecordingRed,
+                        fontSize = IslandTokens.TypeCaption,
+                        fontWeight = FontWeight.SemiBold
                     )
-                } else {
-                    Text(
-                        text = "${(pct * 100).roundToInt()}%",
-                        color = Color(0xFFE5E5EA),
-                        fontSize = 11.sp,
+                }
+
+                IslandPriority.FLASHLIGHT -> Unit
+
+                IslandPriority.POP_NOTIFICATION -> {
+                    val liveKind = liveActivityKind(notification)
+                    val isTimedKind = liveKind != LiveActivityKind.NONE && liveKind != LiveActivityKind.CALL
+                    // Rides show the ETA, scores the score, alerts "Time's up" / the alarm time
+                    val liveTimer = notification?.let { liveCompactText(it, liveKind) }
+                        ?: rememberLiveTimerText(notification)
+                        ?: notification?.takeIf { isTimedKind }?.let { staticLiveTimeText(it) }
+                    // Recorder red, timer blue, call timer green; names and alerts stay white.
+                    // Live values roll digit by digit with steady-width numbers.
+                    RollingNumberText(
+                        text = liveTimer ?: notification?.title ?: "Notification",
+                        color = if (liveKind != LiveActivityKind.NONE && liveTimer != null) LiveActivityColors.accentFor(liveKind) else Color(0xFFE5E5EA),
+                        fontSize = IslandTokens.TypeCaption,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false
+                        countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
                     )
                 }
-            }
 
-            IslandPriority.MEDIA -> {
-                val displayArt = media?.albumArt ?: media?.appIcon
-                val compactAccent = remember(displayArt) { extractMediaAccentColor(displayArt) }
-                val compactEqTint = if (compactAccent != Color.Transparent) {
-                    lerp(Color(0xFFE5E5EA), compactAccent, 0.50f)
-                } else {
-                    Color(0xFFE5E5EA)
+                IslandPriority.PROGRESS -> {
+                    val pct = notification?.progressFraction ?: 0f
+                    val isIndet = notification?.isIndeterminate == true
+                    if (isIndet) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFFE5E5EA),
+                            trackColor = Color(0xFF2C2C2E)
+                        )
+                    } else {
+                        Text(
+                            text = "${(pct * 100).roundToInt()}%",
+                            color = Color(0xFFE5E5EA),
+                            fontSize = IslandTokens.TypeCaption,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
-                EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = compactEqTint)
-            }
 
-            IslandPriority.FPS -> {
-                Text(
-                    text = "${fpsInfo.fps} FPS",
-                    color = if (fpsInfo.isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A),
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
+                IslandPriority.MEDIA -> {
+                    val displayArt = media?.albumArt ?: media?.appIcon
+                    val compactAccent = remember(displayArt) { extractMediaAccentColor(displayArt) }
+                    val compactEqTint = if (compactAccent != Color.Transparent) {
+                        lerp(Color(0xFFE5E5EA), compactAccent, 0.50f)
+                    } else {
+                        Color(0xFFE5E5EA)
+                    }
+                    EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = compactEqTint)
+                }
 
-            IslandPriority.WEATHER -> {
-                Text(
-                    text = "${weatherInfo.temperatureC}°",
-                    color = Color.White,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
+                IslandPriority.FPS -> {
+                    Text(
+                        text = "${fpsInfo.fps} FPS",
+                        color = if (fpsInfo.isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
-            IslandPriority.NETWORK_SPEED -> {
-                Text(
-                    text = "↓ ${networkSpeedInfo.downloadSpeedFormatted}",
-                    color = Color(0xFF64D2FF),
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
+                IslandPriority.WEATHER -> {
+                    Text(
+                        text = "${weatherInfo.temperatureC}°",
+                        color = Color.White,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
-            IslandPriority.IDLE -> Unit
-        }
-    }
+                IslandPriority.NETWORK_SPEED -> {
+                    Text(
+                        text = "↓ ${networkSpeedInfo.downloadSpeedFormatted}",
+                        color = Color(0xFF64D2FF),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
-    if (isLeftCutout) {
-        // Left-sided camera cut-out mode:
-        // Leave left 36dp clear for the camera cut-out, and group both minimised elements together on the right side with slight spacing!
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 38.dp, end = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.End)
-        ) {
-            leadingElement()
-            trailingElement()
-        }
-    } else {
-        val leftWeight = 1f
-        val rightWeight = 1f
-        val startPadding = (if (isCompactDual) 5.5.dp else 8.dp) + teardropEarInset
-        val endPadding = (if (isCompactDual) 7.5.dp else 8.dp) + teardropEarInset
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    start = startPadding,
-                    end = endPadding,
-                    top = if (isTeardropCutout) 2.dp else 0.dp
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Leading content: Pinned strictly to the left of the camera punch hole
-            Box(
-                modifier = Modifier.weight(leftWeight),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                leadingElement()
-            }
-
-            // Camera punch-hole deadzone: STRICTLY 24dp EMPTY SPACE IN THE MIDDLE!
-            // No UI elements will EVER enter or overlap the camera cutout area
-            Spacer(modifier = Modifier.width(24.dp))
-
-            // Trailing content: Pinned strictly to the right of the camera punch hole
-            Box(
-                modifier = Modifier.weight(rightWeight),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                trailingElement()
+                IslandPriority.IDLE -> Unit
             }
         }
     }
@@ -3493,21 +2975,15 @@ fun ExpandedCardContent(
     media: MediaInfo?,
     notification: NotificationInfo?,
     recording: ScreenRecordingState,
-    activeCall: ActiveCallState = ActiveCallState(),
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
     fpsInfo: FpsInfo = FpsInfo(),
     weatherInfo: WeatherInfo = WeatherInfo(),
     networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
     scale: Float = 1.0f,
-    spinningAlbumArt: Boolean = false,
-    wavyProgressBar: Boolean = true,
     onCollapse: () -> Unit
 ) {
     when (priority) {
-        IslandPriority.CALL -> {
-            ExpandedCallView(activeCall, onCollapse, scale)
-        }
         IslandPriority.SCREEN_RECORDING -> {
             ExpandedRecordingView(recording, onCollapse, scale)
         }
@@ -3518,13 +2994,7 @@ fun ExpandedCardContent(
             ExpandedProgressView(notification, onCollapse, scale)
         }
         IslandPriority.MEDIA -> {
-            ExpandedMediaView(
-                media = media,
-                onCollapse = onCollapse,
-                scale = scale,
-                spinningAlbumArt = spinningAlbumArt,
-                wavyProgressBar = wavyProgressBar
-            )
+            ExpandedMediaView(media, onCollapse, scale)
         }
         IslandPriority.FLASHLIGHT -> {
             ExpandedFlashlightView(
@@ -3535,7 +3005,8 @@ fun ExpandedCardContent(
                 onTurnOff = {
                     IslandStateManager.turnOffFlashlight()
                 },
-                onCollapse = onCollapse
+                onCollapse = onCollapse,
+                scale = scale
             )
         }
         IslandPriority.FPS -> {
@@ -3551,7 +3022,7 @@ fun ExpandedCardContent(
             LaunchedEffect(Unit) {
                 onCollapse()
             }
-            ExpandedIdleView(onCollapse)
+            ExpandedIdleView(onCollapse, scale)
         }
     }
 }
@@ -3561,7 +3032,8 @@ fun ExpandedFlashlightView(
     level: Int,
     onSetLevel: (Int) -> Unit,
     onTurnOff: () -> Unit,
-    onCollapse: () -> Unit
+    onCollapse: () -> Unit,
+    scale: Float = 1.0f
 ) {
     val view = LocalView.current
 
@@ -3586,7 +3058,9 @@ fun ExpandedFlashlightView(
     )
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.FLASHLIGHT, scale),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -3780,18 +3254,16 @@ fun ExpandedFlashlightView(
 
         // Bottom section: Large centered flashlight icon (NO dark circle background, NO radial glow)
         // Tapping on this icon turns the flashlight off!
-        val (flashBtnInteraction, flashBtnBounce) = rememberBounceButtonState()
         Box(
             modifier = Modifier
                 .padding(bottom = 8.dp)
                 .size(64.dp)
-                .then(flashBtnBounce)
                 .clickable(
-                    interactionSource = flashBtnInteraction,
+                    interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
+                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                     onTurnOff()
-                    onCollapse()
                 },
             contentAlignment = Alignment.Center
         ) {
@@ -3807,13 +3279,7 @@ fun ExpandedFlashlightView(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpandedMediaView(
-    media: MediaInfo?,
-    onCollapse: () -> Unit,
-    scale: Float = 1.0f,
-    spinningAlbumArt: Boolean = false,
-    wavyProgressBar: Boolean = true
-) {
+fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 1.0f) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isSeeking by remember { mutableStateOf(false) }
@@ -3828,30 +3294,46 @@ fun ExpandedMediaView(
         mutableLongStateOf(media?.computeCurrentPosition() ?: 0L)
     }
 
+    // Players re-report their position with small clock drift; accepting tiny backward steps
+    // made the time and bar twitch. Only real jumps (> 1.5s, i.e. a seek) may go backwards.
+    fun stablePosition(previous: Long): Long {
+        val fresh = media?.computeCurrentPosition() ?: 0L
+        return if (media?.isPlaying == true && fresh < previous && previous - fresh < 1500L) previous else fresh
+    }
+
     LaunchedEffect(media?.isPlaying, media?.positionMs, media?.lastPositionUpdateTimeMs, isSeeking, isSeekPending) {
         if (!isSeeking && !isSeekPending) {
-            livePosition = media?.computeCurrentPosition() ?: 0L
+            livePosition = stablePosition(livePosition)
             if (media?.isPlaying == true) {
                 while (isActive) {
                     kotlinx.coroutines.delay(250)
                     if (!isSeeking && !isSeekPending) {
-                        livePosition = media?.computeCurrentPosition() ?: 0L
+                        livePosition = stablePosition(livePosition)
                     }
                 }
             }
         }
     }
 
+    val latestMedia by rememberUpdatedState(media)
+
     val currentPosition = when {
-        isSeeking -> if (hasValidDuration) (scrubFraction * duration).toLong().coerceIn(0L, duration) else livePosition
+        isSeeking || isSeekPending -> if (hasValidDuration) (scrubFraction * duration).toLong().coerceIn(0L, duration) else livePosition
         else -> livePosition
     }
 
-    val sliderProgress = when {
-        isSeeking -> scrubFraction
+    val rawSliderProgress = when {
         hasValidDuration -> (livePosition.toFloat() / duration).coerceIn(0f, 1f)
         else -> 0f
     }
+    // Glide between the 250ms position ticks instead of stepping (only while playing & expanded)
+    val smoothSliderProgress by animateFloatAsState(
+        targetValue = rawSliderProgress,
+        animationSpec = if (isSeekPending || media?.isPlaying != true) snap() else tween(260, easing = LinearEasing),
+        label = "sliderProgress"
+    )
+    // Until the player confirms the seek, keep showing where the user let go
+    val sliderProgress = if (isSeeking || isSeekPending) scrubFraction else smoothSliderProgress
 
     val displayArt = media?.albumArt ?: media?.appIcon
     val mediaAccentColor = remember(displayArt) { extractMediaAccentColor(displayArt) }
@@ -3898,141 +3380,89 @@ fun ExpandedMediaView(
         Color(0xFF8E8E93)
     }
 
+    // Time labels use tabular digits and a fixed width sized for the longest possible value,
+    // so the seek bar keeps its length while the time ticks or is scrubbed.
+    val timeLabelStyle = LocalTextStyle.current.merge(
+        TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
+    )
+    val timeTextMeasurer = rememberTextMeasurer()
+    val timeLabelTemplate = formatDuration(duration).replace(Regex("[0-9]"), "0")
+    val timeLabelWidth = with(LocalDensity.current) {
+        remember(timeLabelTemplate, timeLabelStyle) {
+            maxOf(
+                timeTextMeasurer.measure(timeLabelTemplate, timeLabelStyle).size.width,
+                timeTextMeasurer.measure("--:--", timeLabelStyle).size.width
+            ).toDp()
+        }
+    }
+
+    val thumbWidth by animateDpAsState(
+        targetValue = if (isSeeking) 5.dp else 3.dp,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        label = "seekThumbWidth"
+    )
+    val thumbHeight by animateDpAsState(
+        targetValue = if (isSeeking) 18.dp else 14.dp,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        label = "seekThumbHeight"
+    )
+
     val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
-    val headerGap = (14.dp * scale).coerceIn(8.dp, 16.dp)
     val titleSize = (17 * scale).coerceIn(14f, 19f).sp
     val artistSize = (13 * scale).coerceIn(11.5f, 15f).sp
-    val sliderGapTop = (8.dp * scale).coerceIn(4.dp, 10.dp)
-    val sliderGapBottom = (4.dp * scale).coerceIn(2.dp, 8.dp)
+    val sliderGapTop = (IslandTokens.SpaceSm * scale).coerceIn(4.dp, 10.dp)
+    val sliderGapBottom = (IslandTokens.SpaceXs * scale).coerceIn(2.dp, 8.dp)
     val prevNextSize = (42.dp * scale).coerceIn(34.dp, 48.dp)
     val prevNextIcon = (24.dp * scale).coerceIn(18.dp, 28.dp)
     val playBtnSize = (50.dp * scale).coerceIn(40.dp, 58.dp)
     val playBtnIcon = (30.dp * scale).coerceIn(22.dp, 36.dp)
     val controlsGap = (20.dp * scale).coerceIn(12.dp, 26.dp)
-
-    val isPlaying = media?.isPlaying == true
-    val vinylFraction by animateFloatAsState(
-        targetValue = if (spinningAlbumArt && isPlaying) 1f else 0f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = 300f),
-        label = "vinylFraction"
-    )
-    val artCornerRadius = 12.dp + ((artSize / 2f) - 12.dp) * vinylFraction
-    val vinylRotation = remember { Animatable(0f) }
-    LaunchedEffect(spinningAlbumArt, isPlaying) {
-        if (spinningAlbumArt && isPlaying) {
-            while (isActive) {
-                val startRot = vinylRotation.value % 360f
-                vinylRotation.snapTo(startRot)
-                vinylRotation.animateTo(
-                    targetValue = startRot + 360f,
-                    animationSpec = tween(durationMillis = 9000, easing = LinearEasing)
-                )
-            }
-        }
-    }
+    val sideControlSize = (36.dp * scale).coerceIn(30.dp, 42.dp)
+    val sideControlIcon = (20.dp * scale).coerceIn(16.dp, 24.dp)
+    val sideControlGap = (10.dp * scale).coerceIn(6.dp, 14.dp)
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.MEDIA, scale),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // Header: Album cover / app icon + Title & Artist + Equalizer
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Album cover (larger, tap to open app and collapse island)
-            Box(
-                modifier = Modifier
-                    .size(artSize)
-                    .graphicsLayer {
-                        if (spinningAlbumArt || vinylFraction > 0.01f) {
-                            rotationZ = vinylRotation.value * vinylFraction
-                        }
-                    }
-                    .clip(RoundedCornerShape(artCornerRadius))
-                    .background(Color(0xFF212121))
-                    .clickable {
-                        launchAppOrIntent(context, media?.packageName, media?.sessionActivity)
-                        onCollapse()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (displayArt != null) {
-                    Image(
-                        bitmap = displayArt.asImageBitmap(),
-                        contentDescription = "Cover Art",
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Radio,
-                        contentDescription = null,
-                        tint = Color(0xFFA1A1AA),
-                        modifier = Modifier.size((28.dp * scale).coerceIn(20.dp, 32.dp))
-                    )
-                }
-
-                if (vinylFraction > 0.02f) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val r = size.minDimension / 2f
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.22f * vinylFraction),
-                            radius = r - 1.dp.toPx(),
-                            style = Stroke(width = 1.2.dp.toPx())
-                        )
-                        drawCircle(
-                            color = Color.Black.copy(alpha = 0.28f * vinylFraction),
-                            radius = r * 0.68f,
-                            style = Stroke(width = 1.dp.toPx())
-                        )
-                        drawCircle(
-                            color = Color(0xFF141416).copy(alpha = 0.90f * vinylFraction),
-                            radius = 6.dp.toPx() * vinylFraction
-                        )
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.65f * vinylFraction),
-                            radius = 2.2.dp.toPx() * vinylFraction
+        IslandHeader(
+            title = media?.title?.ifBlank { "No Media Playing" } ?: "No Media Playing",
+            subtitle = media?.artist?.ifBlank { "Unknown Artist" } ?: "Unknown Artist",
+            titleSize = titleSize,
+            subtitleSize = artistSize,
+            subtitleSpacing = 3.dp,
+            titleMarquee = true,
+            icon = {
+                // Album cover (larger, tap to open app and collapse island); flips on song change
+                FlippingCoverArt(
+                    art = displayArt,
+                    trackKey = mediaTrackKey(media),
+                    modifier = Modifier
+                        .size(artSize)
+                        .clip(RoundedCornerShape(IslandTokens.RadiusChip))
+                        .background(IslandTokens.SurfaceMuted)
+                        .clickable {
+                            launchAppOrIntent(context, media?.packageName, media?.sessionActivity)
+                            onCollapse()
+                        },
+                    placeholder = {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = IslandTokens.TextSecondary,
+                            modifier = Modifier.size((28.dp * scale).coerceIn(20.dp, 32.dp))
                         )
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(headerGap))
-
-            Column(modifier = Modifier.weight(1f)) {
-                // Title with infinite marquee slide
-                Text(
-                    text = media?.title?.ifBlank { "No Media Playing" } ?: "No Media Playing",
-                    color = Color.White,
-                    fontSize = titleSize,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee(
-                        iterations = Int.MAX_VALUE,
-                        initialDelayMillis = 1000,
-                        velocity = 30.dp
-                    )
                 )
-                Spacer(modifier = Modifier.height(3.dp))
-                // Artist with marquee slide
-                Text(
-                    text = media?.artist?.ifBlank { "Unknown Artist" } ?: "Unknown Artist",
-                    color = Color(0xFFA1A1AA),
-                    fontSize = artistSize,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee(
-                        iterations = Int.MAX_VALUE,
-                        initialDelayMillis = 1500,
-                        velocity = 26.dp
-                    )
-                )
+            },
+            trailing = {
+                Spacer(modifier = Modifier.width(IslandTokens.SpaceMd))
+                EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = eqTint)
             }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = eqTint)
-        }
+        )
 
         Spacer(modifier = Modifier.height(sliderGapTop))
 
@@ -4040,108 +3470,92 @@ fun ExpandedMediaView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = IslandTokens.SpaceXs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = formatDuration(currentPosition),
                 color = durationTextTint,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold
+                style = timeLabelStyle,
+                maxLines = 1,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.width(timeLabelWidth)
             )
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(IslandTokens.SpaceMd))
 
-            if (wavyProgressBar) {
-                WavyMediaScrubber(
-                    progress = sliderProgress,
-                    enabled = hasValidDuration,
-                    isPlaying = isPlaying && !isSeeking,
-                    activeColor = sliderActiveTint,
-                    inactiveColor = sliderInactiveTint,
-                    onValueChange = { frac ->
-                        isSeeking = true
-                        scrubFraction = frac
-                    },
-                    onValueChangeFinished = {
-                        if (hasValidDuration) {
-                            val seekTargetMs = (scrubFraction * duration).toLong().coerceIn(0L, duration)
-                            livePosition = seekTargetMs
-                            isSeekPending = true
-                            isSeeking = false
-                            IslandStateManager.onSeekTo?.invoke(seekTargetMs)
-                            coroutineScope.launch {
-                                kotlinx.coroutines.delay(650)
-                                isSeekPending = false
+            Slider(
+                value = sliderProgress,
+                enabled = hasValidDuration,
+                onValueChange = { frac ->
+                    isSeeking = true
+                    scrubFraction = frac
+                },
+                onValueChangeFinished = {
+                    if (hasValidDuration) {
+                        val seekTargetMs = (scrubFraction * duration).toLong().coerceIn(0L, duration)
+                        livePosition = seekTargetMs
+                        isSeekPending = true
+                        isSeeking = false
+                        IslandStateManager.onSeekTo?.invoke(seekTargetMs)
+                        coroutineScope.launch {
+                            // Players often send one more update with the OLD position before the
+                            // seek lands, which made the bar jump back and then forward. Hold the
+                            // released position until the reported one matches (max 2.5s).
+                            val startedAt = android.os.SystemClock.uptimeMillis()
+                            while (true) {
+                                kotlinx.coroutines.delay(100)
+                                val elapsed = android.os.SystemClock.uptimeMillis() - startedAt
+                                val expected = seekTargetMs + if (latestMedia?.isPlaying == true) elapsed else 0L
+                                val reported = latestMedia?.computeCurrentPosition() ?: break
+                                if (elapsed >= 500L && abs(reported - expected) < 1500L) break
+                                if (elapsed >= 2500L) break
                             }
-                        } else {
-                            isSeeking = false
+                            livePosition = latestMedia?.computeCurrentPosition() ?: seekTargetMs
+                            isSeekPending = false
                         }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(22.dp)
-                )
-            } else {
-                Slider(
-                    value = sliderProgress,
-                    enabled = hasValidDuration,
-                    onValueChange = { frac ->
-                        isSeeking = true
-                        scrubFraction = frac
-                    },
-                    onValueChangeFinished = {
-                        if (hasValidDuration) {
-                            val seekTargetMs = (scrubFraction * duration).toLong().coerceIn(0L, duration)
-                            livePosition = seekTargetMs
-                            isSeekPending = true
-                            isSeeking = false
-                            IslandStateManager.onSeekTo?.invoke(seekTargetMs)
-                            coroutineScope.launch {
-                                kotlinx.coroutines.delay(650)
-                                isSeekPending = false
-                            }
-                        } else {
-                            isSeeking = false
-                        }
-                    },
-                    thumb = {
-                        if (hasValidDuration) {
-                            Box(
-                                modifier = Modifier
-                                    .width(3.dp)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(1.5.dp))
-                                    .background(sliderActiveTint)
-                            )
-                        }
-                    },
-                    track = { sliderState ->
-                        SliderDefaults.Track(
-                            sliderState = sliderState,
-                            drawStopIndicator = null,
-                            drawTick = { _, _ -> },
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = sliderActiveTint,
-                                inactiveTrackColor = sliderInactiveTint,
-                                disabledActiveTrackColor = sliderInactiveTint.copy(alpha = 0.5f),
-                                disabledInactiveTrackColor = sliderInactiveTint.copy(alpha = 0.3f)
-                            )
+                    } else {
+                        isSeeking = false
+                    }
+                },
+                thumb = {
+                    if (hasValidDuration) {
+                        Box(
+                            modifier = Modifier
+                                .width(thumbWidth)
+                                .height(thumbHeight)
+                                .clip(RoundedCornerShape(thumbWidth / 2))
+                                .background(sliderActiveTint)
                         )
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(20.dp)
-                )
-            }
+                    }
+                },
+                track = { sliderState ->
+                    SliderDefaults.Track(
+                        sliderState = sliderState,
+                        drawStopIndicator = null,
+                        drawTick = { _, _ -> },
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = sliderActiveTint,
+                            inactiveTrackColor = sliderInactiveTint,
+                            disabledActiveTrackColor = sliderInactiveTint.copy(alpha = 0.5f),
+                            disabledInactiveTrackColor = sliderInactiveTint.copy(alpha = 0.3f)
+                        )
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(20.dp)
+            )
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(IslandTokens.SpaceMd))
 
             Text(
                 text = if (hasValidDuration) formatDuration(duration) else "--:--",
                 color = durationTextTint,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold
+                style = timeLabelStyle,
+                maxLines = 1,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(timeLabelWidth)
             )
         }
 
@@ -4157,12 +3571,27 @@ fun ExpandedMediaView(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BouncyIconButton(
+                // Shuffle: highlighted when on
+                IconButton(
+                    onClick = { IslandStateManager.onToggleShuffle?.invoke() },
+                    modifier = Modifier.size(sideControlSize)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (media?.isShuffleOn == true) sliderActiveTint else controlsTint.copy(alpha = 0.45f),
+                        modifier = Modifier.size(sideControlIcon)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(sideControlGap))
+
+                IconButton(
                     onClick = { IslandStateManager.onSkipPrevious?.invoke() },
                     modifier = Modifier.size(prevNextSize)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.FastRewind,
+                        imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Previous",
                         tint = controlsTint,
                         modifier = Modifier.size(prevNextIcon)
@@ -4171,32 +3600,56 @@ fun ExpandedMediaView(
 
                 Spacer(modifier = Modifier.width(controlsGap))
 
-                BouncyIconButton(
+                IconButton(
                     onClick = { IslandStateManager.onPlayPause?.invoke() },
                     modifier = Modifier
                         .size(playBtnSize)
                         .clip(CircleShape)
                         .background(playButtonBg)
                 ) {
-                    Icon(
-                        imageVector = if (media?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Play/Pause",
-                        tint = playButtonIconTint,
-                        modifier = Modifier.size(playBtnIcon)
-                    )
+                    AnimatedContent(
+                        targetState = media?.isPlaying == true,
+                        transitionSpec = {
+                            (fadeIn(tween(140)) + scaleIn(initialScale = 0.6f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f))) togetherWith
+                                (fadeOut(tween(100)) + scaleOut(targetScale = 0.6f, animationSpec = tween(100)))
+                        },
+                        label = "playPauseIcon"
+                    ) { playing ->
+                        Icon(
+                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = "Play/Pause",
+                            tint = playButtonIconTint,
+                            modifier = Modifier.size(playBtnIcon)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(controlsGap))
 
-                BouncyIconButton(
+                IconButton(
                     onClick = { IslandStateManager.onSkipNext?.invoke() },
                     modifier = Modifier.size(prevNextSize)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.FastForward,
+                        imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next",
                         tint = controlsTint,
                         modifier = Modifier.size(prevNextIcon)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(sideControlGap))
+
+                // Repeat: off -> all -> one
+                IconButton(
+                    onClick = { IslandStateManager.onCycleRepeat?.invoke() },
+                    modifier = Modifier.size(sideControlSize)
+                ) {
+                    Icon(
+                        imageVector = if (media?.repeatMode == MediaInfo.REPEAT_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if ((media?.repeatMode ?: MediaInfo.REPEAT_OFF) != MediaInfo.REPEAT_OFF) sliderActiveTint else controlsTint.copy(alpha = 0.45f),
+                        modifier = Modifier.size(sideControlIcon)
                     )
                 }
             }
@@ -4206,11 +3659,49 @@ fun ExpandedMediaView(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> Unit, scale: Float = 1.0f) {
+    // Native one-row designs for calls, voice recorders, timers and stopwatches
+    val liveKind = liveActivityKind(notification)
+    if (notification != null && liveKind == LiveActivityKind.CALL) {
+        LiveCallView(notification, onCollapse, scale)
+        return
+    }
+    if (notification != null && liveKind != LiveActivityKind.NONE) {
+        LiveActivityNotificationView(notification, liveKind, onCollapse, scale)
+        return
+    }
     val context = LocalContext.current
-    var isReplying by remember { mutableStateOf(false) }
-    var replyText by remember { mutableStateOf("") }
+    var isReplying by remember(notification?.key) { mutableStateOf(false) }
+    var replyText by remember(notification?.key) { mutableStateOf("") }
+    val replyFocusRequester = remember { FocusRequester() }
+    var replyFieldHadFocus by remember(notification?.key) { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    // Keyboard closed with Back / swipe while replying: release focus so the island can
+    // auto-collapse again and stops taking the Back key from the app underneath
+    val imeVisible = WindowInsets.isImeVisible
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeVisible) {
+            imeWasVisible = true
+        } else if (imeWasVisible && isReplying) {
+            imeWasVisible = false
+            focusManager.clearFocus()
+            IslandStateManager.setKeyboardFocused(false)
+        }
+    }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(isReplying) {
+        if (isReplying) {
+            // The island window only becomes focusable once the service reacts to the keyboard
+            // flag, so wait a moment, then focus the field and raise the keyboard
+            delay(180)
+            runCatching { replyFocusRequester.requestFocus() }
+            keyboardController?.show()
+        }
+    }
 
     val replyAction = remember(notification) {
         notification?.actions?.firstOrNull { it.isReply || it.title.contains("Reply", ignoreCase = true) }
@@ -4236,12 +3727,15 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
             }
         }
         if (!launched && !notification?.packageName.isNullOrBlank()) {
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(notification.packageName)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-                context.startActivity(launchIntent)
-            }
+            runCatching {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(notification.packageName)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                    context.startActivity(launchIntent)
+                }
+            }.onFailure { Log.e("ExpandedNotification", "Failed to launch ${notification.packageName}", it) }
         }
+        IslandStateManager.onNotificationOpened()
         onCollapse()
     }
 
@@ -4249,109 +3743,77 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
         if (text.isBlank() || notification == null) return
         IslandStateManager.onSendReply?.invoke(notification.key, text.trim())
         IslandStateManager.setKeyboardFocused(false)
-        IslandStateManager.dismissCurrentNotification()
+        isReplying = false
+        // Folds back to the pill; the card itself stays until the notification is cleared
         onCollapse()
     }
 
-    val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
-    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
-    val titleSize = (17 * scale).coerceIn(14f, 19f).sp
-    val appNameSize = (13 * scale).coerceIn(11.5f, 15f).sp
-    val bodySize = (15 * scale).coerceIn(13f, 17f).sp
-    val bodyLineHeight = (20 * scale).coerceIn(17f, 22f).sp
-    val bodyMaxLines = if (scale < 0.88f) 2 else 3
-    val buttonHeight = (38.dp * scale).coerceIn(32.dp, 44.dp)
-    val buttonFontSize = (13.5f * scale).coerceIn(12f, 15f).sp
+    val metrics = remember(scale) { NotificationCardMetrics(scale) }
+    val iconSize = metrics.iconSize
+    val iconGap = metrics.iconGap
+    val liveTimer = rememberLiveTimerText(notification)
+    val displayTitle = notificationDisplayTitle(notification, liveTimer)
 
+    // Laid out top-down; the card height is measured from this same content
+    // (measureNotificationCardHeight), so there is no leftover gap and buttons never squeeze.
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.POP_NOTIFICATION, scale)
     ) {
         // Top section: Header + Body text
         Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // App icon (tap to open app)
-                Box(
-                    modifier = Modifier
-                        .size(iconSize)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF2C2C2E))
-                        .clickable {
+            IslandHeader(
+                title = displayTitle,
+                subtitle = notification?.appName ?: "",
+                titleSize = metrics.titleSize,
+                subtitleSize = metrics.appNameSize,
+                subtitleSpacing = metrics.subtitleSpacing,
+                iconSpacing = iconGap,
+                titleMarquee = true,
+                // A live timer that isn't already the title (e.g. a call) shows as a chip
+                trailing = if (liveTimer != null && displayTitle != liveTimer) {
+                    { InfoChip(text = liveTimer, dotColor = IslandTokens.AccentRed) }
+                } else null,
+                // Dismiss X removed: swipe the card away or tap outside to collapse.
+                // Tapping the icon or body already opens the notification.
+                icon = {
+                    // Sender picture (WhatsApp contact, SMS sender...) with a small app badge,
+                    // or the app icon for regular alerts. Tap to open.
+                    NotificationAvatar(
+                        notification = notification,
+                        size = iconSize,
+                        modifier = Modifier.clickable {
                             launchAppOrIntent(context, notification?.packageName, notification?.contentIntent)
+                            IslandStateManager.onNotificationOpened()
                             onCollapse()
                         },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (notification?.iconBitmap != null) {
-                        Image(
-                            bitmap = notification.iconBitmap.asImageBitmap(),
-                            contentDescription = "App Icon",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = Color(0xFFE5E5EA),
-                            modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(iconGap))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = notification?.title ?: "Notification",
-                        color = Color.White,
-                        fontSize = titleSize,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-                    )
-                    Text(
-                        text = notification?.appName ?: "",
-                        color = Color(0xFFA1A1AA),
-                        fontSize = appNameSize,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fallback = {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = IslandTokens.ActionPrimaryContainer,
+                                modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))
+                            )
+                        }
                     )
                 }
-
-                BouncyIconButton(
-                    onClick = {
-                        IslandStateManager.setKeyboardFocused(false)
-                        IslandStateManager.dismissCurrentNotification()
-                        onCollapse()
-                    },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Dismiss",
-                        tint = Color(0xFF8E8E93),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            )
 
             if (!notification?.text.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height((6.dp * scale).coerceIn(3.dp, 8.dp)))
+                Spacer(modifier = Modifier.height(metrics.headerBodyGap))
 
                 Text(
                     text = notification?.text ?: "",
-                    color = Color(0xFFF4F4F5),
-                    fontSize = bodySize,
-                    lineHeight = bodyLineHeight,
+                    color = IslandTokens.TextBody,
+                    fontSize = metrics.bodySize,
+                    lineHeight = metrics.bodyLineHeight,
                     fontWeight = FontWeight.Normal,
-                    maxLines = bodyMaxLines,
+                    maxLines = metrics.bodyMaxLines,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(start = iconSize + iconGap)
                         .clickable { openNotification() }
                 )
             }
@@ -4359,9 +3821,10 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
 
         // Action Section: Either Inline Reply Row or Action Buttons
         if (isReplying) {
+            Spacer(modifier = Modifier.height(metrics.actionsGap))
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(metrics.replyRowSpacing)
             ) {
                 // Smart reply choices chips
                 val smartChoices = remember(replyAction) {
@@ -4374,22 +3837,17 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     smartChoices.take(3).forEach { choice ->
-                        val (chipInteraction, chipBounce) = rememberBounceButtonState()
                         Box(
                             modifier = Modifier
-                                .then(chipBounce)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF2C2C2E))
-                                .clickable(
-                                    interactionSource = chipInteraction,
-                                    indication = null
-                                ) { sendReply(choice) }
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                .clickable { sendReply(choice) }
+                                .padding(horizontal = 10.dp, vertical = metrics.replyChipVerticalPadding)
                         ) {
                             Text(
                                 text = choice,
                                 color = Color(0xFFE5E5EA),
-                                fontSize = 12.sp,
+                                fontSize = metrics.replyChipFontSize,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -4400,8 +3858,8 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(21.dp))
+                        .height(metrics.replyInputHeight)
+                        .clip(RoundedCornerShape(metrics.replyInputHeight / 2))
                         .background(Color(0xFF212121))
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -4411,9 +3869,14 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         onValueChange = { replyText = it },
                         modifier = Modifier
                             .weight(1f)
+                            .focusRequester(replyFocusRequester)
                             .onFocusChanged { focusState ->
                                 if (focusState.isFocused) {
+                                    replyFieldHadFocus = true
                                     IslandStateManager.setKeyboardFocused(true)
+                                } else if (replyFieldHadFocus) {
+                                    replyFieldHadFocus = false
+                                    IslandStateManager.setKeyboardFocused(false)
                                 }
                             },
                         textStyle = TextStyle(
@@ -4436,7 +3899,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         }
                     )
 
-                    BouncyIconButton(
+                    IconButton(
                         onClick = { sendReply(replyText) },
                         enabled = replyText.isNotBlank(),
                         modifier = Modifier.size(32.dp)
@@ -4449,7 +3912,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         )
                     }
 
-                    BouncyIconButton(
+                    IconButton(
                         onClick = {
                             isReplying = false
                             IslandStateManager.setKeyboardFocused(false)
@@ -4469,12 +3932,11 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
             // Action Buttons: Taller, dynamically dividing available width equally, spaced by 4dp,
             // with inner corners facing adjacent buttons being squarish
             val actionItems = remember(notification, replyAction) {
-                val list = mutableListOf<NotificationActionItem>()
-                val notifActions = notification?.actions ?: emptyList()
-                notifActions.take(2).forEach { action ->
+                val list = mutableListOf<IslandActionItem>()
+                visibleNotificationActions(notification).forEach { action ->
                     val isThisReply = action == replyAction || action.isReply || action.title.contains("Reply", ignoreCase = true)
                     list.add(
-                        NotificationActionItem(
+                        IslandActionItem(
                             title = action.title,
                             isPrimary = false,
                             onClick = {
@@ -4482,515 +3944,172 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                                     isReplying = true
                                     IslandStateManager.setKeyboardFocused(true)
                                 } else {
-                                    runCatching { action.actionIntent?.send() }
-                                    IslandStateManager.dismissCurrentNotification()
-                                    onCollapse()
+                                    sendIslandPendingIntent(context, action.actionIntent)
+                                    // The card stays while the notification is in the shade: it only ends
+                                    // when swiped away or when the app / user clears the notification
+                                    IslandStateManager.onNotificationActionPressed()
                                 }
                             }
                         )
                     )
                 }
-                list.add(
-                    NotificationActionItem(
-                        title = "Open",
-                        isPrimary = true,
-                        onClick = { openNotification() }
-                    )
-                )
                 list
             }
 
-            val totalButtons = actionItems.size
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                actionItems.forEachIndexed { index, item ->
-                    val shape = when {
-                        totalButtons <= 1 -> RoundedCornerShape(14.dp)
-                        index == 0 -> RoundedCornerShape(
-                            topStart = 14.dp,
-                            bottomStart = 14.dp,
-                            topEnd = 4.dp,
-                            bottomEnd = 4.dp
-                        )
-                        index == totalButtons - 1 -> RoundedCornerShape(
-                            topStart = 4.dp,
-                            bottomStart = 4.dp,
-                            topEnd = 14.dp,
-                            bottomEnd = 14.dp
-                        )
-                        else -> RoundedCornerShape(4.dp)
-                    }
-
-                    BouncyFilledTonalButton(
-                        onClick = item.onClick,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(buttonHeight),
-                        shape = shape,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (item.isPrimary) Color(0xFFE5E5EA) else Color(0xFF2C2C2E),
-                            contentColor = if (item.isPrimary) Color.Black else Color(0xFFF4F4F5)
-                        )
-                    ) {
-                        Text(
-                            text = item.title,
-                            fontSize = buttonFontSize,
-                            fontWeight = if (item.isPrimary) FontWeight.Bold else FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
+            if (actionItems.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(metrics.actionsGap))
+                IslandActionButtonRow(
+                    items = actionItems,
+                    height = metrics.buttonHeight,
+                    fontSize = metrics.buttonFontSize
+                )
             }
         }
     }
 }
-
-private data class NotificationActionItem(
-    val title: String,
-    val isPrimary: Boolean,
-    val onClick: () -> Unit
-)
 
 @Composable
 fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit, scale: Float = 1.0f) {
     val context = LocalContext.current
     val progressFraction = notification?.progressFraction ?: 0f
     val isIndet = notification?.isIndeterminate == true
-    val percentageText = if (isIndet) "" else "${(progressFraction * 100).roundToInt()}%"
+    val m = remember(scale) { ProgressCardMetrics(scale) }
+    val animatedProgress by animateFloatAsState(
+        targetValue = progressFraction,
+        animationSpec = spring(dampingRatio = 0.9f, stiffness = 140f),
+        label = "download_progress"
+    )
 
     fun openProgressApp() {
         launchAppOrIntent(context, notification?.packageName, notification?.contentIntent)
         onCollapse()
     }
 
-    val iconSize = (38.dp * scale).coerceIn(30.dp, 46.dp)
-    val iconGap = (10.dp * scale).coerceIn(8.dp, 14.dp)
-    val titleSize = (15.5f * scale).coerceIn(13.5f, 18f).sp
-    val subtitleSize = (12.5f * scale).coerceIn(11f, 14.5f).sp
-    val circleButtonSize = (46.dp * scale).coerceIn(38.dp, 54.dp)
-    val actionIconSize = (21.dp * scale).coerceIn(17.dp, 25.dp)
-
-    val rawProgressText = notification?.text ?: ""
-    val displayProgressText = remember(rawProgressText, notification?.appName) {
-        var s = rawProgressText.trim()
-        while (s.startsWith("•") || s.startsWith("·") || s.startsWith("-")) {
-            s = s.substring(1).trim()
-        }
-        while (s.endsWith("•") || s.endsWith("·") || s.endsWith("-")) {
-            s = s.substring(0, s.length - 1).trim()
-        }
-        s.ifBlank { notification?.appName?.ifBlank { "In progress..." } ?: "In progress..." }
-    }
-
-    val primaryAction = remember(notification) {
-        notification?.actions?.firstOrNull()
-    }
-
-    val isDestructiveAction = remember(primaryAction) {
-        val t = primaryAction?.title ?: ""
-        t.contains("cancel", ignoreCase = true) ||
-                t.contains("stop", ignoreCase = true) ||
-                t.contains("abort", ignoreCase = true) ||
-                t.contains("delete", ignoreCase = true) ||
-                t.contains("discard", ignoreCase = true) ||
-                t.contains("dismiss", ignoreCase = true)
-    }
-
-    val primaryActionIcon = remember(primaryAction) {
-        val t = primaryAction?.title ?: ""
-        when {
-            t.contains("pause", ignoreCase = true) -> Icons.Default.Pause
-            t.contains("resume", ignoreCase = true) ||
-                    t.contains("play", ignoreCase = true) ||
-                    t.contains("start", ignoreCase = true) ||
-                    t.contains("continue", ignoreCase = true) -> Icons.Default.PlayArrow
-            t.contains("retry", ignoreCase = true) ||
-                    t.contains("restart", ignoreCase = true) -> Icons.Default.Refresh
-            t.contains("stop", ignoreCase = true) -> Icons.Default.Stop
-            t.contains("cancel", ignoreCase = true) ||
-                    t.contains("abort", ignoreCase = true) ||
-                    t.contains("close", ignoreCase = true) ||
-                    t.contains("dismiss", ignoreCase = true) -> Icons.Default.Close
-            else -> Icons.Default.Check
-        }
-    }
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    // Header, detail line, bar and (optional) buttons stacked from the top; the card's height is
+    // measured from exactly these pieces (measureProgressCardHeight), so there's no empty band.
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.PROGRESS, scale)
     ) {
-        // Left section: App Icon + Title/Subtitle + Thin Progress Bar
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 10.dp)
-                .clickable { openProgressApp() },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(iconSize)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF212121)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (notification?.iconBitmap != null) {
-                    Image(
-                        bitmap = notification.iconBitmap.asImageBitmap(),
-                        contentDescription = "App Icon",
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = null,
-                        tint = Color(0xFFE5E5EA),
-                        modifier = Modifier.size((22.dp * scale).coerceIn(17.dp, 26.dp))
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(iconGap))
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = notification?.title?.ifBlank { "Downloading" } ?: "Downloading",
-                    color = Color.White,
-                    fontSize = titleSize,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
+        IslandHeader(
+            title = notification?.title?.ifBlank { "Downloading" } ?: "Downloading",
+            subtitle = notification?.appName ?: "",
+            titleSize = m.titleSize,
+            subtitleSize = m.appNameSize,
+            subtitleSpacing = m.subtitleSpacing,
+            iconSpacing = m.iconGap,
+            titleMarquee = true,
+            icon = {
+                // App icon (tap to open app)
+                Box(
+                    modifier = Modifier
+                        .size(m.iconSize)
+                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
+                        .background(IslandTokens.SurfaceMuted)
+                        .clickable { openProgressApp() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (!isIndet && percentageText.isNotEmpty()) {
-                        Text(
-                            text = percentageText,
-                            color = Color(0xFF64D2FF),
-                            fontSize = subtitleSize,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
+                    if (notification?.iconBitmap != null) {
+                        Image(
+                            bitmap = notification.iconBitmap.asImageBitmap(),
+                            contentDescription = "App Icon",
+                            modifier = Modifier.fillMaxSize()
                         )
-                        Text(
-                            text = " • ",
-                            color = Color(0xFF71717A),
-                            fontSize = subtitleSize,
-                            fontWeight = FontWeight.Medium
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = null,
+                            tint = IslandTokens.ActionPrimaryContainer,
+                            modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))
                         )
                     }
-                    Text(
-                        text = displayProgressText,
-                        color = Color(0xFFA1A1AA),
-                        fontSize = subtitleSize,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                if (isIndet) {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = Color(0xFFE5E5EA),
-                        trackColor = Color(0xFF2C2C2E)
-                    )
-                } else {
-                    LinearProgressIndicator(
-                        progress = { progressFraction },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = Color(0xFFE5E5EA),
-                        trackColor = Color(0xFF2C2C2E)
-                    )
                 }
             }
+        )
+
+        Spacer(modifier = Modifier.height(m.gap))
+
+        val rawProgressText = notification?.text ?: ""
+        val displayProgressText = remember(rawProgressText) { cleanProgressText(rawProgressText) }
+        Text(
+            text = displayProgressText,
+            color = IslandTokens.TextBody,
+            fontSize = m.bodySize,
+            lineHeight = m.bodyLineHeight,
+            fontWeight = FontWeight.Normal,
+            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { openProgressApp() }
+        )
+
+        Spacer(modifier = Modifier.height(m.barGap))
+
+        if (isIndet) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(m.barHeight)
+                    .clip(CircleShape),
+                color = Color(0xFFE5E5EA),
+                trackColor = Color(0xFF2C2C2E)
+            )
+        } else {
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(m.barHeight)
+                    .clip(CircleShape),
+                color = Color(0xFFE5E5EA),
+                trackColor = Color(0xFF2C2C2E),
+                gapSize = 0.dp,
+                drawStopIndicator = {}
+            )
         }
 
-        // Right section: Circular Icon Buttons matching Screen Recording and Call cards
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (primaryAction != null) {
-                BouncyFilledTonalButton(
-                    onClick = {
-                        runCatching { primaryAction.actionIntent?.send() }
-                        if (isDestructiveAction) {
-                            onCollapse()
-                        }
-                    },
-                    modifier = Modifier.size(circleButtonSize),
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = if (isDestructiveAction) Color(0xFFFF453A).copy(alpha = 0.22f) else Color(0xFF2C2C2E),
-                        contentColor = if (isDestructiveAction) Color(0xFFFF453A) else Color(0xFFF4F4F5)
-                    )
-                ) {
-                    Icon(
-                        imageVector = primaryActionIcon,
-                        contentDescription = primaryAction.title,
-                        tint = if (isDestructiveAction) Color(0xFFFF453A) else Color(0xFFF4F4F5),
-                        modifier = Modifier.size(actionIconSize)
-                    )
-                }
-            } else {
-                BouncyFilledTonalButton(
-                    onClick = {
-                        IslandStateManager.dismissProgress()
-                        onCollapse()
-                    },
-                    modifier = Modifier.size(circleButtonSize),
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF2C2C2E),
-                        contentColor = Color(0xFFF4F4F5)
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss",
-                        modifier = Modifier.size(actionIconSize)
-                    )
-                }
-            }
-
-            BouncyFilledTonalButton(
-                onClick = { openProgressApp() },
-                modifier = Modifier.size(circleButtonSize),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color(0xFFE5E5EA),
-                    contentColor = Color.Black
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.OpenInNew,
-                    contentDescription = "Open",
-                    tint = Color.Black,
-                    modifier = Modifier.size(actionIconSize)
+        val actionItems = remember(notification) {
+            progressActions(notification).map { action ->
+                IslandActionItem(
+                    title = action.title,
+                    isPrimary = false,
+                    onClick = { runCatching { action.actionIntent?.send() } }
                 )
             }
+        }
+        if (actionItems.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(m.actionsGap))
+            IslandActionButtonRow(
+                items = actionItems,
+                height = m.buttonHeight,
+                fontSize = m.buttonFontSize
+            )
         }
     }
 }
 
 @Composable
 fun ExpandedRecordingView(recording: ScreenRecordingState, onCollapse: () -> Unit, scale: Float = 1.0f) {
-    val minutes = recording.durationSeconds / 60
-    val seconds = recording.durationSeconds % 60
-    val timerText = String.format(Locale.US, "%02d:%02d", minutes, seconds)
-    val timerSize = (22 * scale).coerceIn(18f, 26f).sp
-    val circleButtonSize = (46.dp * scale).coerceIn(38.dp, 54.dp)
-    val iconSize = (22.dp * scale).coerceIn(18.dp, 26.dp)
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
-        ) {
-            PulsingRecordingDot(modifier = Modifier.size(11.dp))
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = timerText,
-                color = Color.White,
-                fontSize = timerSize,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                maxLines = 1
-            )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BouncyFilledTonalButton(
-                onClick = {
-                    IslandStateManager.onTogglePauseRecording?.invoke()
-                },
-                modifier = Modifier.size(circleButtonSize),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color(0xFF2C2C2E),
-                    contentColor = Color(0xFFF4F4F5)
-                )
-            ) {
-                Icon(
-                    imageVector = if (recording.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                    contentDescription = if (recording.isPaused) "Resume" else "Pause",
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-
-            BouncyFilledTonalButton(
-                onClick = {
-                    IslandStateManager.onStopRecording?.invoke()
-                    onCollapse()
-                },
-                modifier = Modifier.size(circleButtonSize),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color(0xFFFF453A).copy(alpha = 0.22f),
-                    contentColor = Color(0xFFFF453A)
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Stop,
-                    contentDescription = "Stop",
-                    tint = Color(0xFFFF453A),
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-        }
-    }
+    // Same native design as voice recorders: red time, waveform, pause / resume and stop
+    LiveRecordingRow(
+        timeText = formatTimerText(recording.durationSeconds * 1000L),
+        isPaused = recording.isPaused,
+        scale = scale,
+        onOpen = onCollapse,
+        onPauseResume = IslandStateManager.onTogglePauseRecording?.let { toggle -> { toggle() } },
+        onStop = { IslandStateManager.onStopRecording?.invoke() }
+    )
 }
 
 @Composable
-fun ExpandedCallView(activeCall: ActiveCallState, onCollapse: () -> Unit, scale: Float = 1.0f) {
-    val context = LocalContext.current
-    val minutes = activeCall.durationSeconds / 60
-    val seconds = activeCall.durationSeconds % 60
-    val timerText = String.format(Locale.US, "%02d:%02d", minutes, seconds)
-    val callerSize = (16 * scale).coerceIn(14f, 19f).sp
-    val timerSize = (13.5f * scale).coerceIn(12f, 16f).sp
-    val circleButtonSize = (46.dp * scale).coerceIn(38.dp, 54.dp)
-    val iconSize = (22.dp * scale).coerceIn(18.dp, 26.dp)
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 10.dp)
-                .clickable {
-                    launchAppOrIntent(context, activeCall.packageName, activeCall.contentIntent)
-                    onCollapse()
-                },
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = activeCall.callerName.ifBlank { "Active Call" },
-                color = Color.White,
-                fontSize = callerSize,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Call,
-                    contentDescription = null,
-                    tint = Color(0xFF30D158),
-                    modifier = Modifier.size(13.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = timerText,
-                    color = Color(0xFF30D158),
-                    fontSize = timerSize,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.5.sp,
-                    maxLines = 1
-                )
-            }
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BouncyFilledTonalButton(
-                onClick = {
-                    IslandStateManager.onToggleCallMuteOrSpeaker?.invoke()
-                },
-                modifier = Modifier.size(circleButtonSize),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (activeCall.isMuted) Color.White else Color(0xFF2C2C2E),
-                    contentColor = if (activeCall.isMuted) Color.Black else Color(0xFFF4F4F5)
-                )
-            ) {
-                val secondaryIcon = when {
-                    activeCall.isSpeaker -> Icons.Default.VolumeUp
-                    activeCall.isMuted -> Icons.Default.MicOff
-                    else -> Icons.Default.Mic
-                }
-                Icon(
-                    imageVector = secondaryIcon,
-                    contentDescription = if (activeCall.isSpeaker) "Speaker" else if (activeCall.isMuted) "Unmute" else "Mute",
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-
-            BouncyFilledTonalButton(
-                onClick = {
-                    IslandStateManager.onEndCall?.invoke()
-                    onCollapse()
-                },
-                modifier = Modifier.size(circleButtonSize),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color(0xFFFF453A),
-                    contentColor = Color.White
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CallEnd,
-                    contentDescription = "End Call",
-                    tint = Color.White,
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun ExpandedIdleView(onCollapse: () -> Unit) {
+fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.IDLE, scale),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -4998,7 +4117,7 @@ fun ExpandedIdleView(onCollapse: () -> Unit) {
             text = "Droidbubble Island",
             color = Color.White,
             fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -5007,11 +4126,11 @@ fun ExpandedIdleView(onCollapse: () -> Unit) {
             fontSize = 12.sp
         )
         Spacer(modifier = Modifier.height(12.dp))
-        BouncyFilledTonalButton(
+        FilledTonalButton(
             onClick = onCollapse,
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = Color(0xFF2C2C2E),
+                containerColor = IslandTokens.ActionSecondaryContainer,
                 contentColor = Color.White
             )
         ) {
@@ -5042,105 +4161,65 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * Three-bar equalizer (bass / mids / treble) driven by the real audio the phone is playing.
+ * Falls back to a gentle animation when output capture isn't available (no mic permission, or
+ * the device blocks it). Frames only run while playing.
+ */
 @Composable
 fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = Color(0xFFE5E5EA)) {
-    if (!isPlaying) {
-        // Zero CPU usage when paused: render static equalizer bars without triggering infinite frame recompositions
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            modifier = Modifier.height(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height((16 * 0.3f).dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(barColor)
-            )
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height((16 * 0.5f).dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(barColor)
-            )
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height((16 * 0.2f).dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(barColor)
+    OutputAudioBandsEffect(active = isPlaying)
+    val idle = remember { floatArrayOf(0.3f, 0.5f, 0.2f) }
+    val shown = remember { idle.copyOf() }
+    var frame by remember { mutableIntStateOf(0) }
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) {
+            idle.copyInto(shown)
+            frame++
+            return@LaunchedEffect
+        }
+        val start = withInfiniteAnimationFrameMillis { it }
+        var tickCount = 0
+        while (true) {
+            withInfiniteAnimationFrameMillis { now ->
+                // Battery Saver: redraw every other frame
+                if (AudioPowerPolicy.lowPower && (tickCount++ and 1) == 1) return@withInfiniteAnimationFrameMillis
+                val t = (now - start) / 1000f
+                val real = OutputAudioBands.hasSignal
+                for (i in shown.indices) {
+                    val target = if (real) {
+                        0.14f + 0.86f * OutputAudioBands.bands[i]
+                    } else {
+                        0.55f + 0.4f * kotlin.math.sin(t * EQ_FAKE_SPEED[i] + i * 1.7f)
+                    }
+                    // Fast attack, slower release, like a real level meter
+                    val k = if (target > shown[i]) 0.5f else 0.16f
+                    shown[i] += (target - shown[i]) * k
+                }
+                frame++
+            }
+        }
+    }
+    Canvas(modifier = Modifier.width(13.dp).height(16.dp)) {
+        frame // redraw on every animation step
+        val barW = 3.dp.toPx()
+        val gap = 2.dp.toPx()
+        val radius = androidx.compose.ui.geometry.CornerRadius(barW / 2f)
+        for (i in shown.indices) {
+            val h = (size.height * shown[i].coerceIn(0.12f, 1f))
+            drawRoundRect(
+                color = barColor,
+                topLeft = Offset(i * (barW + gap), (size.height - h) / 2f),
+                size = androidx.compose.ui.geometry.Size(barW, h),
+                cornerRadius = radius
             )
         }
-        return
-    }
-
-    val transition = rememberInfiniteTransition(label = "eq_bars")
-
-    val h1 by transition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(450, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h1"
-    )
-    val h2 by transition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(380, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h2"
-    )
-    val h3 by transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(520, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h3"
-    )
-
-    val currentH1 = if (isPlaying) h1 else 0.3f
-    val currentH2 = if (isPlaying) h2 else 0.5f
-    val currentH3 = if (isPlaying) h3 else 0.2f
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = Modifier.height(16.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height((16 * currentH1).dp)
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(barColor)
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height((16 * currentH2).dp)
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(barColor)
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height((16 * currentH3).dp)
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(barColor)
-        )
     }
 }
 
+private val EQ_FAKE_SPEED = floatArrayOf(7.0f, 8.3f, 6.0f)
+
 private fun formatDuration(millis: Long): String {
-    if (millis <= 0L) return "0:00"
     val totalSeconds = (millis / 1000).coerceAtLeast(0)
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
@@ -5149,302 +4228,6 @@ private fun formatDuration(millis: Long): String {
         String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
         String.format(Locale.US, "%02d:%02d", minutes, seconds)
-    }
-}
-
-@Composable
-fun MediaBottomWaveOverlay(
-    accentColor: Color,
-    isPlaying: Boolean,
-    alphaMultiplier: Float = 1f,
-    modifier: Modifier = Modifier
-) {
-    val waveColor = if (accentColor != Color.Transparent) {
-        lerp(accentColor, Color.White, 0.14f)
-    } else {
-        Color(0xFF64D2FF)
-    }
-
-    val ampFraction by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else 0.22f,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 200f),
-        label = "waveAmpFraction"
-    )
-
-    val phase = if (isPlaying) {
-        val transition = rememberInfiniteTransition(label = "media_bottom_wave")
-        val p by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = (2.0 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 3600, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "wavePhase"
-        )
-        p
-    } else {
-        0.85f
-    }
-
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        if (w <= 0f || h <= 0f || alphaMultiplier <= 0.01f) return@Canvas
-
-        val steps = 40
-        val stepX = w / steps
-
-        fun buildSineWavePath(
-            baseYFraction: Float,
-            ampDp: Float,
-            freq1: Float,
-            phaseMul1: Float,
-            freq2: Float,
-            phaseMul2: Float
-        ): Path {
-            val path = Path()
-            val baseY = h * baseYFraction
-            val ampPx = ampDp.dp.toPx() * ampFraction
-            path.moveTo(0f, h)
-            for (i in 0..steps) {
-                val x = i * stepX
-                val normX = i.toFloat() / steps
-                val angle1 = normX * freq1 * (2f * PI.toFloat()) + phase * phaseMul1
-                val angle2 = normX * freq2 * (2f * PI.toPxOrFloat()) - phase * phaseMul2
-                val y = baseY + sin(angle1) * ampPx + sin(angle2) * (ampPx * 0.45f)
-                path.lineTo(x, y)
-            }
-            path.lineTo(w, h)
-            path.close()
-            return path
-        }
-
-        // Back atmospheric wave
-        val backWave = buildSineWavePath(
-            baseYFraction = 0.54f,
-            ampDp = 8.5f,
-            freq1 = 1.15f,
-            phaseMul1 = 1.0f,
-            freq2 = 2.1f,
-            phaseMul2 = 1.0f
-        )
-        drawPath(
-            path = backWave,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    waveColor.copy(alpha = 0.04f * alphaMultiplier),
-                    waveColor.copy(alpha = 0.16f * alphaMultiplier),
-                    waveColor.copy(alpha = 0.28f * alphaMultiplier)
-                ),
-                startY = h * 0.42f,
-                endY = h
-            )
-        )
-
-        // Mid harmonic wave
-        val midWave = buildSineWavePath(
-            baseYFraction = 0.65f,
-            ampDp = 6.5f,
-            freq1 = 1.45f,
-            phaseMul1 = -1.0f,
-            freq2 = 2.6f,
-            phaseMul2 = -1.0f
-        )
-        drawPath(
-            path = midWave,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    waveColor.copy(alpha = 0.08f * alphaMultiplier),
-                    waveColor.copy(alpha = 0.24f * alphaMultiplier),
-                    waveColor.copy(alpha = 0.38f * alphaMultiplier)
-                ),
-                startY = h * 0.54f,
-                endY = h
-            )
-        )
-
-        // Front crest wave with soft luminous rim
-        val frontWave = Path()
-        val frontCrest = Path()
-        val frontBaseY = h * 0.76f
-        val frontAmpPx = 5.0.dp.toPx() * ampFraction
-        frontWave.moveTo(0f, h)
-        for (i in 0..steps) {
-            val x = i * stepX
-            val normX = i.toFloat() / steps
-            val angle1 = normX * 1.85f * (2f * PI.toFloat()) + phase * 2.0f + 1.1f
-            val angle2 = normX * 0.9f * (2f * PI.toFloat()) - phase * 1.0f
-            val y = frontBaseY + sin(angle1) * frontAmpPx + sin(angle2) * (frontAmpPx * 0.35f)
-            frontWave.lineTo(x, y)
-            if (i == 0) frontCrest.moveTo(x, y) else frontCrest.lineTo(x, y)
-        }
-        frontWave.lineTo(w, h)
-        frontWave.close()
-
-        drawPath(
-            path = frontWave,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    waveColor.copy(alpha = 0.14f * alphaMultiplier),
-                    waveColor.copy(alpha = 0.34f * alphaMultiplier),
-                    waveColor.copy(alpha = 0.48f * alphaMultiplier)
-                ),
-                startY = h * 0.66f,
-                endY = h
-            )
-        )
-
-        drawPath(
-            path = frontCrest,
-            color = lerp(waveColor, Color.White, 0.38f).copy(alpha = 0.36f * alphaMultiplier * ampFraction),
-            style = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round)
-        )
-    }
-}
-
-private fun Double.toPxOrFloat(): Float = this.toFloat()
-
-@Composable
-fun WavyMediaScrubber(
-    progress: Float,
-    enabled: Boolean,
-    isPlaying: Boolean,
-    activeColor: Color,
-    inactiveColor: Color,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val currentOnValueChange by rememberUpdatedState(onValueChange)
-    val currentOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
-
-    val waveAmpFraction by animateFloatAsState(
-        targetValue = if (isPlaying && enabled) 1f else 0f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = 260f),
-        label = "scrubberWaveAmp"
-    )
-
-    val phase = if (isPlaying && enabled) {
-        val transition = rememberInfiniteTransition(label = "wavy_scrubber_phase")
-        val p by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = (2.0 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1250, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "scrubberPhase"
-        )
-        p
-    } else {
-        0f
-    }
-
-    Canvas(
-        modifier = modifier
-            .then(
-                if (enabled) {
-                    Modifier.pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val w = size.width.toFloat()
-                            if (w > 0f) {
-                                val frac = (down.position.x / w).coerceIn(0f, 1f)
-                                currentOnValueChange(frac)
-                            }
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull() ?: break
-                                if (!change.pressed) break
-                                change.consume()
-                                val currentW = size.width.toFloat()
-                                if (currentW > 0f) {
-                                    val frac = (change.position.x / currentW).coerceIn(0f, 1f)
-                                    currentOnValueChange(frac)
-                                }
-                            }
-                            currentOnValueChangeFinished()
-                        }
-                    }
-                } else Modifier
-            )
-    ) {
-        val w = size.width
-        val h = size.height
-        if (w <= 0f || h <= 0f) return@Canvas
-
-        val centerY = h / 2f
-        val clampedProgress = progress.coerceIn(0f, 1f)
-        val thumbX = w * clampedProgress
-        val strokeW = 3.2.dp.toPx()
-        val wavelengthPx = 20.dp.toPx()
-        val maxAmpPx = 2.7.dp.toPx() * waveAmpFraction
-
-        // Inactive flat track from thumbX to w
-        if (thumbX < w - 2.dp.toPx()) {
-            drawLine(
-                color = if (enabled) inactiveColor else inactiveColor.copy(alpha = 0.35f),
-                start = Offset((thumbX + 4.dp.toPx()).coerceAtMost(w), centerY),
-                end = Offset(w, centerY),
-                strokeWidth = strokeW,
-                cap = StrokeCap.Round
-            )
-        }
-
-        // Active wavy (or flat when paused) track from 0 to thumbX
-        if (thumbX > 1.dp.toPx()) {
-            if (maxAmpPx < 0.15f) {
-                drawLine(
-                    color = if (enabled) activeColor else inactiveColor.copy(alpha = 0.5f),
-                    start = Offset(0f, centerY),
-                    end = Offset(thumbX, centerY),
-                    strokeWidth = strokeW,
-                    cap = StrokeCap.Round
-                )
-            } else {
-                val wavePath = Path()
-                val stepPx = 2.dp.toPx().coerceAtLeast(1.5f)
-                var x = 0f
-                var first = true
-                while (x <= thumbX) {
-                    // Taper wave amplitude near the ends so it meets the thumb and start cleanly
-                    val distFromStart = (x / 8.dp.toPx()).coerceIn(0f, 1f)
-                    val distFromThumb = ((thumbX - x) / 8.dp.toPx()).coerceIn(0f, 1f)
-                    val envelope = distFromStart * distFromThumb
-                    val angle = (x / wavelengthPx) * (2f * PI.toFloat()) - phase
-                    val y = centerY + sin(angle) * maxAmpPx * envelope
-                    if (first) {
-                        wavePath.moveTo(x, y)
-                        first = false
-                    } else {
-                        wavePath.lineTo(x, y)
-                    }
-                    x += stepPx
-                }
-                wavePath.lineTo(thumbX, centerY)
-                drawPath(
-                    path = wavePath,
-                    color = activeColor,
-                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                )
-            }
-        }
-
-        // Vertical pill thumb
-        if (enabled) {
-            val thumbW = 3.2.dp.toPx()
-            val thumbH = 14.dp.toPx()
-            drawRoundRect(
-                color = activeColor,
-                topLeft = Offset(
-                    x = (thumbX - thumbW / 2f).coerceIn(0f, (w - thumbW).coerceAtLeast(0f)),
-                    y = centerY - thumbH / 2f
-                ),
-                size = androidx.compose.ui.geometry.Size(thumbW, thumbH),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(thumbW / 2f, thumbW / 2f)
-            )
-        }
     }
 }
 
@@ -5479,82 +4262,108 @@ fun ExpandedFpsView(
     onCollapse: () -> Unit,
     scale: Float = 1.0f
 ) {
-    val context = LocalContext.current
+    val targetHz = fpsInfo.refreshRateHz.coerceAtLeast(60)
+    val fpsFraction = (fpsInfo.fps.toFloat() / targetHz).coerceIn(0f, 1f)
     val isSmooth = fpsInfo.isSmooth
     val statusColor = if (isSmooth) Color(0xFF30D158) else Color(0xFFFFD60A)
 
-    val iconSize = (32.dp * scale).coerceIn(26.dp, 38.dp)
-    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
-    val numberSize = (24f * scale).coerceIn(20f, 28f).sp
-    val subtitleSize = (13f * scale).coerceIn(11.5f, 15f).sp
-    val circleButtonSize = (46.dp * scale).coerceIn(38.dp, 54.dp)
-    val actionIconSize = (22.dp * scale).coerceIn(18.dp, 26.dp)
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.FPS, scale)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
+        // Top section: Feature icon + Title / Subtitle + Top-Right Status Chip
+        IslandHeader(
+            title = "Display Frame Rate",
+            subtitle = "${targetHz} Hz Refresh Target",
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
+                        .background(IslandTokens.SurfaceMuted),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Speed,
+                        contentDescription = "FPS",
+                        tint = statusColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            },
+            trailing = {
+                InfoChip(
+                    text = "${fpsInfo.fps} FPS",
+                    dotColor = statusColor
+                )
+            }
+        )
+
+        // Center section: Minimal horizontal frame timing progress bar
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(end = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Speed,
-                contentDescription = "FPS",
-                tint = statusColor,
-                modifier = Modifier.size(iconSize)
-            )
-
-            Spacer(modifier = Modifier.width(iconGap))
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${fpsInfo.fps}",
-                    color = statusColor,
-                    fontSize = numberSize,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
-                    maxLines = 1
-                )
-
-                Text(
-                    text = "FPS",
+                    text = "Frame Pacing",
                     color = Color(0xFFA1A1AA),
-                    fontSize = subtitleSize,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = if (isSmooth) "Smooth" else "Drop Detected",
+                    color = statusColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2C2C2E)),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fpsFraction)
+                        .clip(CircleShape)
+                        .background(statusColor)
                 )
             }
         }
 
-        BouncyFilledTonalButton(
-            onClick = {
-                runCatching {
-                    context.startActivity(Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                }
-                onCollapse()
-            },
-            modifier = Modifier.size(circleButtonSize),
-            shape = CircleShape,
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = Color(0xFFE5E5EA),
-                contentColor = Color.Black
-            )
+        // Bottom section: Clean inline metadata
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.OpenInNew,
-                contentDescription = "Display Settings",
-                tint = Color.Black,
-                modifier = Modifier.size(actionIconSize)
+            Text(
+                text = String.format(Locale.US, "Latency: %.1f ms", fpsInfo.frameTimeMs),
+                color = Color(0xFFA1A1AA),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${targetHz} Hz Display",
+                color = Color(0xFFA1A1AA),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -5575,74 +4384,127 @@ fun ExpandedWeatherView(
     }
     val iconTint = if (weatherIcon == Icons.Default.WbSunny) Color(0xFFFFD60A) else Color(0xFF64D2FF)
 
-    val iconSize = (32.dp * scale).coerceIn(26.dp, 38.dp)
-    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
-    val tempSize = (24f * scale).coerceIn(20f, 28f).sp
-    val subtitleSize = (13f * scale).coerceIn(11.5f, 15f).sp
-    val circleButtonSize = (46.dp * scale).coerceIn(38.dp, 54.dp)
-    val actionIconSize = (22.dp * scale).coerceIn(18.dp, 26.dp)
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.WEATHER, scale)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        // Top section: Feature icon + City / Condition + Temp & H/L Badge
+        IslandHeader(
+            title = weatherInfo.cityName.ifBlank { "Local Weather" },
+            subtitle = weatherInfo.condition.ifBlank { "Partly Cloudy" },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
+                        .background(IslandTokens.SurfaceMuted),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = weatherIcon,
+                        contentDescription = "Weather",
+                        tint = iconTint,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            },
+            trailing = {
+                InfoChip {
+                    Text(
+                        text = "${weatherInfo.temperatureC}°",
+                        color = IslandTokens.TextPrimary,
+                        fontSize = IslandTokens.TypeBody,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "H:${weatherInfo.highC}° L:${weatherInfo.lowC}°",
+                        color = IslandTokens.TextSecondary,
+                        fontSize = IslandTokens.TypeMicro,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        )
+
+        // Center section: Minimal 5-hour micro forecast strip
         Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(end = 10.dp),
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF1C1C1E))
+                .padding(vertical = 7.dp, horizontal = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = weatherIcon,
-                contentDescription = "Weather",
-                tint = iconTint,
-                modifier = Modifier.size(iconSize)
-            )
-
-            Spacer(modifier = Modifier.width(iconGap))
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "${weatherInfo.temperatureC}°C",
-                    color = Color(0xFFFF9F0A),
-                    fontSize = tempSize,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
-                    maxLines = 1
+            val forecast = if (weatherInfo.hourlyForecast.isNotEmpty()) {
+                weatherInfo.hourlyForecast.take(5)
+            } else {
+                listOf(
+                    HourlyWeather("Now", weatherInfo.temperatureC, weatherInfo.condition),
+                    HourlyWeather("+1h", weatherInfo.temperatureC, weatherInfo.condition),
+                    HourlyWeather("+2h", weatherInfo.temperatureC, weatherInfo.condition),
+                    HourlyWeather("+3h", weatherInfo.temperatureC, weatherInfo.condition),
+                    HourlyWeather("+4h", weatherInfo.temperatureC, weatherInfo.condition)
                 )
-
-                Text(
-                    text = "${weatherInfo.cityName.ifBlank { "Local Weather" }} • ${weatherInfo.condition.ifBlank { "Clear" }}",
-                    color = Color(0xFFA1A1AA),
-                    fontSize = subtitleSize,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-                )
+            }
+            forecast.forEach { hour ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = hour.timeLabel,
+                        color = Color(0xFFA1A1AA),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "${hour.tempC}°",
+                        color = Color.White,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
-        BouncyFilledTonalButton(
-            onClick = {
-                IslandStateManager.onRefreshWeather?.invoke()
-            },
-            modifier = Modifier.size(circleButtonSize),
-            shape = CircleShape,
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = Color(0xFF2C2C2E),
-                contentColor = Color(0xFFF4F4F5)
-            )
+        // Bottom section: Clean inline stats: Humidity, Wind, UV
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = "Refresh Weather",
-                modifier = Modifier.size(actionIconSize)
+            Text(
+                text = "Humidity: ${weatherInfo.humidityPct}%",
+                color = IslandTokens.TextSecondary,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "•",
+                color = IslandTokens.SurfaceDivider,
+                fontSize = IslandTokens.TypeMicro
+            )
+            Text(
+                text = "Wind: ${weatherInfo.windKmh} km/h",
+                color = IslandTokens.TextSecondary,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "•",
+                color = IslandTokens.SurfaceDivider,
+                fontSize = IslandTokens.TypeMicro
+            )
+            Text(
+                text = "UV Index: ${weatherInfo.uvIndex}",
+                color = IslandTokens.TextSecondary,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -5654,82 +4516,196 @@ fun ExpandedNetworkSpeedView(
     onCollapse: () -> Unit,
     scale: Float = 1.0f
 ) {
-    val context = LocalContext.current
-    val iconSize = (32.dp * scale).coerceIn(26.dp, 38.dp)
-    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
-    val speedSize = (22f * scale).coerceIn(18.5f, 26f).sp
-    val subtitleSize = (13f * scale).coerceIn(11.5f, 15f).sp
-    val circleButtonSize = (46.dp * scale).coerceIn(38.dp, 54.dp)
-    val actionIconSize = (22.dp * scale).coerceIn(18.dp, 26.dp)
-    val cyanAccent = Color(0xFF64D2FF)
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .islandCardContentPadding(IslandPriority.NETWORK_SPEED, scale)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        // Top section: Feature icon + Network label / Latency + Top-right online chip
+        IslandHeader(
+            title = networkSpeedInfo.networkLabel.ifBlank { "Network Traffic" },
+            subtitle = if (networkSpeedInfo.linkDownMbps > 0) "Link ~${networkSpeedInfo.linkDownMbps} Mbps" else "Live traffic",
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
+                        .background(IslandTokens.SurfaceMuted),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (networkSpeedInfo.isWifi) Icons.Default.Wifi else Icons.Default.SignalCellularAlt,
+                        contentDescription = "Network",
+                        tint = IslandTokens.AccentBlue,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            },
+            trailing = {
+                InfoChip(
+                    text = "Online",
+                    dotColor = IslandTokens.AccentGreen
+                )
+            }
+        )
+
+        // Center section: Dual minimal cards for Download & Upload (Apple style)
         Row(
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = if (networkSpeedInfo.isWifi) Icons.Default.Wifi else Icons.Default.SignalCellularAlt,
-                contentDescription = "Network",
-                tint = cyanAccent,
-                modifier = Modifier.size(iconSize)
-            )
-
-            Spacer(modifier = Modifier.width(iconGap))
-
-            Column(
+            // Download Card
+            Surface(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF1C1C1E)
             ) {
-                Text(
-                    text = "↓ ${networkSpeedInfo.downloadSpeedFormatted}",
-                    color = cyanAccent,
-                    fontSize = speedSize,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDownward,
+                            contentDescription = "Download",
+                            tint = Color(0xFF64D2FF),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Download",
+                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA))
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = networkSpeedInfo.downloadSpeedFormatted,
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    )
+                }
+            }
 
-                Text(
-                    text = "↑ ${networkSpeedInfo.uploadSpeedFormatted} • ${networkSpeedInfo.networkLabel.ifBlank { "Network" }}",
-                    color = Color(0xFFA1A1AA),
-                    fontSize = subtitleSize,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            // Upload Card
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF1C1C1E)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowUpward,
+                            contentDescription = "Upload",
+                            tint = Color(0xFFBF5AF2),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Upload",
+                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA))
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = networkSpeedInfo.uploadSpeedFormatted,
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    )
+                }
             }
         }
 
-        BouncyFilledTonalButton(
-            onClick = {
-                runCatching {
-                    context.startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                }
-                onCollapse()
-            },
-            modifier = Modifier.size(circleButtonSize),
-            shape = CircleShape,
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = Color(0xFFE5E5EA),
-                contentColor = Color.Black
-            )
+        // Bottom section: Clean session transfer summary
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.OpenInNew,
-                contentDescription = "Wi-Fi Settings",
-                tint = Color.Black,
-                modifier = Modifier.size(actionIconSize)
+            Text(
+                text = "Session Transfer",
+                color = Color(0xFFA1A1AA),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${networkSpeedInfo.sessionTotalMb} MB Total",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
 }
 
+/**
+ * [value], or the last non-null value it had. Lets content keep showing what it was showing
+ * while its container animates out after the data went away, instead of flashing a placeholder.
+ */
+@Composable
+fun <T : Any> rememberLastNonNull(value: T?): T? {
+    val last = remember { arrayOfNulls<Any>(1) }
+    if (value != null) last[0] = value
+    @Suppress("UNCHECKED_CAST")
+    return value ?: last[0] as T?
+}
+
+/**
+ * Blurred album art behind the music card. On a solid card it's a strong wash with a black fade
+ * at the bottom. With liquid glass it becomes a light colour tint instead, with no black scrim and
+ * no solid fade, so the blurred screen behind the card still shows through like the other cards.
+ */
+@Composable
+private fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, glass: Boolean, shape: Shape) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(shape)
+    ) {
+        Image(
+            bitmap = art.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (needsBlur) Modifier.blur(radius = 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded) else Modifier)
+                .graphicsLayer {
+                    scaleX = 1.35f
+                    scaleY = 1.35f
+                    this.alpha = alpha * (if (glass) 0.42f else 0.75f)
+                }
+        )
+        if (!glass) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.38f))
+            )
+        }
+        // Gradient from the bottom keeps the controls readable
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = if (glass) {
+                            listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.18f), Color.Black.copy(alpha = 0.32f))
+                        } else {
+                            listOf(
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.40f),
+                                Color.Black.copy(alpha = 0.82f),
+                                Color.Black
+                            )
+                        }
+                    )
+                )
+        )
+    }
+}

@@ -28,6 +28,7 @@ class SettingsRepository(private val context: Context) {
         val IS_LEFT_CUTOUT = booleanPreferencesKey("is_left_cutout")
         val IS_TEARDROP_CUTOUT = booleanPreferencesKey("is_teardrop_cutout")
         val SHOW_OUTLINE = booleanPreferencesKey("show_outline")
+        val LIQUID_GLASS_CARDS = booleanPreferencesKey("liquid_glass_cards")
         val OUTLINE_COLOR_ARGB = longPreferencesKey("outline_color_argb")
         val OUTLINE_THICKNESS_DP = floatPreferencesKey("outline_thickness_dp")
         val EXPANDED_SCALE = floatPreferencesKey("expanded_scale")
@@ -42,9 +43,13 @@ class SettingsRepository(private val context: Context) {
         val SHOW_CHARGING = booleanPreferencesKey("show_charging")
         val SHOW_RINGER_MODE = booleanPreferencesKey("show_ringer_mode")
         val SHOW_IN_LANDSCAPE = booleanPreferencesKey("show_in_landscape")
+        val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
+        val SPOKEN_ALERTS = booleanPreferencesKey("spoken_alerts")
         val ANIMATION_SPEED_MULTIPLIER = floatPreferencesKey("anim_speed_multiplier")
         val LEGACY_ANIMATION_SPEED = stringPreferencesKey("animation_speed")
         val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
+        val PRIORITY_APPS = stringSetPreferencesKey("priority_apps")
+        val SHOW_WIFI = booleanPreferencesKey("show_wifi")
         val RESTART_ON_BOOT = booleanPreferencesKey("restart_on_boot")
         val BUBBLE_EFFECT_ENABLED = booleanPreferencesKey("bubble_effect_enabled")
         val DISMISS_MEDIA_ON_PAUSE = booleanPreferencesKey("dismiss_media_on_pause")
@@ -65,6 +70,7 @@ class SettingsRepository(private val context: Context) {
         val SPLIT_DAMPING = floatPreferencesKey("split_damping")
         val SPLIT_STIFFNESS = floatPreferencesKey("split_stiffness")
         val FEATURE_PRIORITIES = stringPreferencesKey("feature_priorities")
+        val ISLAND_STYLE = stringPreferencesKey("island_style")
     }
 
     val settingsFlow: Flow<IslandSettings> = context.dataStore.data.map { preferences ->
@@ -85,7 +91,8 @@ class SettingsRepository(private val context: Context) {
             horizontalOffsetDp = preferences[PreferencesKeys.HORIZONTAL_OFFSET_DP] ?: 0,
             isLeftCutout = preferences[PreferencesKeys.IS_LEFT_CUTOUT] ?: false,
             isTeardropCutout = preferences[PreferencesKeys.IS_TEARDROP_CUTOUT] ?: false,
-            showOutline = preferences[PreferencesKeys.SHOW_OUTLINE] ?: true,
+            showOutline = preferences[PreferencesKeys.SHOW_OUTLINE] ?: false,
+            liquidGlassCards = preferences[PreferencesKeys.LIQUID_GLASS_CARDS] ?: false,
             outlineColorArgb = preferences[PreferencesKeys.OUTLINE_COLOR_ARGB] ?: 0x33FFFFFF,
             outlineThicknessDp = preferences[PreferencesKeys.OUTLINE_THICKNESS_DP] ?: 1.5f,
             expandedScale = preferences[PreferencesKeys.EXPANDED_SCALE] ?: 1.1f,
@@ -100,8 +107,12 @@ class SettingsRepository(private val context: Context) {
             showCharging = preferences[PreferencesKeys.SHOW_CHARGING] ?: true,
             showRingerMode = preferences[PreferencesKeys.SHOW_RINGER_MODE] ?: true,
             showInLandscape = preferences[PreferencesKeys.SHOW_IN_LANDSCAPE] ?: false,
+            highContrast = preferences[PreferencesKeys.HIGH_CONTRAST] ?: false,
+            spokenAlerts = preferences[PreferencesKeys.SPOKEN_ALERTS] ?: false,
             animationSpeed = resolvedSpeed,
             blockedPackages = preferences[PreferencesKeys.BLOCKED_PACKAGES] ?: emptySet(),
+            priorityApps = preferences[PreferencesKeys.PRIORITY_APPS] ?: emptySet(),
+            showWifi = preferences[PreferencesKeys.SHOW_WIFI] ?: true,
             restartOnBoot = preferences[PreferencesKeys.RESTART_ON_BOOT] ?: true,
             bubbleEffectEnabled = preferences[PreferencesKeys.BUBBLE_EFFECT_ENABLED] ?: true,
             dismissMediaOnPause = preferences[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] ?: false,
@@ -115,12 +126,13 @@ class SettingsRepository(private val context: Context) {
             spinningAlbumArt = preferences[PreferencesKeys.SPINNING_ALBUM_ART] ?: false,
             wavyProgressBar = preferences[PreferencesKeys.WAVY_PROGRESS_BAR] ?: true,
             hideOnLockScreen = preferences[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
-            expandDamping = preferences[PreferencesKeys.EXPAND_DAMPING] ?: 0.74f,
+            expandDamping = preferences[PreferencesKeys.EXPAND_DAMPING] ?: 0.8f,
             expandStiffness = preferences[PreferencesKeys.EXPAND_STIFFNESS] ?: 380f,
             appearDamping = preferences[PreferencesKeys.APPEAR_DAMPING] ?: 0.6f,
             appearStiffness = preferences[PreferencesKeys.APPEAR_STIFFNESS] ?: 280f,
             splitDamping = preferences[PreferencesKeys.SPLIT_DAMPING] ?: 0.63f,
             splitStiffness = preferences[PreferencesKeys.SPLIT_STIFFNESS] ?: 320f,
+            islandStyle = IslandSettings.normalizeStyle(preferences[PreferencesKeys.ISLAND_STYLE]),
             featurePriorities = preferences[PreferencesKeys.FEATURE_PRIORITIES]
                 ?.split(",")
                 ?.map { it.trim() }
@@ -151,7 +163,8 @@ class SettingsRepository(private val context: Context) {
                 horizontalOffsetDp = preferences[PreferencesKeys.HORIZONTAL_OFFSET_DP] ?: 0,
                 isLeftCutout = preferences[PreferencesKeys.IS_LEFT_CUTOUT] ?: false,
                 isTeardropCutout = preferences[PreferencesKeys.IS_TEARDROP_CUTOUT] ?: false,
-                showOutline = preferences[PreferencesKeys.SHOW_OUTLINE] ?: true,
+                showOutline = preferences[PreferencesKeys.SHOW_OUTLINE] ?: false,
+                liquidGlassCards = preferences[PreferencesKeys.LIQUID_GLASS_CARDS] ?: false,
                 outlineColorArgb = preferences[PreferencesKeys.OUTLINE_COLOR_ARGB] ?: 0x33FFFFFF,
                 outlineThicknessDp = preferences[PreferencesKeys.OUTLINE_THICKNESS_DP] ?: 1.5f,
                 expandedScale = preferences[PreferencesKeys.EXPANDED_SCALE] ?: 1.1f,
@@ -166,8 +179,12 @@ class SettingsRepository(private val context: Context) {
                 showCharging = preferences[PreferencesKeys.SHOW_CHARGING] ?: true,
                 showRingerMode = preferences[PreferencesKeys.SHOW_RINGER_MODE] ?: true,
                 showInLandscape = preferences[PreferencesKeys.SHOW_IN_LANDSCAPE] ?: false,
+                highContrast = preferences[PreferencesKeys.HIGH_CONTRAST] ?: false,
+                spokenAlerts = preferences[PreferencesKeys.SPOKEN_ALERTS] ?: false,
                 animationSpeed = resolvedSpeed,
                 blockedPackages = preferences[PreferencesKeys.BLOCKED_PACKAGES] ?: emptySet(),
+            priorityApps = preferences[PreferencesKeys.PRIORITY_APPS] ?: emptySet(),
+            showWifi = preferences[PreferencesKeys.SHOW_WIFI] ?: true,
                 restartOnBoot = preferences[PreferencesKeys.RESTART_ON_BOOT] ?: true,
                 bubbleEffectEnabled = preferences[PreferencesKeys.BUBBLE_EFFECT_ENABLED] ?: true,
                 dismissMediaOnPause = preferences[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] ?: false,
@@ -181,12 +198,13 @@ class SettingsRepository(private val context: Context) {
             spinningAlbumArt = preferences[PreferencesKeys.SPINNING_ALBUM_ART] ?: false,
             wavyProgressBar = preferences[PreferencesKeys.WAVY_PROGRESS_BAR] ?: true,
             hideOnLockScreen = preferences[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
-            expandDamping = preferences[PreferencesKeys.EXPAND_DAMPING] ?: 0.74f,
+            expandDamping = preferences[PreferencesKeys.EXPAND_DAMPING] ?: 0.8f,
             expandStiffness = preferences[PreferencesKeys.EXPAND_STIFFNESS] ?: 380f,
             appearDamping = preferences[PreferencesKeys.APPEAR_DAMPING] ?: 0.6f,
             appearStiffness = preferences[PreferencesKeys.APPEAR_STIFFNESS] ?: 280f,
             splitDamping = preferences[PreferencesKeys.SPLIT_DAMPING] ?: 0.63f,
             splitStiffness = preferences[PreferencesKeys.SPLIT_STIFFNESS] ?: 320f,
+                islandStyle = IslandSettings.normalizeStyle(preferences[PreferencesKeys.ISLAND_STYLE]),
                 featurePriorities = preferences[PreferencesKeys.FEATURE_PRIORITIES]
                     ?.split(",")
                     ?.map { it.trim() }
@@ -208,6 +226,7 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.IS_LEFT_CUTOUT] = newSettings.isLeftCutout
             preferences[PreferencesKeys.IS_TEARDROP_CUTOUT] = newSettings.isTeardropCutout
             preferences[PreferencesKeys.SHOW_OUTLINE] = newSettings.showOutline
+            preferences[PreferencesKeys.LIQUID_GLASS_CARDS] = newSettings.liquidGlassCards
             preferences[PreferencesKeys.OUTLINE_COLOR_ARGB] = newSettings.outlineColorArgb
             preferences[PreferencesKeys.OUTLINE_THICKNESS_DP] = newSettings.outlineThicknessDp
             preferences[PreferencesKeys.EXPANDED_SCALE] = newSettings.expandedScale
@@ -222,9 +241,13 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.SHOW_CHARGING] = newSettings.showCharging
             preferences[PreferencesKeys.SHOW_RINGER_MODE] = newSettings.showRingerMode
             preferences[PreferencesKeys.SHOW_IN_LANDSCAPE] = newSettings.showInLandscape
+            preferences[PreferencesKeys.HIGH_CONTRAST] = newSettings.highContrast
+            preferences[PreferencesKeys.SPOKEN_ALERTS] = newSettings.spokenAlerts
             preferences[PreferencesKeys.ANIMATION_SPEED_MULTIPLIER] = newSettings.animationSpeed
             preferences.remove(PreferencesKeys.LEGACY_ANIMATION_SPEED)
             preferences[PreferencesKeys.BLOCKED_PACKAGES] = newSettings.blockedPackages
+            preferences[PreferencesKeys.PRIORITY_APPS] = newSettings.priorityApps
+            preferences[PreferencesKeys.SHOW_WIFI] = newSettings.showWifi
             preferences[PreferencesKeys.RESTART_ON_BOOT] = newSettings.restartOnBoot
             preferences[PreferencesKeys.BUBBLE_EFFECT_ENABLED] = newSettings.bubbleEffectEnabled
             preferences[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] = newSettings.dismissMediaOnPause
@@ -245,6 +268,7 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.SPLIT_DAMPING] = newSettings.splitDamping
             preferences[PreferencesKeys.SPLIT_STIFFNESS] = newSettings.splitStiffness
             preferences[PreferencesKeys.FEATURE_PRIORITIES] = newSettings.featurePriorities.joinToString(",")
+            preferences[PreferencesKeys.ISLAND_STYLE] = IslandSettings.normalizeStyle(newSettings.islandStyle)
         }
     }
 }

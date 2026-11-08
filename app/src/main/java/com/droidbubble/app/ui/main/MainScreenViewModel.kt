@@ -165,6 +165,16 @@ class MainScreenViewModel(private val repository: SettingsRepository) : ViewMode
         }
     }
 
+    fun togglePriorityApp(packageName: String) {
+        viewModelScope.launch {
+            repository.updateSettings { s ->
+                val updated = s.priorityApps.toMutableSet()
+                if (!updated.add(packageName)) updated.remove(packageName)
+                s.copy(priorityApps = updated)
+            }
+        }
+    }
+
     fun toggleAppBlocked(packageName: String) {
         viewModelScope.launch {
             val currentBlocked = settings.value.blockedPackages.toMutableSet()

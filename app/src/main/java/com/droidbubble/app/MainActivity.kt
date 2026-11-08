@@ -22,6 +22,10 @@ import com.droidbubble.app.ui.main.PermissionHelper
 import android.content.Intent
 class MainActivity : ComponentActivity() {
 
+    private companion object {
+        const val REQUEST_BLUETOOTH_CONNECT = 4201
+    }
+
     private val viewModel by viewModels<MainScreenViewModel>(
         factoryProducer = {
             object : ViewModelProvider.Factory {
@@ -35,11 +39,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.droidbubble.app.util.CrashLog.install(this)
         enableEdgeToEdge()
 
         viewModel.checkPermissions(this)
         if (PermissionHelper.isOverlayGranted(this)) {
             IslandOverlayService.start(this)
+        }
+        // Android 12+ only delivers Bluetooth connection broadcasts to apps holding
+        // BLUETOOTH_CONNECT; without asking for it the Bluetooth alert never fired.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BLUETOOTH_CONNECT)
         }
         if (intent.getBooleanExtra("EXTRA_SHOW_UPDATE", false)) {
             viewModel.checkForUpdates(this)

@@ -20,6 +20,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.PowerManager
 import kotlin.math.roundToInt
 import android.provider.Settings
 import com.droidbubble.app.model.ActiveCallState
@@ -30,9 +31,16 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -112,6 +120,8 @@ class IslandOverlayService : Service() {
 
     private val lifecycleOwner = CustomLifecycleOwner()
     private var currentSettings = IslandSettings()
+    private var spokenAlerts: SpokenAlerts? = null
+    private var spokenAlertsJob: kotlinx.coroutines.Job? = null
 
     private var cameraManager: CameraManager? = null
     private var torchCameraId: String? = null
@@ -243,6 +253,39 @@ class IslandOverlayService : Service() {
 
     private var lastRingerMode: Int? = null
 
+    // Wi-Fi connected alert: a network callback, since the old CONNECTIVITY_ACTION broadcast
+    // is no longer delivered to registered receivers on modern Android
+    private var wifiCallback: android.net.ConnectivityManager.NetworkCallback? = null
+    private var wifiCallbackRegisteredAt = 0L
+
+    private fun registerWifiCallback() {
+        if (wifiCallback != null) return
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return
+        val request = android.net.NetworkRequest.Builder()
+            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+            .build()
+        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                // Registration immediately reports an already-connected network; that's not a new connection
+                if (android.os.SystemClock.elapsedRealtime() - wifiCallbackRegisteredAt < 2000L) return
+                if (!currentSettings.showWifi) return
+                serviceScope.launch { IslandStateManager.triggerWifiEvent() }
+            }
+        }
+        wifiCallbackRegisteredAt = android.os.SystemClock.elapsedRealtime()
+        runCatching {
+            cm.registerNetworkCallback(request, callback)
+            wifiCallback = callback
+        }
+    }
+
+    private fun unregisterWifiCallback() {
+        val cb = wifiCallback ?: return
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        runCatching { cm?.unregisterNetworkCallback(cb) }
+        wifiCallback = null
+    }
+
     private val powerReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action ?: return
@@ -269,11 +312,16 @@ class IslandOverlayService : Service() {
                 return
             }
             if (action == Intent.ACTION_SCREEN_OFF) {
+                persistentTelemetryManager?.setScreenOn(false)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 IslandStateManager.setDeviceLocked(km?.isKeyguardLocked ?: true)
+                // The lock screen belongs to systemui (ignored), so forget the last app: its
+                // notifications arriving while locked must still show
+                IslandStateManager.setForegroundPackage(null)
                 return
             }
             if (action == Intent.ACTION_SCREEN_ON) {
+                persistentTelemetryManager?.setScreenOn(true)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 val locked = km?.isKeyguardLocked == true
                 IslandStateManager.setDeviceLocked(locked)
@@ -389,10 +437,8 @@ class IslandOverlayService : Service() {
                         torchCameraId = cameraId
                     }
                     if (cameraId == torchCameraId || torchCameraId == null) {
-                        IslandStateManager.updateFlashlightState(
-                            enabled = enabled,
-                            maxLevel = 4
-                        )
+                        // Filtered: flash alerts for calls / notifications blink the torch
+                        IslandStateManager.onTorchChanged(enabled)
                     }
                 }
 
@@ -419,6 +465,7 @@ class IslandOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        com.droidbubble.app.util.CrashLog.install(this)
         serviceInstance = this
         settingsRepository = SettingsRepository(this)
         currentSettings = runBlocking(Dispatchers.IO) {
@@ -443,7 +490,11 @@ class IslandOverlayService : Service() {
         initCameraTorch()
         startAutoUpdateChecker()
 
-        persistentTelemetryManager = PersistentWidgetTelemetryManager(this).apply { start(currentSettings) }
+        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        persistentTelemetryManager = PersistentWidgetTelemetryManager(this).apply {
+            setScreenOn(powerManager?.isInteractive ?: true)
+            start(currentSettings)
+        }
 
         val filter = IntentFilter().apply {
             addAction("com.droidbubble.app.ACTION_SIMULATE_UNLOCK")
@@ -484,6 +535,8 @@ class IslandOverlayService : Service() {
         } else {
             registerReceiver(powerReceiver, powerFilter)
         }
+
+        registerWifiCallback()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -581,7 +634,7 @@ class IslandOverlayService : Service() {
         val isDeviceLocked = IslandStateManager.isDeviceLocked.value
         val allowedInOrientation = currentSettings.isEnabled && (currentSettings.showInLandscape || !isLandscape) && (!currentSettings.hideOnLockScreen || !isDeviceLocked)
         val isOccupied = IslandStateManager.isOccupied && allowedInOrientation
-        val hasPersistentWidgets = (currentSettings.showFps || currentSettings.showWeather || currentSettings.showNetworkSpeed) && allowedInOrientation
+        val hasPersistentWidgets = (currentSettings.showWeather || currentSettings.showNetworkSpeed) && allowedInOrientation
         val shouldShowCompact = (isOccupied || currentSettings.alwaysShowPill || hasPersistentWidgets) && allowedInOrientation
 
         val mainHalf = (currentSettings.widthDp * 0.90f).coerceAtLeast(124f) / 2f
@@ -622,6 +675,9 @@ class IslandOverlayService : Service() {
             y = 0
             windowAnimations = 0
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Screen-space origin, so card bounds map 1:1 to the liquid glass blur windows
+                fitInsetsTypes = 0
+                fitInsetsSides = 0
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -636,21 +692,57 @@ class IslandOverlayService : Service() {
             fitsSystemWindows = false
 
             setContent {
-                val liveSettings by settingsRepository.settingsFlow.collectAsState(initial = currentSettings)
+                val storedSettings by settingsRepository.settingsFlow.collectAsState(initial = currentSettings)
+                // High contrast: the app's own setting, or Android's "High contrast text"
+                val systemHighContrast = remember {
+                    runCatching {
+                        android.provider.Settings.Secure.getInt(contentResolver, "high_text_contrast_enabled", 0) == 1
+                    }.getOrDefault(false)
+                }
+                val highContrast = storedSettings.highContrast || systemHighContrast
+                SideEffect { com.droidbubble.app.island.IslandTokens.highContrast = highContrast }
+                val liveSettings = if (highContrast) {
+                    storedSettings.copy(
+                        showOutline = true,
+                        outlineColorArgb = 0x8CFFFFFF,
+                        outlineThicknessDp = storedSettings.outlineThicknessDp.coerceAtLeast(1.5f)
+                    )
+                } else {
+                    storedSettings
+                }
 
                 MaterialExpressiveTheme(
                     colorScheme = darkColorScheme(),
                     motionScheme = MotionScheme.expressive()
                 ) {
-                    IslandOverlayRoot(
-                        settings = liveSettings,
-                        onBoundsChange = { _, _ -> }
-                    )
+                    // Tabular digits island-wide: timers, speeds and percentages tick without
+                    // their width wobbling (only digits are affected; letters stay proportional).
+                    // Material's body style adds 0.5sp tracking, which looks loose on the island:
+                    // use the font's own spacing instead.
+                    // Large text: the island follows the phone's font size setting, capped at 1.5x
+                    // because the pill around the camera can't grow without limit.
+                    val systemDensity = LocalDensity.current
+                    CompositionLocalProvider(
+                        LocalTextStyle provides LocalTextStyle.current.copy(fontFeatureSettings = "tnum", letterSpacing = 0.sp),
+                        LocalDensity provides Density(systemDensity.density, systemDensity.fontScale.coerceIn(0.85f, 1.5f))
+                    ) {
+                        IslandOverlayRoot(
+                            settings = liveSettings,
+                            onBoundsChange = { _, _ -> }
+                        )
+                    }
                 }
             }
         }
 
         composeView = view
+
+        overlayJobs.forEach { it.cancel() }
+        overlayJobs.clear()
+
+        // Liquid glass blur windows go in first so they always stay beneath the island
+        glassPaneWindows?.dismiss()
+        glassPaneWindows = GlassPaneWindows(aService ?: this, windowType).also { it.create() }
 
         try {
             windowManager?.addView(view, layoutParams)
@@ -658,8 +750,19 @@ class IslandOverlayService : Service() {
             e.printStackTrace()
         }
 
+        glassPaneJob?.cancel()
+        glassPaneJob = null
+        // Card rects go to the blur windows straight from the island's frame (no queue hop); the
+        // windows apply them on their own thread, so the island never waits for a pane relayout
+        IslandStateManager.glassPaneListener = { panes ->
+            glassPaneWindows?.update(if (currentSettings.liquidGlassCards) panes else emptyList())
+        }
+        glassPaneWindows?.update(
+            if (currentSettings.liquidGlassCards) IslandStateManager.glassPanes.value else emptyList()
+        )
+
         // Listen for expansion and state changes to resize WindowManager touch bounds
-        serviceScope.launch {
+        overlayJobs += serviceScope.launch {
             kotlinx.coroutines.flow.combine(
                 IslandStateManager.isExpanded,
                 kotlinx.coroutines.flow.combine(
@@ -676,14 +779,32 @@ class IslandOverlayService : Service() {
                     IslandStateManager.activeRingerMode,
                     IslandStateManager.isFlashlightOn
                 ) { _, _, _, _, _ -> Unit },
-                IslandStateManager.isDeviceLocked
-            ) { expanded, _, _, _ -> expanded }.collectLatest { expanded ->
+                IslandStateManager.isDeviceLocked,
+                kotlinx.coroutines.flow.combine(
+                    IslandStateManager.userHidden,
+                    IslandStateManager.userMinimized
+                ) { _, _ -> Unit }
+            ) { expanded, _, _, _, _ -> expanded }.collectLatest { expanded ->
+                val shapeKey = listOf(
+                    expanded,
+                    IslandStateManager.isChargingActive, IslandStateManager.isUnlockActive,
+                    IslandStateManager.isBluetoothActive, IslandStateManager.isRingerModeActive,
+                    IslandStateManager.isRecordingActive, IslandStateManager.isNotificationActive,
+                    IslandStateManager.isMediaActive, IslandStateManager.isProgressActive,
+                    IslandStateManager.isFlashlightActive,
+                    IslandStateManager.isDeviceLocked.value,
+                    IslandStateManager.userHidden.value, IslandStateManager.userMinimized.value
+                )
+                if (shapeKey != lastShapeKey) {
+                    lastShapeKey = shapeKey
+                    boostRefreshRate()
+                }
                 updateWindowState(expanded)
             }
         }
 
         // Listen for keyboard focus state to enable soft keyboard for inline replies
-        serviceScope.launch {
+        overlayJobs += serviceScope.launch {
             IslandStateManager.isKeyboardFocused.collectLatest { focused ->
                 val view = composeView ?: return@collectLatest
                 val params = layoutParams ?: return@collectLatest
@@ -697,10 +818,12 @@ class IslandOverlayService : Service() {
             }
         }
 
-        // Listen for settings changes
-        serviceScope.launch {
+        // Listen for settings changes. Started once per service: it adds/removes the overlay
+        // itself, so it must survive removeOverlay() and not be duplicated by each initOverlay()
+        if (settingsJob == null) settingsJob = serviceScope.launch {
             settingsRepository.settingsFlow.collectLatest { settings ->
                 currentSettings = settings
+                updateSpokenAlerts(settings.spokenAlerts)
                 persistentTelemetryManager?.updateSettings(settings)
                 IslandStateManager.dismissMediaOnPause = settings.dismissMediaOnPause
                 IslandStateManager.autoDismissNotifications = settings.autoDismissNotifications
@@ -716,7 +839,49 @@ class IslandOverlayService : Service() {
     }
 
     private var isCollapsing = false
+    private val overlayJobs = mutableListOf<kotlinx.coroutines.Job>()
+    private var settingsJob: kotlinx.coroutines.Job? = null
+    private var lastShapeKey: List<Any>? = null
+    private var glassPaneWindows: GlassPaneWindows? = null
+    private var glassPaneJob: kotlinx.coroutines.Job? = null
     private var collapseJob: kotlinx.coroutines.Job? = null
+
+    // Ask for the display's top refresh rate only while the island animates. Between animations
+    // the system is free to drop to its low idle rate, so the extra smoothness costs no battery.
+    private var refreshBoostJob: kotlinx.coroutines.Job? = null
+    private val maxRefreshRate: Float by lazy {
+        runCatching {
+            val dm = getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            val display = dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+            val current = display?.mode
+            display?.supportedModes
+                ?.filter { current == null || (it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight) }
+                ?.maxOfOrNull { it.refreshRate } ?: 0f
+        }.getOrDefault(0f)
+    }
+
+    private fun boostRefreshRate() {
+        val view = composeView ?: return
+        val params = layoutParams ?: return
+        val rate = maxRefreshRate
+        if (rate <= 60f) return
+        if (params.preferredRefreshRate != rate) {
+            params.preferredRefreshRate = rate
+            disableMoveAnimation(params)
+            runCatching { windowManager?.updateViewLayout(view, params) }
+        }
+        refreshBoostJob?.cancel()
+        refreshBoostJob = serviceScope.launch {
+            // Long enough for the slowest spring at the lowest animation-speed setting
+            delay((1200L / currentSettings.animationSpeed.coerceIn(0.5f, 2f)).toLong())
+            val v = composeView ?: return@launch
+            val p = layoutParams ?: return@launch
+            if (p.preferredRefreshRate == 0f) return@launch
+            p.preferredRefreshRate = 0f
+            disableMoveAnimation(p)
+            runCatching { windowManager?.updateViewLayout(v, p) }
+        }
+    }
     private var wasExpanded = false
 
     private fun applyLayoutParams(
@@ -795,7 +960,7 @@ class IslandOverlayService : Service() {
         } else {
             val isCharging = currentSettings.showCharging && IslandStateManager.isChargingActive
             val isUnlock = IslandStateManager.isUnlockActive
-            val isBluetooth = currentSettings.showBluetooth && IslandStateManager.isBluetoothActive
+            val isBluetooth = (currentSettings.showBluetooth || currentSettings.showWifi) && IslandStateManager.isBluetoothActive
             val isRingerMode = currentSettings.showRingerMode && IslandStateManager.isRingerModeActive
             val isFlashlight = currentSettings.showFlashlight && IslandStateManager.isFlashlightActive
             val isOccupied = (currentSettings.showCalls && IslandStateManager.isCallActive) ||
@@ -808,20 +973,39 @@ class IslandOverlayService : Service() {
                     isUnlock ||
                     isBluetooth ||
                     isRingerMode
-            val hasPersistentWidgets = currentSettings.showFps || currentSettings.showWeather || currentSettings.showNetworkSpeed
-            val shouldShowCompact = isOccupied || currentSettings.alwaysShowPill || hasPersistentWidgets
+            val hasPersistentWidgets = currentSettings.showWeather || currentSettings.showNetworkSpeed
+            val isUserHidden = IslandStateManager.userHidden.value
+            val shouldShowCompact = (isOccupied || currentSettings.alwaysShowPill || hasPersistentWidgets) && !isUserHidden
+            val activeCount = (if (currentSettings.showScreenRecording && IslandStateManager.isRecordingActive) 1 else 0) +
+                    (if (currentSettings.showNotifications && IslandStateManager.isNotificationActive) 1 else 0) +
+                    (if (currentSettings.showMedia && IslandStateManager.isMediaActive) 1 else 0) +
+                    (if (currentSettings.showLiveProgress && IslandStateManager.isProgressActive) 1 else 0) +
+                    (if (isFlashlight) 1 else 0)
+            val isDual = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && activeCount >= 2
 
-            // Use a unified compact window width across all compact states (single, dual, charging, unlock, ringer)
-            // so WindowManager never resizes params.width mid-animation, completely eliminating horizontal teleporting!
-            val mainHalf = (currentSettings.widthDp * 0.90f).coerceAtLeast(124f) / 2f
-            val dualRightEdge = mainHalf + 8f + currentSettings.heightDp + 44f
-            val chargingEdge = ((currentSettings.widthDp + 20f).coerceAtLeast(140f) + 80f) / 2f
-            val totalWidthDp = (maxOf(dualRightEdge, chargingEdge) * 2f).coerceAtLeast(currentSettings.widthDp + 100f)
+            val totalWidthDp = if (isCharging) {
+                val chargingPillWidth = (currentSettings.widthDp + 20f).coerceAtLeast(140f)
+                chargingPillWidth + 80f
+            } else if (isRingerMode) {
+                val pillWidth = (currentSettings.widthDp * 0.95f).coerceAtLeast(130f)
+                pillWidth + 80f
+            } else if (isUnlock || isBluetooth) {
+                val pillWidth = (currentSettings.widthDp * 0.82f).coerceAtLeast(108f)
+                pillWidth + 80f
+            } else if (IslandStateManager.userMinimized.value) {
+                currentSettings.heightDp + 24f
+            } else if (isDual) {
+                val mainHalf = currentSettings.widthDp / 2f
+                val rightEdge = mainHalf + 8f + currentSettings.heightDp + 40f
+                (rightEdge * 2f).coerceAtLeast(currentSettings.widthDp + 80f)
+            } else {
+                currentSettings.widthDp + 80f
+            }
 
             fun applyCompactBounds() {
                 collapseJob?.cancel()
                 if (shouldShowCompact) {
-                    val targetFlags = if (isOccupied || hasPersistentWidgets) {
+                    val targetFlags = if ((isOccupied || hasPersistentWidgets) && !isUserHidden) {
                         params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                     } else {
                         params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
@@ -868,12 +1052,15 @@ class IslandOverlayService : Service() {
             if (wasExpanded) {
                 wasExpanded = false
                 isCollapsing = true
-                // Keep MATCH_PARENT until the spring collapse animation has completely settled!
+                // Keep MATCH_PARENT until the island reports the collapse animation has finished
+                // (it scales with the animation-speed setting); the timeout is only a safety net.
                 collapseJob = serviceScope.launch {
-                    kotlinx.coroutines.delay(collapseDelayMs)
+                    kotlinx.coroutines.withTimeoutOrNull(1500L) { IslandStateManager.collapseSettled.first { it } }
                     isCollapsing = false
+                    // Recompute from the state NOW (a notification may have arrived or a card ended
+                    // during the collapse), not from what was captured when the collapse began
                     if (!IslandStateManager.isExpanded.value) {
-                        applyCompactBounds()
+                        updateWindowState(false)
                     }
                 }
             } else if (!isOccupied && !currentSettings.alwaysShowPill && !hasPersistentWidgets) {
@@ -901,6 +1088,18 @@ class IslandOverlayService : Service() {
     }
 
     private fun removeOverlay() {
+        overlayJobs.forEach { it.cancel() }
+        overlayJobs.clear()
+        collapseJob?.cancel()
+        refreshBoostJob?.cancel()
+        isCollapsing = false
+        wasExpanded = false
+        lastShapeKey = null
+        glassPaneJob?.cancel()
+        glassPaneJob = null
+        IslandStateManager.glassPaneListener = null
+        glassPaneWindows?.dismiss()
+        glassPaneWindows = null
         composeView?.let { view ->
             try {
                 windowManager?.removeView(view)
@@ -911,14 +1110,35 @@ class IslandOverlayService : Service() {
         composeView = null
     }
 
+    /** Spoken alerts (Accessibility setting): speech engine and listener exist only while it's on. */
+    private fun updateSpokenAlerts(enabled: Boolean) {
+        if (enabled) {
+            val alerts = spokenAlerts ?: SpokenAlerts(this).also { spokenAlerts = it }
+            alerts.setEnabled(true)
+            if (spokenAlertsJob == null) spokenAlertsJob = serviceScope.launch {
+                IslandStateManager.activeNotification.collect { alerts.onNotification(it) }
+            }
+        } else {
+            spokenAlertsJob?.cancel()
+            spokenAlertsJob = null
+            spokenAlerts?.shutdown()
+            spokenAlerts = null
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        spokenAlertsJob?.cancel()
+        spokenAlertsJob = null
+        spokenAlerts?.shutdown()
+        spokenAlerts = null
         if (serviceInstance === this) {
             serviceInstance = null
         }
         runCatching { unregisterReceiver(debugReceiver) }
         persistentTelemetryManager?.stop()
         persistentTelemetryManager = null
+        unregisterWifiCallback()
         runCatching { unregisterReceiver(powerReceiver) }
         torchCallback?.let { cb ->
             runCatching { cameraManager?.unregisterTorchCallback(cb) }
