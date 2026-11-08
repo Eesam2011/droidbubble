@@ -401,11 +401,11 @@ fun measureNotificationCardHeight(
 fun rememberLiveTimerText(notification: NotificationInfo?): String? {
     val base = notification?.liveTimerBaseMs ?: 0L
     val countDown = notification?.liveTimerCountDown == true
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(IslandClock.wallMs()) }
     LaunchedEffect(base, countDown) {
         if (base <= 0L) return@LaunchedEffect
         while (true) {
-            now = System.currentTimeMillis()
+            now = IslandClock.wallMs()
             // Wake right as the next whole second of the timer flips
             delay(1000L - Math.floorMod(now - base, 1000L))
         }
@@ -414,7 +414,7 @@ fun rememberLiveTimerText(notification: NotificationInfo?): String? {
     // `now` is only as fresh as the last tick: when the base moves (a notification update), the
     // first frame would mix the new base with a stale clock and show the previous second, so
     // the digits rolled back and then forward again. Read the clock here too.
-    val t = maxOf(now, System.currentTimeMillis())
+    val t = maxOf(now, IslandClock.wallMs())
     val millis = if (countDown) base - t else t - base
     return formatTimerText(millis)
 }
@@ -737,7 +737,7 @@ fun TimerClockIcon(baseMs: Long, countDown: Boolean, size: Dp, color: Color, mod
     val angle = remember { Animatable(0f) }
     LaunchedEffect(baseMs, countDown) {
         while (true) {
-            val now = System.currentTimeMillis()
+            val now = IslandClock.wallMs()
             val seconds = kotlin.math.abs(now - baseMs) / 1000L
             var target = (seconds % 60L) * 6f * (if (countDown) -1f else 1f)
             // Keep turning the same way instead of spinning back at the full minute
@@ -745,7 +745,7 @@ fun TimerClockIcon(baseMs: Long, countDown: Boolean, size: Dp, color: Color, mod
             while (target - current > 180f) target -= 360f
             while (current - target > 180f) target += 360f
             angle.animateTo(target, tween(durationMillis = 280, easing = FastOutSlowInEasing))
-            delay(1000L - Math.floorMod(System.currentTimeMillis() - baseMs, 1000L))
+            delay(1000L - Math.floorMod(IslandClock.wallMs() - baseMs, 1000L))
         }
     }
     Canvas(modifier = modifier.size(size)) {

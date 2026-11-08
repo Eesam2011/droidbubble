@@ -1229,7 +1229,7 @@ fun TimerRingIcon(notification: NotificationInfo, size: Dp, color: Color) {
     val pausedRemaining = remember(notification) {
         parseTimerTextMillis(notification.text) ?: parseTimerTextMillis(notification.title)
     }
-    fun remainingNow(): Long = if (base > 0L) (base - System.currentTimeMillis()).coerceAtLeast(0L) else pausedRemaining ?: 0L
+    fun remainingNow(): Long = if (base > 0L) (base - IslandClock.wallMs()).coerceAtLeast(0L) else pausedRemaining ?: 0L
     val fraction = remember { Animatable(1f) }
     LaunchedEffect(notification.key, base, pausedRemaining) {
         val total = CountdownTotals.totalFor(notification.key, remainingNow())

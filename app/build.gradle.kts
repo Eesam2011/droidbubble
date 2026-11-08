@@ -2,6 +2,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.roborazzi)
 }
 
 // Build outputs live outside OneDrive: syncing thousands of intermediate files on every build
@@ -107,6 +108,10 @@ dependencies {
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation("org.robolectric:robolectric:4.16.1")
+  // Screenshot baseline (S2): reference images live in src/test/screenshots and are committed
+  testImplementation(libs.roborazzi)
+  testImplementation(libs.roborazzi.compose)
+  testImplementation(libs.roborazzi.junit.rule)
 
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)
@@ -125,4 +130,9 @@ dependencies {
 
   // Labelled trace sections (util/IslandTrace.kt); already on the classpath through Compose
   implementation("androidx.tracing:tracing:1.2.0")
+}
+
+// Screenshot tests (S2): images are recorded into and verified against the repo, not the build dir
+roborazzi {
+  outputDir.set(file("src/test/screenshots"))
 }

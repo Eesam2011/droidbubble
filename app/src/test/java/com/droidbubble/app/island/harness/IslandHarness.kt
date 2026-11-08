@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.DpRect
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.droidbubble.app.island.IslandClock
 import com.droidbubble.app.island.IslandOverlayRoot
 import com.droidbubble.app.island.IslandTestTags
 import com.droidbubble.app.model.IslandPriority
@@ -56,6 +57,26 @@ class IslandHarness(
                 }
             }
         }
+    }
+
+    /**
+     * Freezes the island's wall clock at [atMs] and stops the compose clock from advancing on its
+     * own, so ambient loops (equalizer, recording dot, timers) only move when the test advances
+     * time. Undo with [unfreezeClock] in `@After`.
+     */
+    fun freezeClock(atMs: Long = FROZEN_WALL_MS) {
+        IslandClock.wallMs = { atMs }
+        rule.mainClock.autoAdvance = false
+    }
+
+    fun unfreezeClock() {
+        IslandClock.wallMs = System::currentTimeMillis
+    }
+
+    /** Advances a frozen compose clock by [ms] and lets composition, layout and drawing catch up. */
+    fun advanceFrozen(ms: Long) {
+        rule.mainClock.advanceTimeBy(ms)
+        rule.waitForIdle()
     }
 
     fun settle(ms: Long = 1500L) {
@@ -135,5 +156,10 @@ class IslandHarness(
     fun tap(tag: String) {
         if (!exists(tag)) return
         rule.onAllNodesWithTag(tag)[0].performTouchInput { click() }
+    }
+
+    companion object {
+        /** The frozen wall clock screenshot tests use: 2027-01-15 08:00 UTC. */
+        const val FROZEN_WALL_MS = 1_800_000_000_000L
     }
 }

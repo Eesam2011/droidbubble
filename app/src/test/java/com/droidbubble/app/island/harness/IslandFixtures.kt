@@ -1,13 +1,14 @@
 package com.droidbubble.app.island.harness
 
 import android.graphics.Bitmap
+import com.droidbubble.app.island.IslandClock
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationAction
 import com.droidbubble.app.model.NotificationInfo
 
 /**
  * Island test data, shared by every island test. Names and texts are neutral (no real people).
- * Values that depend on the wall clock are getters, so each read is relative to "now".
+ * Values that depend on the wall clock are getters, relative to [IslandClock] (frozen in screenshot tests).
  */
 object IslandFixtures {
 
@@ -57,7 +58,7 @@ object IslandFixtures {
             title = "Recording",
             text = "00:12",
             isOngoing = true,
-            liveTimerBaseMs = System.currentTimeMillis() - 12_000L,
+            liveTimerBaseMs = IslandClock.wallMs() - 12_000L,
             actions = listOf(NotificationAction("Pause", null), NotificationAction("Stop", null))
         )
 
@@ -69,7 +70,7 @@ object IslandFixtures {
             title = "Timer",
             text = "Timer",
             isOngoing = true,
-            liveTimerBaseMs = System.currentTimeMillis() + 31_000L,
+            liveTimerBaseMs = IslandClock.wallMs() + 31_000L,
             liveTimerCountDown = true,
             actions = listOf(NotificationAction("Pause", null), NotificationAction("Cancel", null))
         )
@@ -108,7 +109,7 @@ object IslandFixtures {
             text = "Tea",
             isOngoing = true,
             isAlert = true,
-            liveTimerBaseMs = System.currentTimeMillis(),
+            liveTimerBaseMs = IslandClock.wallMs(),
             actions = listOf(NotificationAction("+1:00", null), NotificationAction("Stop", null))
         )
 
