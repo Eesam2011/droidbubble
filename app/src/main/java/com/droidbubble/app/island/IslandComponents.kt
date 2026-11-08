@@ -1,6 +1,9 @@
 package com.droidbubble.app.island
 
 import android.graphics.Bitmap
+import android.content.Context
+import android.app.PendingIntent
+import android.app.ActivityOptions
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector4D
@@ -9,7 +12,19 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.rounded.CallEnd
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +35,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +47,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlin.math.roundToInt
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -191,9 +208,13 @@ data class IslandActionItem(
  * `expandedScale`, clamped to a per-priority minimum. Single source of truth used
  * by BOTH the primary (Card 1) and secondary (Card 2) slots so the tables can't drift.
  */
-fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp): Dp {
+fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, progressHeight: Dp? = null, fontScale: Float = 1f): Dp {
     // Notification cards are measured from their content (see measureNotificationCardHeight)
     if (priority == IslandPriority.POP_NOTIFICATION) return notifHeight
+    // So are download cards (see measureProgressCardHeight)
+    if (priority == IslandPriority.PROGRESS && progressHeight != null) return progressHeight
+    // Screen recording uses the one-row native recorder design
+    if (priority == IslandPriority.SCREEN_RECORDING) return liveActivityCardHeight(LiveActivityKind.RECORDING, scale, fontScale)
     val (baseH, minH) = when (priority) {
         IslandPriority.SCREEN_RECORDING -> 115.dp to 100.dp
         IslandPriority.PROGRESS -> 182.dp to 155.dp
@@ -203,7 +224,9 @@ fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp): Dp 
         IslandPriority.NETWORK_SPEED -> 185.dp to 150.dp
         else -> 195.dp to 155.dp // media, idle, charging...
     }
-    return (baseH * scale).coerceAtLeast(minH)
+    // Larger system font sizes get proportionally taller fixed-layout cards, so text isn't cut off
+    val textGrowth = 1f + (fontScale.coerceIn(1f, 1.5f) - 1f) * 0.5f
+    return (baseH * scale * textGrowth).coerceAtLeast(minH)
 }
 
 /**
@@ -242,19 +265,74 @@ class NotificationCardMetrics(scale: Float) {
     val bodyMaxLines = if (scale < 0.88f) 2 else 3
     val headerBodyGap = (IslandTokens.SpaceSm * scale).coerceIn(6.dp, 10.dp)
     val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
-    val buttonHeight = (38.dp * scale).coerceIn(34.dp, 44.dp)
+    val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp) // 44dp+ visual, inside a 48dp touch row
     val buttonFontSize = (13.5f * scale).coerceIn(12f, 15f).sp
     val replyChipFontSize = 12.sp
     val replyChipVerticalPadding = 5.dp
     val replyRowSpacing = 6.dp
     val replyInputHeight = 42.dp
+    val callRowHeight = (52.dp * scale).coerceIn(44.dp, 60.dp)
+}
+
+/** Sizes of the expanded download / progress card, shared by the view and its height measurement. */
+class ProgressCardMetrics(scale: Float) {
+    val verticalPadding = islandCardVerticalPadding(IslandPriority.PROGRESS, scale)
+    val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
+    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
+    val titleSize = (17 * scale).coerceIn(14f, 19f).sp
+    val appNameSize = (13 * scale).coerceIn(11.5f, 15f).sp
+    val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
+    val gap = (IslandTokens.SpaceMd * scale).coerceIn(9.dp, 14.dp)
+    val bodySize = (15 * scale).coerceIn(13f, 17f).sp
+    val bodyLineHeight = (20 * scale).coerceIn(17f, 22f).sp
+    val barGap = (IslandTokens.SpaceSm * scale).coerceIn(6.dp, 10.dp)
+    val barHeight = 6.dp
+    val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
+    val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp)
+    val buttonFontSize = (13.5f * scale).coerceIn(12f, 15f).sp
+}
+
+/** Detail line of a download ("12 MB of 40 MB"), without stray leading / trailing bullets. */
+fun cleanProgressText(raw: String): String {
+    var s = raw.trim()
+    while (s.startsWith("•") || s.startsWith("·") || s.startsWith("-")) s = s.substring(1).trim()
+    while (s.endsWith("•") || s.endsWith("·") || s.endsWith("-")) s = s.substring(0, s.length - 1).trim()
+    return s.ifBlank { "In progress…" }
+}
+
+/** Buttons on the download card: "Open" is dropped since tapping the card opens the app. */
+fun progressActions(notification: NotificationInfo?): List<NotificationAction> =
+    (notification?.actions ?: emptyList())
+        .filterNot { it.title.equals("Open", ignoreCase = true) }
+        .take(2)
+
+/**
+ * Exact height of the expanded download card: padding, header (icon or two text lines, whichever
+ * is taller), one detail line, the bar and, only when the app gives some, a row of buttons.
+ */
+fun measureProgressCardHeight(
+    notification: NotificationInfo?,
+    scale: Float,
+    textMeasurer: TextMeasurer,
+    baseStyle: TextStyle,
+    density: Density
+): Dp = with(density) {
+    val m = ProgressCardMetrics(scale)
+    fun lineHeight(style: TextStyle): Dp = textMeasurer.measure(text = "Ag", style = style, maxLines = 1).size.height.toDp()
+    val title = lineHeight(baseStyle.merge(TextStyle(fontSize = m.titleSize, fontWeight = FontWeight.SemiBold)))
+    val subtitle = lineHeight(baseStyle.merge(TextStyle(fontSize = m.appNameSize, fontWeight = FontWeight.Medium)))
+    val header = maxOf(m.iconSize, title + m.subtitleSpacing + subtitle)
+    val body = lineHeight(baseStyle.merge(TextStyle(fontSize = m.bodySize, lineHeight = m.bodyLineHeight)))
+    val actions = if (progressActions(notification).isNotEmpty()) m.actionsGap + m.buttonHeight else 0.dp
+    m.verticalPadding * 2 + header + m.gap + body + m.barGap + m.barHeight + actions + 1.dp
 }
 
 /** Notification actions shown as buttons: "Open" is redundant since tapping the card opens it. */
 fun visibleNotificationActions(notification: NotificationInfo?): List<NotificationAction> =
     (notification?.actions ?: emptyList())
         .filterNot { it.title.equals("Open", ignoreCase = true) }
-        .take(2)
+        // Timers show all their controls (Pause, +1:00, Stop) like the clock notification
+        .take(if ((notification?.liveTimerBaseMs ?: 0L) > 0L) 3 else 2)
 
 /**
  * Exact height of the expanded notification card for [notification] at [cardWidth]:
@@ -272,6 +350,9 @@ fun measureNotificationCardHeight(
     density: Density
 ): Dp = with(density) {
     val m = NotificationCardMetrics(scale)
+    // Call card: one row (photo, name, round answer / decline buttons)
+    // Calls, recorders, timers: one native row (photo / time, round buttons)
+    liveActivityKind(notification).takeIf { it != LiveActivityKind.NONE }?.let { return@with liveActivityCardHeight(it, scale, density.fontScale) }
     val innerWidth = (cardWidth - m.horizontalPadding * 2).coerceAtLeast(1.dp)
 
     fun textHeight(text: String, style: TextStyle, width: Dp, maxLines: Int): Dp =
@@ -332,7 +413,11 @@ fun rememberLiveTimerText(notification: NotificationInfo?): String? {
         }
     }
     if (base <= 0L) return null
-    val millis = if (countDown) base - now else now - base
+    // `now` is only as fresh as the last tick: when the base moves (a notification update), the
+    // first frame would mix the new base with a stale clock and show the previous second, so
+    // the digits rolled back and then forward again. Read the clock here too.
+    val t = maxOf(now, System.currentTimeMillis())
+    val millis = if (countDown) base - t else t - base
     return formatTimerText(millis)
 }
 
@@ -373,7 +458,8 @@ fun IslandActionButtonRow(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(IslandTokens.SpaceXs),
+        // 6dp apart: still reads as one segmented control, but a finger can't hit two buttons
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         items.forEachIndexed { index, item ->
@@ -502,8 +588,192 @@ data class CardMorph(val width: Dp, val height: Dp, val corner: Dp, val top: Dp)
  * pay nothing; Android 12+ only, older versions just fade.
  */
 fun morphBlurEffect(visibility: Float, maxRadiusPx: Float): RenderEffect? {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
     if (visibility >= 0.99f || visibility <= 0.01f) return null
-    val radius = (1f - visibility) * maxRadiusPx
-    return if (radius > 0.5f) BlurEffect(radius, radius, TileMode.Decal) else null
+    return steppedBlurEffect(1f - visibility, maxRadiusPx)
 }
+
+/** Blur radii come in steps this size, so a morph reuses a few effects instead of one per frame. */
+private const val BLUR_STEP_PX = 0.5f
+private val blurEffectCache = HashMap<Int, RenderEffect>()
+
+/**
+ * Blur at [strength] (0..1) of [maxRadiusPx], rounded to [BLUR_STEP_PX] steps and cached, so
+ * an animated blur allocates nothing frame to frame. Null when it would be invisible (under one
+ * step), before Android 12, or with Battery Saver on: content then just fades, which costs
+ * nothing extra on the GPU. Reading Battery Saver here also redraws the layer when it changes.
+ */
+fun steppedBlurEffect(strength: Float, maxRadiusPx: Float): RenderEffect? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+    if (AudioPowerPolicy.lowPower) return null
+    val steps = (strength.coerceIn(0f, 1f) * maxRadiusPx / BLUR_STEP_PX).roundToInt()
+    if (steps < 1) return null
+    return blurEffectCache.getOrPut(steps) {
+        val radius = steps * BLUR_STEP_PX
+        BlurEffect(radius, radius, TileMode.Decal)
+    }
+}
+
+/** How fast a morph moves this frame: 0 (still) to 1 (full speed), and whether it's growing. */
+data class MorphSpeed(val speed: Float, val growing: Boolean) {
+    companion object {
+        val Still = MorphSpeed(0f, growing = false)
+    }
+}
+
+/**
+ * Speed of a size spring, measured from how far its width + height moved since the last frame.
+ * Blur and stretch follow it, so they peak at the fastest point of the morph and are gone the
+ * moment the shape settles, whatever spring settings the user picked. An animating size
+ * recomposes every frame, so measuring here costs no extra frame callbacks.
+ */
+@Composable
+fun rememberMorphSpeed(width: Dp, height: Dp, targetWidth: Dp, targetHeight: Dp, fullSpeedDpPerSec: Float = 1800f): MorphSpeed {
+    val meter = remember { MorphSpeedMeter() }
+    return meter.update(
+        size = width.value + height.value,
+        target = targetWidth.value + targetHeight.value,
+        nowNanos = System.nanoTime(),
+        fullSpeed = fullSpeedDpPerSec
+    )
+}
+
+/** Frame-to-frame state for [rememberMorphSpeed]. */
+class MorphSpeedMeter {
+    private var lastSize = Float.NaN
+    private var lastNanos = 0L
+    private var smoothed = 0f
+
+    fun update(size: Float, target: Float, nowNanos: Long, fullSpeed: Float): MorphSpeed {
+        val previous = lastSize
+        val dtSec = (nowNanos - lastNanos) / 1_000_000_000f
+        lastSize = size
+        lastNanos = nowNanos
+        // Settled (or nothing to compare with yet): no blur or stretch left over
+        if (previous.isNaN() || kotlin.math.abs(target - size) < 0.5f) {
+            smoothed = 0f
+            return MorphSpeed.Still
+        }
+        // A frame from long ago (the spring just started) or a repeat of this frame says nothing
+        if (dtSec <= 0.001f || dtSec > 0.1f) return MorphSpeed(smoothed, growing = target > size)
+        val raw = (kotlin.math.abs(size - previous) / dtSec / fullSpeed).coerceIn(0f, 1f)
+        // Half-and-half smoothing hides frame-time jitter without lagging behind the spring
+        smoothed += (raw - smoothed) * 0.5f
+        return MorphSpeed(smoothed, growing = target > size)
+    }
+}
+
+/**
+ * Notification picture: the sender's photo (WhatsApp contact, SMS sender...) as a circle with a
+ * small app-icon badge, like iOS communication notifications; otherwise the app icon.
+ */
+@Composable
+fun NotificationAvatar(
+    notification: NotificationInfo?,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    showAppBadge: Boolean = true,
+    fallback: @Composable () -> Unit = {}
+) {
+    val avatar = notification?.avatarBitmap
+    val appIcon = notification?.iconBitmap
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        when {
+            avatar != null -> {
+                Image(
+                    bitmap = avatar.asImageBitmap(),
+                    contentDescription = "Sender",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+                if (showAppBadge && appIcon != null) {
+                    val badge = size * 0.42f
+                    Image(
+                        bitmap = appIcon.asImageBitmap(),
+                        contentDescription = notification.appName,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = badge * 0.18f, y = badge * 0.18f)
+                            .size(badge)
+                            .clip(CircleShape)
+                            .border(1.5.dp, IslandTokens.CardBackground, CircleShape)
+                    )
+                }
+            }
+            appIcon != null -> {
+                Image(
+                    bitmap = appIcon.asImageBitmap(),
+                    contentDescription = "App Icon",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(islandShape(size * 0.25f))
+                )
+            }
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(islandShape(size * 0.25f))
+                        .background(IslandTokens.SurfaceRaised),
+                    contentAlignment = Alignment.Center
+                ) {
+                    fallback()
+                }
+            }
+        }
+    }
+}
+
+/** Sends a notification PendingIntent, allowing it to open an activity from the overlay. */
+fun sendIslandPendingIntent(context: Context, intent: PendingIntent?): Boolean {
+    if (intent == null) return false
+    return runCatching {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val options = ActivityOptions.makeBasic().apply {
+                pendingIntentBackgroundActivityStartMode = ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }.toBundle()
+            intent.send(context, 0, null, null, null, null, options)
+        } else {
+            intent.send()
+        }
+    }.isSuccess
+}
+
+/**
+ * Small clock for running timers: the hand steps once per second with a short ease, so it
+ * reads as smooth motion while only animating ~0.3s of every second.
+ */
+@Composable
+fun TimerClockIcon(baseMs: Long, countDown: Boolean, size: Dp, color: Color, modifier: Modifier = Modifier) {
+    val angle = remember { Animatable(0f) }
+    LaunchedEffect(baseMs, countDown) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val seconds = kotlin.math.abs(now - baseMs) / 1000L
+            var target = (seconds % 60L) * 6f * (if (countDown) -1f else 1f)
+            // Keep turning the same way instead of spinning back at the full minute
+            val current = angle.value
+            while (target - current > 180f) target -= 360f
+            while (current - target > 180f) target += 360f
+            angle.animateTo(target, tween(durationMillis = 280, easing = FastOutSlowInEasing))
+            delay(1000L - Math.floorMod(System.currentTimeMillis() - baseMs, 1000L))
+        }
+    }
+    Canvas(modifier = modifier.size(size)) {
+        val stroke = this.size.minDimension * 0.09f
+        val radius = this.size.minDimension / 2f - stroke / 2f
+        drawCircle(color = color, radius = radius, style = Stroke(width = stroke))
+        rotate(angle.value) {
+            drawLine(
+                color = color,
+                start = center,
+                end = androidx.compose.ui.geometry.Offset(center.x, center.y - radius * 0.68f),
+                strokeWidth = stroke * 1.1f,
+                cap = StrokeCap.Round
+            )
+        }
+        drawCircle(color = color, radius = stroke * 0.9f)
+    }
+}
+

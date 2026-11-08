@@ -91,7 +91,8 @@ class PersistentWidgetTelemetryManager(private val context: Context) {
     private fun applyState() {
         val active = settings?.takeIf { isScreenOn }
 
-        if (active?.showFps == true) startFpsMonitoring() else stopFpsMonitoring()
+        // FPS counter was removed from the app; make sure monitoring never runs
+        stopFpsMonitoring()
 
         if (active?.showNetworkSpeed == true) {
             if (networkJob == null) startNetworkSpeedMonitoring()

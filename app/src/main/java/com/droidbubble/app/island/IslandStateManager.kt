@@ -20,6 +20,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** How long a torch blink sequence is remembered when telling a flashlight from a flash alert. */
+const val TORCH_FLICKER_WINDOW_MS = 4000L
+
+/**
+ * How long the torch must stay on before the flashlight pill shows. A normal switch-on waits
+ * briefly; a torch that has been toggling (flash alerts for calls / notifications) must stay on
+ * much longer than any blink.
+ */
+fun torchShowDelayMs(recentToggles: Int): Long = if (recentToggles >= 3) 1600L else 450L
+
 object IslandStateManager {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -39,9 +49,53 @@ object IslandStateManager {
     val isUnlocked: StateFlow<Boolean> = _isUnlocked.asStateFlow()
     private var unlockJob: Job? = null
 
+    // Connection alert (Bluetooth device or Wi-Fi network connected). isBluetoothConnected is the
+    // "a connection alert is showing" flag; connectionAlert says which icon to draw.
     private val _isBluetoothConnected = MutableStateFlow(false)
     val isBluetoothConnected: StateFlow<Boolean> = _isBluetoothConnected.asStateFlow()
     private var bluetoothJob: Job? = null
+
+    enum class ConnectionAlert { BLUETOOTH, WIFI }
+
+    private val _connectionAlert = MutableStateFlow(ConnectionAlert.BLUETOOTH)
+    val connectionAlert: StateFlow<ConnectionAlert> = _connectionAlert.asStateFlow()
+
+    // App currently in the foreground (from the accessibility service). Activities that belong to
+    // it are hidden, e.g. the music pill disappears while the music app itself is open.
+    private val _foregroundPackage = MutableStateFlow<String?>(null)
+    val foregroundPackage: StateFlow<String?> = _foregroundPackage.asStateFlow()
+
+    fun setForegroundPackage(packageName: String?) {
+        // Only hides the app's own cards while it is on screen (see IslandOverlayRoot). The card is
+        // NOT dismissed: it comes back after leaving the app as long as the notification is still in
+        // the shade. Cards end only when swiped away or when the notification is cleared.
+        _foregroundPackage.value = packageName
+    }
+
+    // Swipe gestures on the pill: right hides it, left shrinks it into the camera circle.
+    // Both reset as soon as something new happens (new notification, song, alert...).
+    private val _userHidden = MutableStateFlow(false)
+    val userHidden: StateFlow<Boolean> = _userHidden.asStateFlow()
+
+    private val _userMinimized = MutableStateFlow(false)
+    val userMinimized: StateFlow<Boolean> = _userMinimized.asStateFlow()
+
+    fun hideIsland() {
+        collapse()
+        _userMinimized.value = false
+        _userHidden.value = true
+    }
+
+    fun minimizeIsland() {
+        collapse()
+        _userHidden.value = false
+        _userMinimized.value = true
+    }
+
+    fun restoreIsland() {
+        _userHidden.value = false
+        _userMinimized.value = false
+    }
 
     enum class RingerMode {
         SILENT,
@@ -69,11 +123,12 @@ object IslandStateManager {
     val isExpanded: StateFlow<Boolean> = _isExpanded.asStateFlow()
 
     // Fired by the island view once the collapse animation has visually finished
-    private val _collapseSettled = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val collapseSettled: SharedFlow<Unit> = _collapseSettled.asSharedFlow()
+    // True once the cards have fully collapsed (state, not an event, so it can't be missed)
+    private val _collapseSettled = MutableStateFlow(true)
+    val collapseSettled: StateFlow<Boolean> = _collapseSettled.asStateFlow()
 
     fun notifyCollapseSettled() {
-        _collapseSettled.tryEmit(Unit)
+        _collapseSettled.value = true
     }
 
     private val _fpsInfo = MutableStateFlow(FpsInfo())
@@ -117,6 +172,7 @@ object IslandStateManager {
     }
 
     private var lastMediaPlayingTime = 0L
+    private var lastTrackKey: String? = null
 
     // Callbacks for media transport controls
     var onPlayPause: (() -> Unit)? = null
@@ -125,6 +181,8 @@ object IslandStateManager {
     var onSkipPrevious: (() -> Unit)? = null
     var onSeekTo: ((Long) -> Unit)? = null
     var onToggleLike: (() -> Unit)? = null
+    var onToggleShuffle: (() -> Unit)? = null
+    var onCycleRepeat: (() -> Unit)? = null
 
     var dismissedMediaPackage: String? = null
         private set
@@ -135,6 +193,79 @@ object IslandStateManager {
 
     // Callback to dismiss notification from listener
     var onDismissNotification: ((String) -> Unit)? = null
+
+    // Removes the notification from the system notification shade too
+    var onCancelSystemNotification: ((String) -> Unit)? = null
+
+    /** Swipe-to-clear on the pill: clears the card AND the notification in the shade. */
+    fun clearCurrentNotification(): Boolean {
+        val notif = _activeNotification.value ?: return false
+        onCancelSystemNotification?.invoke(notif.key)
+        return dismissCurrentNotification()
+    }
+
+    /**
+     * The user opened the notification from the island. Like tapping it in the shade: an
+     * auto-cancel notification is cleared (and its card with it); any other one keeps its card
+     * until it is swiped away or cleared from the notification panel.
+     */
+    fun onNotificationOpened() {
+        val notif = _activeNotification.value ?: return
+        if (notif.isAutoCancel) {
+            onCancelSystemNotification?.invoke(notif.key)
+            dismissCurrentNotification()
+        }
+    }
+
+    /**
+     * A notification action button (not reply) was pressed. The card stays: if the action really
+     * finishes the notification (e.g. "Mark as read") the app removes it and the card goes too.
+     */
+    fun onNotificationActionPressed() {
+        autoDismissNotificationJob?.cancel()
+    }
+
+    /** True while a phone / VoIP call is ringing (shown or waiting behind another card). */
+    val isIncomingCallRinging: Boolean
+        get() = _activeNotification.value?.isIncomingCall == true || stashedLiveNotification?.isIncomingCall == true
+
+    // Liquid glass: on-screen rects of the expanded cards, published every frame while they
+    // morph, which the overlay service backs with blur windows. Empty once collapsed.
+    // strength 0..1 scales the blur radius, so the blur fades in and out with the card
+    data class GlassPane(
+        val left: Int,
+        val top: Int,
+        val width: Int,
+        val height: Int,
+        val cornerRadiusPx: Float,
+        val strength: Float = 1f
+    )
+
+    private val _glassPanes = MutableStateFlow<List<GlassPane>>(emptyList())
+    val glassPanes: StateFlow<List<GlassPane>> = _glassPanes.asStateFlow()
+
+    /**
+     * Called straight from [setGlassPanes], inside the island's own frame, so the blur windows get
+     * the new card rects without waiting for a hop through the main thread's message queue.
+     */
+    @Volatile
+    var glassPaneListener: ((List<GlassPane>) -> Unit)? = null
+
+    fun setGlassPanes(panes: List<GlassPane>) {
+        if (_glassPanes.value != panes) {
+            _glassPanes.value = panes
+            glassPaneListener?.invoke(panes)
+        }
+    }
+
+    // Whether the system can blur behind windows right now (off on some devices / battery saver).
+    // Without it the glass cards use a more opaque gradient so text stays readable.
+    private val _glassBlurAvailable = MutableStateFlow(false)
+    val glassBlurAvailable: StateFlow<Boolean> = _glassBlurAvailable.asStateFlow()
+
+    fun setGlassBlurAvailable(available: Boolean) {
+        _glassBlurAvailable.value = available
+    }
 
     // Callback to send direct reply to notification
     var onSendReply: ((key: String, replyText: String) -> Unit)? = null
@@ -208,11 +339,57 @@ object IslandStateManager {
         get() = _expandedPriority.value ?: currentPriority
 
     fun updateFlashlightState(enabled: Boolean, level: Int = _flashlightLevel.value, maxLevel: Int = 4) {
+        if (enabled && !_isFlashlightOn.value) restoreIsland()
         _isFlashlightOn.value = enabled
         _flashlightLevel.value = level.coerceIn(1, 4)
         _maxFlashlightLevel.value = 4
         if (!enabled && _isExpanded.value && (_expandedPriority.value == IslandPriority.FLASHLIGHT || !isOccupied)) {
             collapse()
+        }
+    }
+
+    // Torch state as reported by the camera service, before flicker filtering
+    private var torchRawOn = false
+    private var torchRawLevel = 1
+    private val torchToggleTimes = ArrayDeque<Long>()
+    private var torchConfirmJob: Job? = null
+
+    /** Monotonic clock for the torch flicker filter (replaceable in tests). */
+    var nowMs: () -> Long = { System.nanoTime() / 1_000_000L }
+
+    /**
+     * Torch callback from the camera service. "Flash on call / notification" features blink the
+     * torch several times a second; showing the flashlight pill for each blink made it flash in and
+     * out over the call card. The pill only appears once the torch has stayed on for a moment, waits
+     * longer while it is blinking, and never appears over a ringing call.
+     */
+    fun onTorchChanged(enabled: Boolean, level: Int = torchRawLevel) {
+        val now = nowMs()
+        if (enabled != torchRawOn) torchToggleTimes.addLast(now)
+        while (torchToggleTimes.isNotEmpty() && now - torchToggleTimes.first() > TORCH_FLICKER_WINDOW_MS) {
+            torchToggleTimes.removeFirst()
+        }
+        torchRawOn = enabled
+        torchRawLevel = level
+        torchConfirmJob?.cancel()
+        if (!enabled) {
+            if (_isFlashlightOn.value) updateFlashlightState(false)
+            return
+        }
+        if (_isFlashlightOn.value) {
+            updateFlashlightLevel(level)
+            return
+        }
+        scheduleTorchConfirm()
+    }
+
+    private fun scheduleTorchConfirm() {
+        torchConfirmJob?.cancel()
+        if (!torchRawOn || _isFlashlightOn.value) return
+        val waitMs = torchShowDelayMs(torchToggleTimes.size)
+        torchConfirmJob = scope.launch {
+            delay(waitMs)
+            if (torchRawOn && !isIncomingCallRinging) updateFlashlightState(true, torchRawLevel)
         }
     }
 
@@ -235,39 +412,51 @@ object IslandStateManager {
     }
 
     fun triggerUnlockEvent() {
-        android.util.Log.d("IslandStateManager", "triggerUnlockEvent() invoked: setting isUnlocked = true for 1500ms")
+        // Never fold a ringing call card away for a passing system alert
+        if (isIncomingCallRinging) return
+        if (_isExpanded.value) collapse()
         unlockJob?.cancel()
         _isUnlocked.value = true
         unlockJob = scope.launch {
-            delay(1500) // 1.5 seconds as requested
+            delay(2200)
             _isUnlocked.value = false
             android.util.Log.d("IslandStateManager", "triggerUnlockEvent() finished: isUnlocked reset to false")
         }
     }
 
-    fun triggerBluetoothEvent() {
-        android.util.Log.d("IslandStateManager", "triggerBluetoothEvent() invoked: setting isBluetoothConnected = true for 1500ms")
+    fun triggerBluetoothEvent() = triggerConnectionAlert(ConnectionAlert.BLUETOOTH)
+
+    fun triggerWifiEvent() = triggerConnectionAlert(ConnectionAlert.WIFI)
+
+    private fun triggerConnectionAlert(kind: ConnectionAlert) {
+        if (isIncomingCallRinging) return
+        if (_isExpanded.value) collapse()
+        restoreIsland()
         bluetoothJob?.cancel()
+        _connectionAlert.value = kind
         _isBluetoothConnected.value = true
         bluetoothJob = scope.launch {
-            delay(1500) // 1.5 seconds exact same as unlock
+            delay(3000)
             _isBluetoothConnected.value = false
-            android.util.Log.d("IslandStateManager", "triggerBluetoothEvent() finished: isBluetoothConnected reset to false")
         }
     }
 
     fun triggerRingerModeEvent(mode: RingerMode) {
-        android.util.Log.d("IslandStateManager", "triggerRingerModeEvent($mode) invoked for 1500ms")
+        // Some phones switch the ringer / audio mode as a call starts ringing
+        if (isIncomingCallRinging) return
+        if (_isExpanded.value) collapse()
         ringerJob?.cancel()
         _activeRingerMode.value = mode
         ringerJob = scope.launch {
-            delay(1500) // Should last only 1.5 seconds on screen as requested!
+            delay(2500)
             _activeRingerMode.value = null
-            android.util.Log.d("IslandStateManager", "triggerRingerModeEvent finished: reset to null")
         }
     }
 
     fun triggerChargingEvent(percentage: Int, wattage: Double? = null) {
+        if (isIncomingCallRinging) return
+        if (_isExpanded.value) collapse()
+        restoreIsland()
         chargingJob?.cancel()
         _activeCharging.value = ChargingInfo(percentage.coerceIn(0, 100), wattage)
         chargingJob = scope.launch {
@@ -306,6 +495,13 @@ object IslandStateManager {
         if (media == null && _isExpanded.value && (_expandedPriority.value == IslandPriority.MEDIA || !isOccupied)) {
             collapse()
         }
+
+        // New song: bring back a pill the user swiped away (no auto-expand)
+        val trackKey = media?.let { "${it.packageName}|${it.title}|${it.artist}" }
+        if (trackKey != null && lastTrackKey != null && trackKey != lastTrackKey && media.isPlaying) {
+            restoreIsland()
+        }
+        if (trackKey != null) lastTrackKey = trackKey
         if (media?.isPlaying == true) {
             lastMediaPlayingTime = System.currentTimeMillis()
         }
@@ -317,7 +513,7 @@ object IslandStateManager {
         onPauseMedia?.invoke()
         _activeMedia.value = null
         if (_isExpanded.value) {
-            collapse()
+            if (!isOccupied) collapse() else if (_expandedPriority.value == IslandPriority.MEDIA) _expandedPriority.value = null
         }
     }
 
@@ -327,13 +523,70 @@ object IslandStateManager {
         }
     }
 
+    // A live activity (call, timer, recorder) pushed aside by a one-off alert; it comes back
+    // when the alert is dismissed or removed instead of being lost
+    private var stashedLiveNotification: NotificationInfo? = null
+
+    // Cards the user dismissed, by key -> text at dismissal. Apps re-post the same notification
+    // often (timers, ongoing calls); an unchanged re-post must not bring the card back.
+    private val dismissedNotificationText = mutableMapOf<String, String>()
+    private val dismissedProgressKeys = mutableSetOf<String>()
+
+    private fun restoreStashedLive(): Boolean {
+        val live = stashedLiveNotification ?: return false
+        stashedLiveNotification = null
+        _activeNotification.value = live
+        return true
+    }
+
     fun updateNotification(notification: NotificationInfo?) {
-        if (notification != null && notification.hasProgress) {
+        // Plain downloads go to the progress card; rides, deliveries and Android 16 live updates
+        // keep their own live-activity design even though they carry a progress bar
+        if (notification != null && notification.hasProgress && liveActivityKind(notification) == LiveActivityKind.NONE) {
             updateProgress(notification)
             return
         }
+        if (notification == null) {
+            stashedLiveNotification = null
+        } else {
+            if (dismissedNotificationText[notification.key] == notification.text) return
+            dismissedNotificationText.remove(notification.key)
+            val current = _activeNotification.value
+            // A ringing call keeps the card: other alerts that arrive meanwhile (missed-call
+            // reminders, messages...) stay in the shade instead of covering the answer button
+            // (a ringing alarm / "Time's up" is protected the same way)
+            if (current != null && current.key != notification.key && (current.isIncomingCall || current.isAlert) &&
+                !notification.isCall && !notification.isAlert
+            ) {
+                return
+            }
+            if (current != null && current.key != notification.key) {
+                // Live re-post while an alert is showing: just refresh the waiting live activity
+                if (notification.isLiveActivity && !current.isLiveActivity && !notification.isIncomingCall) {
+                    stashedLiveNotification = notification
+                    return
+                }
+                // An alert (or a ringing call) takes the card; a live activity waits for it
+                if (current.isLiveActivity) stashedLiveNotification = current
+            }
+            if (stashedLiveNotification?.key == notification.key) stashedLiveNotification = null
+        }
         autoDismissNotificationJob?.cancel()
+        val previous = _activeNotification.value
+        val isNewNotification = notification != null && previous?.key != notification.key
+        val wasRinging = isIncomingCallRinging
         _activeNotification.value = notification
+        onRingingChanged(wasRinging)
+        // Incoming call: open the call card (answer / decline) right away
+        if (notification != null && notification.isIncomingCall && (isNewNotification || previous?.isIncomingCall != true)) {
+            restoreIsland()
+            expand(IslandPriority.POP_NOTIFICATION)
+        }
+        // Ringing alarm / expired timer: open the full island with its Stop / Snooze buttons
+        if (notification != null && notification.isAlert && (isNewNotification || previous?.isAlert != true)) {
+            restoreIsland()
+            expand(IslandPriority.POP_NOTIFICATION)
+        }
         if (notification == null) {
             _isPopInActive.value = false
             if (_isExpanded.value && (_expandedPriority.value == IslandPriority.POP_NOTIFICATION || !isOccupied)) {
@@ -343,9 +596,12 @@ object IslandStateManager {
                     _expandedPriority.value = null
                 }
             }
-        } else {
+        } else if (isNewNotification) {
+            restoreIsland()
             triggerPopIn()
-            if (autoDismissNotifications) {
+            // Live activities (calls, timers, recorders) stay until the app removes them
+            val isLiveActivity = notification.isLiveActivity
+            if (autoDismissNotifications && !isLiveActivity) {
                 val notifKey = notification.key
                 autoDismissNotificationJob = scope.launch {
                     delay(3000)
@@ -358,6 +614,9 @@ object IslandStateManager {
     }
 
     fun updateProgress(progress: NotificationInfo?) {
+        // A progress card the user dismissed stays gone while the download keeps ticking
+        if (progress != null && progress.key in dismissedProgressKeys) return
+        if (progress != null && _activeProgress.value?.key != progress.key) restoreIsland()
         _activeProgress.value = progress
         if (progress == null) {
             if (_isExpanded.value && (_expandedPriority.value == IslandPriority.PROGRESS || !isOccupied)) {
@@ -372,10 +631,16 @@ object IslandStateManager {
 
     fun removeNotification(key: String) {
         var removed = false
+        dismissedNotificationText.remove(key)
+        dismissedProgressKeys.remove(key)
+        if (stashedLiveNotification?.key == key) stashedLiveNotification = null
         if (_activeNotification.value?.key == key) {
+            val wasRinging = isIncomingCallRinging
             autoDismissNotificationJob?.cancel()
             _activeNotification.value = null
             _isPopInActive.value = false
+            restoreStashedLive()
+            onRingingChanged(wasRinging)
             removed = true
         }
         if (_activeProgress.value?.key == key) {
@@ -385,6 +650,11 @@ object IslandStateManager {
         if (removed && _isExpanded.value && !isOccupied) {
             collapse()
         }
+    }
+
+    /** The ringing just stopped: a torch the user really turned on can show its pill now. */
+    private fun onRingingChanged(wasRinging: Boolean) {
+        if (wasRinging && !isIncomingCallRinging) scheduleTorchConfirm()
     }
 
     fun triggerPopIn() {
@@ -400,8 +670,14 @@ object IslandStateManager {
         autoDismissNotificationJob?.cancel()
         val notif = _activeNotification.value ?: return false
         // Dismiss card only, without cancelling actual system notification
+        val wasRinging = isIncomingCallRinging
+        dismissedNotificationText[notif.key] = notif.text
         _activeNotification.value = null
         _isPopInActive.value = false
+        // A live activity that was waiting behind this alert takes its place
+        val restored = restoreStashedLive()
+        onRingingChanged(wasRinging)
+        if (restored) return true
         if (_isExpanded.value && (_expandedPriority.value == IslandPriority.POP_NOTIFICATION || !isOccupied)) {
             if (!isOccupied) {
                 collapse()
@@ -415,6 +691,7 @@ object IslandStateManager {
     fun dismissProgress(): Boolean {
         val prog = _activeProgress.value ?: return false
         // Dismiss card only, without cancelling actual system notification
+        dismissedProgressKeys += prog.key
         _activeProgress.value = null
         if (_isExpanded.value && (_expandedPriority.value == IslandPriority.PROGRESS || !isOccupied)) {
             if (!isOccupied) {
@@ -428,9 +705,10 @@ object IslandStateManager {
 
     fun updateRecordingState(state: ScreenRecordingState) {
         val wasRecording = _screenRecordingState.value.isRecording
+        if (state.isRecording && !wasRecording) restoreIsland()
         _screenRecordingState.value = state
-        if (wasRecording && !state.isRecording && _isExpanded.value && (_expandedPriority.value == IslandPriority.SCREEN_RECORDING || !isOccupied)) {
-            collapse()
+        if (wasRecording && !state.isRecording && _isExpanded.value) {
+            if (!isOccupied) collapse() else if (_expandedPriority.value == IslandPriority.SCREEN_RECORDING) _expandedPriority.value = null
         }
     }
 
@@ -440,6 +718,7 @@ object IslandStateManager {
             autoDismissNotificationJob?.cancel()
         }
         _expandedPriority.value = priority
+        _collapseSettled.value = false
         _isExpanded.value = true
     }
 
@@ -447,6 +726,39 @@ object IslandStateManager {
         _isExpanded.value = false
         _expandedPriority.value = null
         _isKeyboardFocused.value = false
+    }
+
+    /** Puts the island back to a clean idle state. Tests only: the object is a process singleton. */
+    @androidx.annotation.VisibleForTesting
+    fun resetForTest() {
+        listOf(popInJob, chargingJob, unlockJob, bluetoothJob, ringerJob, autoDismissNotificationJob, torchConfirmJob)
+            .forEach { it?.cancel() }
+        _activeCharging.value = null
+        _isUnlocked.value = false
+        _isBluetoothConnected.value = false
+        _activeRingerMode.value = null
+        _activeMedia.value = null
+        _activeNotification.value = null
+        _activeProgress.value = null
+        _screenRecordingState.value = ScreenRecordingState()
+        _isExpanded.value = false
+        _expandedPriority.value = null
+        _collapseSettled.value = true
+        _isPopInActive.value = false
+        _isKeyboardFocused.value = false
+        _isFlashlightOn.value = false
+        _foregroundPackage.value = null
+        _userHidden.value = false
+        _userMinimized.value = false
+        torchRawOn = false
+        torchToggleTimes.clear()
+        stashedLiveNotification = null
+        dismissedNotificationText.clear()
+        dismissedProgressKeys.clear()
+        dismissedMediaPackage = null
+        lastTrackKey = null
+        dismissMediaOnPause = false
+        autoDismissNotifications = false
     }
 
     fun toggleExpand(priority: IslandPriority? = null) {

@@ -116,3 +116,30 @@ fun islandShape(radius: Dp): Shape =
  * and tall cards (media, weather) both look concentric with their content.
  */
 fun expandedCornerRadiusFor(cardHeight: Dp): Dp = (cardHeight * 0.2f).coerceIn(26.dp, 40.dp)
+
+/**
+ * Black bridge that joins a notch-style island to the top edge of the screen: a bar as wide as
+ * the pill plus an inward-curving "ear" on each side, like a phone notch. [ear] is the radius
+ * of those concave corners.
+ */
+fun notchBridgePath(width: Float, height: Float, ear: Float): Path {
+    val e = ear.coerceIn(0f, min(width / 2f, height))
+    return Path().apply {
+        moveTo(0f, 0f)
+        lineTo(width, 0f)
+        quadraticTo(width - e, 0f, width - e, e)
+        lineTo(width - e, height)
+        lineTo(e, height)
+        lineTo(e, e)
+        quadraticTo(e, 0f, 0f, 0f)
+        close()
+    }
+}
+
+/** Notch-style pill: square top (it hangs from the screen edge), round bottom corners. */
+fun notchPillShape(bottomRadius: Dp): Shape = RoundedCornerShape(
+    topStart = 0.dp,
+    topEnd = 0.dp,
+    bottomStart = bottomRadius,
+    bottomEnd = bottomRadius
+)

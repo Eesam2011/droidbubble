@@ -2,6 +2,7 @@ package com.droidbubble.app.service
 
 import android.app.ActivityOptions
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -23,6 +24,11 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandStateManager
+import com.droidbubble.app.island.isClockOrRecorderPackage
+import com.droidbubble.app.island.isClockPackage
+import com.droidbubble.app.island.isRecorderPackage
+import com.droidbubble.app.island.isSportsPackage
+import com.droidbubble.app.island.isTrackingPackage
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationAction
@@ -38,6 +44,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+// Paused media older than this no longer occupies the island
+private const val STALE_PAUSED_MEDIA_MS = 10 * 60 * 1000L
+private const val COMPAT_SET_SHUFFLE = "android.support.v4.media.session.action.SET_SHUFFLE_MODE"
+private const val COMPAT_ARG_SHUFFLE = "android.support.v4.media.session.action.ARGUMENT_SHUFFLE_MODE"
+private const val COMPAT_SET_REPEAT = "android.support.v4.media.session.action.SET_REPEAT_MODE"
+private const val COMPAT_ARG_REPEAT = "android.support.v4.media.session.action.ARGUMENT_REPEAT_MODE"
+
+// Notification.FLAG_PROMOTED_ONGOING and Notification.EXTRA_SHORT_CRITICAL_TEXT (Android 16)
+private const val FLAG_PROMOTED_ONGOING = 0x00040000
+private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
 
 class NotificationReceiverService : NotificationListenerService() {
 
@@ -92,6 +109,59 @@ class NotificationReceiverService : NotificationListenerService() {
 
         IslandStateManager.onSkipPrevious = {
             activeMediaController?.transportControls?.skipToPrevious()
+        }
+
+        // Shuffle / repeat: prefer the app's own custom action (Spotify, YouTube Music...), else the
+        // MediaSessionCompat actions that compat and Media3 sessions understand. The platform API
+        // can't read these modes back, so the island remembers what it last set per app.
+        IslandStateManager.onToggleShuffle = {
+            activeMediaController?.let { controller ->
+                val current = IslandStateManager.activeMedia.value
+                val newOn = !(current?.isShuffleOn ?: false)
+                runCatching {
+                    val custom = findCustomAction(controller, "shuffle")
+                    if (custom != null) {
+                        controller.transportControls.sendCustomAction(custom.action, custom.extras)
+                    } else {
+                        controller.transportControls.sendCustomAction(
+                            COMPAT_SET_SHUFFLE,
+                            Bundle().apply { putInt(COMPAT_ARG_SHUFFLE, if (newOn) 1 else 0) }
+                        )
+                    }
+                }
+                shuffleOverrides[controller.packageName] = newOn
+                if (current != null) IslandStateManager.updateMedia(current.copy(isShuffleOn = newOn))
+            }
+        }
+
+        IslandStateManager.onCycleRepeat = {
+            activeMediaController?.let { controller ->
+                val current = IslandStateManager.activeMedia.value
+                val next = when (current?.repeatMode ?: MediaInfo.REPEAT_OFF) {
+                    MediaInfo.REPEAT_OFF -> MediaInfo.REPEAT_ALL
+                    MediaInfo.REPEAT_ALL -> MediaInfo.REPEAT_ONE
+                    else -> MediaInfo.REPEAT_OFF
+                }
+                runCatching {
+                    val custom = findCustomAction(controller, "repeat")
+                    if (custom != null) {
+                        controller.transportControls.sendCustomAction(custom.action, custom.extras)
+                    } else {
+                        // Compat repeat modes: NONE = 0, ONE = 1, ALL = 2
+                        val compatMode = when (next) {
+                            MediaInfo.REPEAT_ALL -> 2
+                            MediaInfo.REPEAT_ONE -> 1
+                            else -> 0
+                        }
+                        controller.transportControls.sendCustomAction(
+                            COMPAT_SET_REPEAT,
+                            Bundle().apply { putInt(COMPAT_ARG_REPEAT, compatMode) }
+                        )
+                    }
+                }
+                repeatOverrides[controller.packageName] = next
+                if (current != null) IslandStateManager.updateMedia(current.copy(repeatMode = next))
+            }
         }
 
         IslandStateManager.onToggleLike = {
@@ -181,6 +251,11 @@ class NotificationReceiverService : NotificationListenerService() {
             // Intentionally no-op: dismissing only dismisses the island card, not the system notification itself
         }
 
+        IslandStateManager.onCancelSystemNotification = { key ->
+            runCatching { cancelNotification(key) }
+                .onFailure { Log.e("NotificationReceiver", "Error cancelling notification", it) }
+        }
+
         IslandStateManager.onSendReply = { key, replyText ->
             val notif = IslandStateManager.activeNotification.value
             if (notif != null && notif.key == key) {
@@ -216,10 +291,19 @@ class NotificationReceiverService : NotificationListenerService() {
             mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
             val componentName = ComponentName(this, NotificationReceiverService::class.java)
             mediaSessionManager?.addOnActiveSessionsChangedListener(sessionsChangedListener, componentName)
-            val initialControllers = mediaSessionManager?.getActiveSessions(componentName)
-            updateActiveMediaController(initialControllers)
+            refreshMedia()
         } catch (e: Exception) {
             Log.e("NotificationReceiver", "Error registering media session listener", e)
+        }
+        // Calls, timers and downloads that were already running when the listener (re)connected
+        runCatching {
+            activeNotifications
+                ?.filter { sbn ->
+                    val flags = sbn.notification?.flags ?: 0
+                    (flags and Notification.FLAG_ONGOING_EVENT) != 0 || (flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
+                }
+                ?.sortedBy { it.postTime }
+                ?.forEach { onNotificationPosted(it) }
         }
     }
 
@@ -232,6 +316,9 @@ class NotificationReceiverService : NotificationListenerService() {
             }
             controllerCallbacks.clear()
             activeMediaController = null
+            // Removals aren't delivered while disconnected; don't leave stale cards behind
+            IslandStateManager.updateNotification(null)
+            IslandStateManager.updateProgress(null)
         } catch (e: Exception) {
             Log.e("NotificationReceiver", "Error unregistering listener", e)
         }
@@ -267,7 +354,7 @@ class NotificationReceiverService : NotificationListenerService() {
 
     private fun syncControllers(controllers: List<MediaController>) {
         val toRemove = controllerCallbacks.keys.filter { existing ->
-            controllers.none { it.packageName == existing.packageName }
+            controllers.none { it.sessionToken == existing.sessionToken }
         }
         for (old in toRemove) {
             val cb = controllerCallbacks.remove(old)
@@ -277,7 +364,7 @@ class NotificationReceiverService : NotificationListenerService() {
         }
 
         for (controller in controllers) {
-            val already = controllerCallbacks.keys.any { it.packageName == controller.packageName }
+            val already = controllerCallbacks.keys.any { it.sessionToken == controller.sessionToken }
             if (!already) {
                 val cb = object : MediaController.Callback() {
                     override fun onPlaybackStateChanged(state: PlaybackState?) {
@@ -289,6 +376,8 @@ class NotificationReceiverService : NotificationListenerService() {
                     }
 
                     override fun onSessionDestroyed() {
+                        shuffleOverrides.remove(controller.packageName)
+                        repeatOverrides.remove(controller.packageName)
                         refreshMedia()
                     }
                 }
@@ -411,6 +500,18 @@ class NotificationReceiverService : NotificationListenerService() {
         }
 
         val isPlaying = isControllerPlayingOrBuffering(controller)
+        val nowMs = System.currentTimeMillis()
+        if (isPlaying) mediaLastPlayingAt[controller.packageName] = nowMs
+        // A paused session only keeps the island if it actually played recently. Apps like YouTube
+        // keep a paused session alive after you leave a video, which showed a "playing" pill.
+        val lastPlayedAt = mediaLastPlayingAt[controller.packageName]
+            ?: playbackState?.lastPositionUpdateTime?.takeIf { it > 0L }?.let { updatedAt ->
+                nowMs - (android.os.SystemClock.elapsedRealtime() - updatedAt).coerceAtLeast(0L)
+            }
+        if (!isPlaying && (lastPlayedAt == null || nowMs - lastPlayedAt > STALE_PAUSED_MEDIA_MS)) {
+            IslandStateManager.updateMedia(null)
+            return
+        }
         if (currentSettings.dismissMediaOnPause && !isPlaying) {
             IslandStateManager.updateMedia(null)
             return
@@ -566,7 +667,13 @@ class NotificationReceiverService : NotificationListenerService() {
                 playbackSpeed = speed,
                 lastPositionUpdateTimeMs = lastUpdate,
                 canLike = canLike,
-                isLiked = isLiked
+                isLiked = isLiked,
+                isShuffleOn = shuffleOverrides[controller.packageName]
+                    ?: (findCustomAction(controller, "shuffle")?.name?.toString()?.let { name ->
+                        // A custom action labelled "turn off / disable shuffle" means it's on now
+                        name.contains("off", ignoreCase = true) || name.contains("disable", ignoreCase = true)
+                    } ?: false),
+                repeatMode = repeatOverrides[controller.packageName] ?: MediaInfo.REPEAT_OFF
             )
         )
     }
@@ -761,6 +868,14 @@ class NotificationReceiverService : NotificationListenerService() {
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
+        // Group summaries ("5 messages from 2 chats") would replace the specific message card
+        // and lose its reply action
+        if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+
+        // When an update of a card that's on screen gets filtered below, the old card must go too
+        // (e.g. a download turning into "Download complete", a paused timer losing its chronometer)
+        fun dropIfShown() = IslandStateManager.removeNotification(sbn.key)
+
         // 0. If a "screen recording saved" notification arrives, immediately shut down recording state
         if (isScreenRecordingSavedNotification(sbn, notification)) {
             val pkg = sbn.packageName.lowercase()
@@ -809,10 +924,29 @@ class NotificationReceiverService : NotificationListenerService() {
         }
 
         // 3. Extract live progress tracking (e.g. Google Play Store, downloads, transfers, navigation)
+        val template = extras.getString(Notification.EXTRA_TEMPLATE).orEmpty()
+        val isProgressStyle = template.contains("ProgressStyle")
         val progress = extras.getInt(Notification.EXTRA_PROGRESS, -1)
-        val maxProgress = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
+        // Android 16 ProgressStyle: the max is the sum of the segment lengths
+        val maxProgress = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0).takeIf { it > 0 }
+            ?: if (isProgressStyle) progressStyleMax(extras) else 0
         val isIndeterminate = extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)
         val isOngoing = (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 || sbn.isOngoing
+        // Android 16 "Live Updates": promoted ongoing notifications (rides, deliveries, navigation...)
+        val isPromoted = (Build.VERSION.SDK_INT >= 36 && (notification.flags and FLAG_PROMOTED_ONGOING) != 0) ||
+            (isProgressStyle && isOngoing)
+        val shortCriticalText = extras.getCharSequence(EXTRA_SHORT_CRITICAL_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+        val rawWords = "${extras.getCharSequence(Notification.EXTRA_TITLE)} ${extras.getCharSequence(Notification.EXTRA_TEXT)}".lowercase()
+        // Ringing alarm or expired timer: the clock app posts it as an alarm with a full-screen intent
+        val isAlert = isClockPackage(packageName) && (
+            (notification.category == Notification.CATEGORY_ALARM && notification.fullScreenIntent != null) ||
+                "time's up" in rawWords || "time\u2019s up" in rawWords || "time is up" in rawWords
+            )
+        // Live activities that aren't timers: alerts, live updates, rides / deliveries / flights,
+        // live scores and clock / recorder apps (alarms, paused recordings)
+        val isLiveCandidate = isAlert || isPromoted || isTrackingPackage(packageName) ||
+            isSportsPackage(packageName) || isRecorderPackage(packageName) ||
+            (isClockPackage(packageName) && ("alarm" in rawWords || "snooz" in rawWords))
         val isNavCategory = notification.category == Notification.CATEGORY_NAVIGATION
         val isNavApp = packageName == "com.google.android.apps.maps" || packageName == "com.waze" || packageName.contains("maps")
         val isNavigation = (isNavCategory || isNavApp) && isOngoing
@@ -820,21 +954,63 @@ class NotificationReceiverService : NotificationListenerService() {
 
         // Separate check: live progress notifications vs normal notification alerts
         if (hasProgress) {
-            if (!currentSettings.showLiveProgress) return
+            if (!currentSettings.showLiveProgress) { dropIfShown(); return }
         } else {
-            if (!currentSettings.showNotifications) return
+            if (!currentSettings.showNotifications) { dropIfShown(); return }
         }
 
-        // Skip ongoing notifications UNLESS they report live progress (e.g. downloads, navigation)
-        if (isOngoing && !hasProgress) return
+        val callType = extras.getInt("android.callType", 0) // CallStyle: 1 incoming, 2 ongoing, 3 screening
+        val isCall = notification.category == Notification.CATEGORY_CALL ||
+            extras.getString(Notification.EXTRA_TEMPLATE)?.contains("CallStyle") == true
 
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-            ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+        // Skip persistent notifications ("App is running", VPN...) UNLESS they are live activities:
+        // progress (downloads, navigation), calls, or a running timer / stopwatch / recorder.
+        // Android 14 foreground-service notifications can lack FLAG_ONGOING_EVENT, so check both.
+        val isForegroundServiceNotif = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
+        // Clock apps (AOSP / Google Clock) draw the countdown in a custom view, so the notification
+        // has no title, text or chronometer extras at all: read the timer out of that view instead.
+        val customTimer = if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall &&
+            !extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) &&
+            (isClockOrRecorderPackage(packageName) || notification.category == Notification.CATEGORY_ALARM ||
+                notification.category == "stopwatch")
+        ) readCustomViewTimer(notification) else null
+        val looksLikeTimer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) ||
+            parseTimerTextMillis(extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()) != null ||
+            customTimer != null
+        if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate) {
+            dropIfShown()
+            return
+        }
 
-        if (title.isNullOrBlank() && text.isNullOrBlank()) return
+        // Silent / low-importance channels don't pop the island (calls and live activities always do)
+        val ranking = Ranking()
+        if (!isCall && !looksLikeTimer && !hasProgress && !isLiveCandidate &&
+            currentRanking?.getRanking(sbn.key, ranking) == true &&
+            ranking.importance < android.app.NotificationManager.IMPORTANCE_DEFAULT
+        ) {
+            dropIfShown()
+            return
+        }
+
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }
+            ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.takeIf { it.isNotBlank() }
+            ?: customTimer?.label
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+            ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+            ?: customTimer?.timeText
+
+        if (title.isNullOrBlank() && text.isNullOrBlank()) { dropIfShown(); return }
+        // Not from the app on screen -- except calls, whose answered/ended updates must get through
+        // even while the in-call screen is open
+        // An update of a card that's already showing is ignored too, but the card is kept: it is hidden
+        // while its app is on screen and only ends when swiped away or cleared from the shade.
+        // Timers / stopwatches / recorders are the exception too: they're almost always started from
+        // inside their app, and a countdown is never reposted, so dropping that first post would
+        // mean the timer never reaches the island. The island keeps it hidden until the app is left.
+        if (!hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate && packageName == IslandStateManager.foregroundPackage.value) {
+            return
+        }
 
         val appName = try {
             val pm = packageManager
@@ -845,6 +1021,37 @@ class NotificationReceiverService : NotificationListenerService() {
         }
 
         val iconBitmap = extractNotificationBitmap(notification, packageName)
+        val callPerson: android.app.Person? = if (isCall) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                extras.getParcelable("android.callPerson", android.app.Person::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                extras.getParcelable("android.callPerson") as? android.app.Person
+            }
+        } else null
+        val avatarBitmap = callPerson?.icon?.let { icon ->
+            runCatching { icon.loadDrawable(this)?.let { drawableToBitmap(it) } }.getOrNull()
+        } ?: extractAvatarBitmap(notification)
+
+        // Answer / decline: CallStyle extras first, then the notification's own buttons
+        fun callIntent(key: String): PendingIntent? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                extras.getParcelable(key, PendingIntent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                extras.getParcelable(key) as? PendingIntent
+            }
+        fun actionIntent(vararg words: String): PendingIntent? = notification.actions?.firstOrNull { action ->
+            val t = action.title?.toString()?.lowercase() ?: ""
+            words.any { t.contains(it) }
+        }?.actionIntent
+        val answerIntent = if (isCall) callIntent("android.answerIntent") ?: actionIntent("answer", "accept") else null
+        val declineIntent = if (isCall) {
+            callIntent("android.declineIntent") ?: callIntent("android.hangUpIntent") ?: actionIntent("decline", "reject", "hang up", "end")
+        } else null
+        val isIncomingCall = isCall && (callType == 1 || (callType == 0 && answerIntent != null))
+        val callerNumber = callPerson?.uri?.takeIf { it.startsWith("tel:") }?.removePrefix("tel:")
+            ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { t -> t.any { it.isDigit() } && t.count { it.isDigit() } >= 5 }
 
         // Live timers (voice recorders, calls, stopwatches): the app either shows a system
         // chronometer counting from `when`, or posts a static "00:00"-style title that the
@@ -853,12 +1060,18 @@ class NotificationReceiverService : NotificationListenerService() {
         val timerTitleMs = parseTimerTextMillis(title)
         val isTimerPaused = text?.contains("pause", ignoreCase = true) == true
         val isForegroundService = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
-        val liveTimerBaseMs = when {
+        val baseFromText = !(showsChronometer && notification.`when` > 0L) && customTimer == null
+        val rawLiveTimerBaseMs = when {
             showsChronometer && notification.`when` > 0L -> notification.`when`
+            customTimer != null -> if (customTimer.running) customTimer.baseWallMs else 0L
             timerTitleMs != null && !isTimerPaused && (isForegroundService || isOngoing) -> sbn.postTime - timerTitleMs
             else -> 0L
         }
-        val liveTimerCountDown = showsChronometer && extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false)
+        // A paused countdown keeps the flag so it still gets the timer design, not the stopwatch one
+        val liveTimerCountDown = (showsChronometer && extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false)) ||
+            customTimer?.countDown == true
+        // Same start time on every update, so the island clock never steps back or stalls
+        val liveTimerBaseMs = liveTimerBases.stabilize("${sbn.key}|$liveTimerCountDown", rawLiveTimerBaseMs, baseFromText)
 
         val actions = mutableListOf<NotificationAction>()
         notification.actions?.forEach { action ->
@@ -881,23 +1094,40 @@ class NotificationReceiverService : NotificationListenerService() {
             key = sbn.key,
             packageName = packageName,
             appName = appName,
-            title = title ?: appName,
+            title = callPerson?.name?.toString()?.takeIf { it.isNotBlank() } ?: title ?: appName,
             text = text ?: "",
             iconBitmap = iconBitmap,
+            avatarBitmap = avatarBitmap,
             contentIntent = notification.contentIntent,
             actions = actions.take(3),
             timestamp = sbn.postTime,
             progress = progress,
             maxProgress = maxProgress,
             isIndeterminate = isIndeterminate || (isNavigation && maxProgress <= 0),
-            isOngoing = isOngoing,
+            // Android 14 lets foreground-service notifications be swiped, dropping the ongoing flag;
+            // they are still live activities (recorders, timers)
+            isOngoing = isOngoing || (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0,
             liveTimerBaseMs = liveTimerBaseMs,
-            liveTimerCountDown = liveTimerCountDown
+            liveTimerCountDown = liveTimerCountDown,
+            isAutoCancel = (notification.flags and Notification.FLAG_AUTO_CANCEL) != 0,
+            isCall = isCall,
+            isIncomingCall = isIncomingCall,
+            callerNumber = callerNumber,
+            answerIntent = answerIntent,
+            declineIntent = declineIntent,
+            category = notification.category,
+            isAlert = isAlert,
+            isPromoted = isPromoted,
+            shortCriticalText = shortCriticalText
         )
 
-        if (hasProgress) {
+        // Same key switching between progress and alert (download -> "Download complete")
+        // Live updates / rides keep their own card even with a progress bar
+        if (hasProgress && com.droidbubble.app.island.liveActivityKind(notifInfo) == com.droidbubble.app.island.LiveActivityKind.NONE) {
+            if (IslandStateManager.activeNotification.value?.key == sbn.key) IslandStateManager.removeNotification(sbn.key)
             IslandStateManager.updateProgress(notifInfo)
         } else {
+            if (IslandStateManager.activeProgress.value?.key == sbn.key) IslandStateManager.updateProgress(null)
             IslandStateManager.updateNotification(notifInfo)
         }
     }
@@ -930,11 +1160,7 @@ class NotificationReceiverService : NotificationListenerService() {
     }
 
     private fun extractNotificationBitmap(notification: Notification, packageName: String): Bitmap? {
-        val largeIcon: Icon? = notification.getLargeIcon()
-        if (largeIcon != null) {
-            val drawable = largeIcon.loadDrawable(this)
-            if (drawable != null) return drawableToBitmap(drawable)
-        }
+        getAppIconBitmap(packageName)?.let { return it }
         val smallIcon: Icon? = notification.smallIcon
         if (smallIcon != null) {
             val drawable = smallIcon.loadDrawable(this)
@@ -944,6 +1170,31 @@ class NotificationReceiverService : NotificationListenerService() {
     }
 
     private val appIconCache = android.util.LruCache<String, Bitmap>(30)
+
+    // Kept across remove + repost, which many recorders do on every tick
+    private val liveTimerBases = com.droidbubble.app.model.LiveTimerBaseStabilizer()
+
+    private val mediaLastPlayingAt = mutableMapOf<String, Long>()
+    private val shuffleOverrides = mutableMapOf<String, Boolean>()
+    private val repeatOverrides = mutableMapOf<String, Int>()
+
+    private fun findCustomAction(controller: MediaController, keyword: String): PlaybackState.CustomAction? =
+        controller.playbackState?.customActions?.firstOrNull { ca ->
+            ca.action.contains(keyword, ignoreCase = true) || ca.name?.toString()?.contains(keyword, ignoreCase = true) == true
+        }
+
+    /** Contact / sender picture: last MessagingStyle sender's icon, else the large icon. */
+    private fun extractAvatarBitmap(notification: Notification): Bitmap? {
+        runCatching {
+            val style = androidx.core.app.NotificationCompat.MessagingStyle
+                .extractMessagingStyleFromNotification(notification)
+            val senderIcon = style?.messages?.lastOrNull()?.person?.icon
+            senderIcon?.loadDrawable(this)?.let { return drawableToBitmap(it) }
+        }
+        return runCatching {
+            notification.getLargeIcon()?.loadDrawable(this)?.let { drawableToBitmap(it) }
+        }.getOrNull()
+    }
 
     // Every MediaController query unparcels a brand-new Bitmap, so without this the island would
     // get a "new" image on each play/pause/seek and redo its blur + accent-colour extraction.
@@ -960,6 +1211,58 @@ class NotificationReceiverService : NotificationListenerService() {
         } catch (e: Exception) {
             null
         }
+    }
+
+    /** Sum of an Android 16 ProgressStyle's segment lengths (its progress max). */
+    private fun progressStyleMax(extras: Bundle): Int = runCatching {
+        @Suppress("DEPRECATION")
+        val segments = extras.getParcelableArrayList<Bundle>("android.progressSegments")
+        segments?.sumOf { it.getInt("length", 0) } ?: 0
+    }.getOrDefault(0)
+
+    /** A timer read from a notification's custom RemoteViews (see [readCustomViewTimer]). */
+    private data class CustomViewTimer(
+        val baseWallMs: Long,
+        val countDown: Boolean,
+        val running: Boolean,
+        val timeText: String?,
+        val label: String?
+    )
+
+    /**
+     * Inflates a custom-view notification and pulls the [android.widget.Chronometer] out of it.
+     * Only standard notifications built with setCustomContentView carry these views; for everything
+     * else contentView is null on Android 7+ and this returns right away.
+     */
+    @Suppress("DEPRECATION")
+    private fun readCustomViewTimer(notification: Notification): CustomViewTimer? {
+        val views = notification.contentView ?: notification.bigContentView ?: return null
+        val root = runCatching { views.apply(this, android.widget.FrameLayout(this)) }.getOrNull() ?: return null
+        var chrono: android.widget.Chronometer? = null
+        val labels = mutableListOf<String>()
+        fun walk(v: android.view.View) {
+            when (v) {
+                is android.widget.Chronometer -> if (chrono == null && v.visibility == android.view.View.VISIBLE) chrono = v
+                is android.widget.TextView -> v.text?.toString()?.trim()
+                    ?.takeIf { it.isNotEmpty() && v.visibility == android.view.View.VISIBLE }
+                    ?.let(labels::add)
+                is android.view.ViewGroup -> for (i in 0 until v.childCount) walk(v.getChildAt(i))
+            }
+        }
+        walk(root)
+        val c = chrono ?: return null
+        val countDown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && c.isCountDown
+        val baseWall = System.currentTimeMillis() + (c.base - android.os.SystemClock.elapsedRealtime())
+        val timeText = c.text?.toString()?.replace("−", "")?.replace("-", "")?.trim()?.takeIf { it.isNotEmpty() }
+        // Chronometer exposes no "started" flag: a running timer offers Pause, a paused one Resume / Start
+        val actionTitles = notification.actions?.mapNotNull { it?.title?.toString()?.lowercase() }.orEmpty()
+        val offersPause = actionTitles.any { "pause" in it || "stop" in it && "stopwatch" !in it }
+        val offersResume = actionTitles.any { "resume" in it || "start" in it || "continue" in it }
+        val saysPaused = labels.any { it.contains("paused", ignoreCase = true) }
+        val running = !saysPaused && (offersPause || !offersResume)
+        val label = labels.firstOrNull { parseTimerTextMillis(it) == null }
+            ?: if (countDown) "Timer" else "Stopwatch"
+        return CustomViewTimer(baseWall, countDown, running, timeText, label)
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
@@ -990,24 +1293,17 @@ class NotificationReceiverService : NotificationListenerService() {
             }
         }
 
-        // 3. Sender is currently active media controller
-        if (sbn.packageName == activeMediaController?.packageName) return true
-        try {
-            val componentName = ComponentName(this, NotificationReceiverService::class.java)
-            val activeSessions = mediaSessionManager?.getActiveSessions(componentName)
-            if (activeSessions?.any { it.packageName == sbn.packageName } == true) return true
-        } catch (_: Exception) {}
-
-        // 4. Playback actions present (e.g. Previous, Next, Play, Pause)
-        notification.actions?.forEach { action ->
-            val actionTitle = action?.title?.toString()?.lowercase(java.util.Locale.ROOT) ?: ""
-            if (actionTitle.contains("pause") || actionTitle.contains("play") ||
-                actionTitle.contains("skip") || actionTitle.contains("previous") ||
-                actionTitle.contains("next") || actionTitle.contains("rewind") ||
-                actionTitle.contains("fast forward")
-            ) {
-                return true
-            }
+        // 3. Players with custom notifications: an ongoing, non-progress notification from an app whose
+        // media session is actually playing (messages and downloads never match this)
+        val isOngoingNotif = (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 || sbn.isOngoing
+        val hasProgressExtras = (extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0) > 0 ||
+            extras?.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false) == true
+        if (isOngoingNotif && !hasProgressExtras) {
+            try {
+                val componentName = ComponentName(this, NotificationReceiverService::class.java)
+                val activeSessions = mediaSessionManager?.getActiveSessions(componentName)
+                if (activeSessions?.any { it.packageName == sbn.packageName && isControllerPlayingOrBuffering(it) } == true) return true
+            } catch (_: Exception) {}
         }
 
         return false

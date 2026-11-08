@@ -1,5 +1,8 @@
 package com.droidbubble.app.island
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -11,6 +14,12 @@ import androidx.compose.ui.unit.sp
  * Views should read from here instead of hardcoding hex colors / magic numbers.
  */
 object IslandTokens {
+
+    /**
+     * High contrast mode (Accessibility setting): secondary text, dim text and secondary
+     * controls get brighter. Backed by Compose state, so flipping it restyles the island live.
+     */
+    var highContrast by mutableStateOf(false)
 
     // ---- Spacing scale (4pt grid) ----
     val SpaceXxs: Dp = 2.dp   // title -> subtitle
@@ -36,8 +45,8 @@ object IslandTokens {
     // ---- Text ----
     val TextPrimary = Color.White
     val TextBody = Color(0xFFF4F4F5)
-    val TextSecondary = Color(0xFFA1A1AA)
-    val TextTertiary = Color(0xFF8E8E93)
+    val TextSecondary: Color get() = if (highContrast) Color(0xFFDADADF) else Color(0xFFA1A1AA)
+    val TextTertiary: Color get() = if (highContrast) Color(0xFFC7C7CC) else Color(0xFF8E8E93)
 
     // ---- Accents ----
     val AccentBlue = Color(0xFF64D2FF)
@@ -50,7 +59,11 @@ object IslandTokens {
     // ---- Actions ----
     val ActionPrimaryContainer = Color(0xFFE5E5EA)
     val ActionPrimaryContent = Color.Black
-    val ActionSecondaryContainer = Color(0xFF3A3A3C) // brighter than SurfaceRaised for contrast on black cards
+    // Brighter than SurfaceRaised for contrast on black cards
+    val ActionSecondaryContainer: Color get() = if (highContrast) Color(0xFF5A5A5E) else Color(0xFF3A3A3C)
+
+    /** Outline drawn around the island in high contrast mode, so it stands out on dark wallpapers. */
+    val HighContrastOutline = Color.White.copy(alpha = 0.55f)
 
     // ---- Type scale (base sizes; views may scale by settings.expandedScale) ----
     val TypeTitle = 17.sp
