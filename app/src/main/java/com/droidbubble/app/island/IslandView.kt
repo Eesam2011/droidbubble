@@ -382,6 +382,12 @@ object IslandTestTags {
     const val PILL = "island_pill"
     const val BUBBLE = "island_bubble"
     const val CARD = "island_card"
+
+    /** Content slots that tests can ask "which activity is drawn here?" (see [content]). */
+    val CONTENT_SLOTS = listOf("pill", "bubble", "card1", "card2")
+
+    /** Tag on the content root of [slot] while it shows [priority]. Semantics only: no layout or drawing. */
+    fun content(slot: String, priority: IslandPriority?) = "island_${slot}_${priority?.name ?: "NONE"}"
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -1448,6 +1454,7 @@ fun IslandOverlayRoot(
                             if (!isCharging && expandedAlpha > 0.01f) {
                                 Box(
                                     modifier = Modifier
+                                        .testTag(IslandTestTags.content("card1", primaryPriority))
                                         .wrapContentSize(Alignment.TopCenter, unbounded = true)
                                         .requiredSize(expandedCardWidth, card1ContentHeight)
                                         // Inner padding lives in each view (islandCardContentPadding)
@@ -1610,6 +1617,7 @@ fun IslandOverlayRoot(
                             if (animatedCard2Alpha > 0.15f && secondaryPriority != null) {
                                 Box(
                                     modifier = Modifier
+                                        .testTag(IslandTestTags.content("card2", secondaryPriority))
                                         .wrapContentSize(Alignment.TopCenter, unbounded = true)
                                         .requiredSize(
                                             expandedCardWidth,
@@ -1730,6 +1738,7 @@ fun IslandOverlayRoot(
                         if (contentAlpha > 0.05f) {
                             Box(
                                 modifier = Modifier
+                                    .testTag(IslandTestTags.content("bubble", secondaryPriority))
                                     .fillMaxSize()
                                     .graphicsLayer { alpha = contentAlpha },
                                 contentAlignment = Alignment.Center
@@ -2230,6 +2239,7 @@ fun IslandOverlayRoot(
                             ) { shownPriority ->
                                 Box(
                                     modifier = Modifier
+                                        .testTag(IslandTestTags.content("pill", shownPriority))
                                         .fillMaxSize()
                                         .graphicsLayer {
                                             // Only the leaving activity blurs, with the swap's squash
