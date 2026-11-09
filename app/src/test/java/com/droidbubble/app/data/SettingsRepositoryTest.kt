@@ -32,7 +32,8 @@ class SettingsRepositoryTest {
 
     /** The view model's coroutine resumes on the main looper, so drive it while waiting. */
     private fun awaitStored(repository: SettingsRepository, predicate: (IslandSettings) -> Boolean) {
-        val deadline = System.currentTimeMillis() + 5_000
+        // Generous: under a full-suite run the DataStore write can take several seconds
+        val deadline = System.currentTimeMillis() + 20_000
         while (true) {
             shadowOf(Looper.getMainLooper()).idle()
             if (predicate(runBlocking { repository.settingsFlow.first() })) return
