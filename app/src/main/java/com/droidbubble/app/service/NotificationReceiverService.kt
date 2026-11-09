@@ -1189,10 +1189,16 @@ class NotificationReceiverService : NotificationListenerService() {
             (notification.category == Notification.CATEGORY_ALARM && notification.fullScreenIntent != null) ||
                 "time's up" in rawWords || "time\u2019s up" in rawWords || "time is up" in rawWords
             )
+        // Android 14 foreground-service notifications can lack FLAG_ONGOING_EVENT, so check both.
+        val isForegroundServiceNotif = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
+        val ongoingLike = isOngoing || isForegroundServiceNotif
         // Live activities that aren't timers: alerts, live updates, rides / deliveries / flights,
-        // live scores and clock / recorder apps (alarms, paused recordings)
-        val isLiveCandidate = isAlert || isPromoted || isTrackingPackage(packageName) ||
-            isSportsPackage(packageName) || isRecorderPackage(packageName) ||
+        // live scores and clock / recorder apps (alarms, paused recordings).
+        // B4.2: a ride, sports or recorder app only counts when its notification is ongoing, so its
+        // marketing and silent pushes still meet the ongoing, silent-channel and on-screen filters.
+        // An upcoming alarm isn't always ongoing, so the clock clause stays as it is.
+        val isLiveCandidate = isAlert || isPromoted ||
+            (ongoingLike && (isTrackingPackage(packageName) || isSportsPackage(packageName) || isRecorderPackage(packageName))) ||
             (isClockPackage(packageName) && ("alarm" in rawWords || "snooz" in rawWords))
         val isNavCategory = notification.category == Notification.CATEGORY_NAVIGATION
         val isNavApp = packageName == "com.google.android.apps.maps" || packageName == "com.waze" || packageName.contains("maps")
@@ -1205,8 +1211,6 @@ class NotificationReceiverService : NotificationListenerService() {
 
         // Skip persistent notifications ("App is running", VPN...) UNLESS they are live activities:
         // progress (downloads, navigation), calls, or a running timer / stopwatch / recorder.
-        // Android 14 foreground-service notifications can lack FLAG_ONGOING_EVENT, so check both.
-        val isForegroundServiceNotif = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
         // Clock apps (AOSP / Google Clock) draw the countdown in a custom view, so the notification
         // has no title, text or chronometer extras at all: read the timer out of that view instead.
         val customTimer = if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall &&

@@ -573,6 +573,7 @@
 - **Depends on:** B4.1 (same fixture table), S5.3.
 - **Effort:** S   **Risk:** low — a non-ongoing ride update from a tracking app now needs importance ≥ default to pop. That's the intended heads-up rule.
 - **Ships as:** Fix.
+- **Done (2026-11-09):** as specified (`ongoingLike` moved above `isLiveCandidate`). S5.3: only `promo/uber_marketing_en` changed, to dropped in both columns; the Careem, Talabat and Google news rows are unchanged.
 
 ### B4.3 — Whole-word matching for "end" and friends in call and recorder actions
 - **Goal:** Button words match whole words only, so "Send", "Weekend" or "Recommend" is never taken as hang-up or stop.

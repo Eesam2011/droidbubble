@@ -56,9 +56,6 @@ class FixtureCharacterizationTest {
         put("screenrec/samsung_es|defaults", "A4")
         put("screenrec/xiaomi_id|messages_on", "A4")
         put("screenrec/xiaomi_id|defaults", "A4")
-        // B4.2: a low-importance marketing push pops because of its package
-        put("promo/uber_marketing_en|messages_on", "B4.2")
-        put("promo/uber_marketing_en|defaults", "B4.2")
         // B4.3: "Send" matches "end" and becomes a decline intent
         put("message/send_action_en|messages_on", "B4.3")
         put("message/send_action_en|defaults", "B4.3")

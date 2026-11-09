@@ -80,7 +80,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B3.1 | Separate `showLiveActivities` gate, on by default | doing (code and tests done; device check pending) |
 | B3.2 | "Live Activities" toggle in settings | doing (code and test done; manual check pending) |
 | B4.1 | Strict score regex; TRACKING before SPORTS | done |
-| B4.2 | Package hints only for ongoing notifications | todo |
+| B4.2 | Package hints only for ongoing notifications | done |
 | B4.3 | Whole-word "end" matching | todo |
 | B4.4 | Fewer screen-recording false positives | todo |
 | B4.5 | Dismissed cards return only on a real state change | todo |
