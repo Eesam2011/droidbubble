@@ -59,10 +59,16 @@ class FixtureCharacterizationTest {
     }
 
     @Before
-    fun setUp() = IslandStateManager.resetForTest()
+    fun setUp() {
+        NotificationReceiverService.parserDispatcherForTest = kotlinx.coroutines.Dispatchers.Unconfined
+        IslandStateManager.resetForTest()
+    }
 
     @After
-    fun tearDown() = IslandStateManager.resetForTest()
+    fun tearDown() {
+        NotificationReceiverService.parserDispatcherForTest = null
+        IslandStateManager.resetForTest()
+    }
 
     @Test
     fun everyFixture_matchesGolden() {

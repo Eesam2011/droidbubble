@@ -105,7 +105,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B9.2 | Bubble numeral at least 11 sp, or the ring alone | todo |
 | B10.1 | Sampled off-main art decode | doing (code and tests done; device track-skip check pending) |
 | B10.2 | Debounced refreshMedia without activeNotifications | doing (code and tests done; device latency check pending) |
-| B10.3 | Parser dispatcher and per-key sequence numbers | todo |
+| B10.3 | Parser dispatcher and per-key sequence numbers | doing (code and tests done; device trace pending) |
 | B10.4 | Cache clock-app custom-view reads | todo |
 | B11.1 | Breadcrumb ring in CrashLog | done |
 | B11.2 | Per-notification and media guards | done |

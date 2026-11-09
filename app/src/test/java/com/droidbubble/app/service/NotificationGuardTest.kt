@@ -32,6 +32,7 @@ class NotificationGuardTest {
 
     @Before
     fun setUp() {
+        NotificationReceiverService.parserDispatcherForTest = kotlinx.coroutines.Dispatchers.Unconfined
         IslandStateManager.resetForTest()
         CrashLog.resetForTest()
         CrashLog.clear(context)
@@ -42,6 +43,7 @@ class NotificationGuardTest {
 
     @After
     fun tearDown() {
+        NotificationReceiverService.parserDispatcherForTest = null
         CrashLog.clear(context)
         CrashLog.resetForTest()
         IslandStateManager.resetForTest()

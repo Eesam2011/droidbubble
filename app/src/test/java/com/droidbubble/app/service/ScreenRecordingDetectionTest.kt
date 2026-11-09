@@ -29,10 +29,16 @@ class ScreenRecordingDetectionTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Before
-    fun setUp() = IslandStateManager.resetForTest()
+    fun setUp() {
+        NotificationReceiverService.parserDispatcherForTest = kotlinx.coroutines.Dispatchers.Unconfined
+        IslandStateManager.resetForTest()
+    }
 
     @After
-    fun tearDown() = IslandStateManager.resetForTest()
+    fun tearDown() {
+        NotificationReceiverService.parserDispatcherForTest = null
+        IslandStateManager.resetForTest()
+    }
 
     private fun recordingAfterPosting(chronometer: Boolean, text: String = "Screen recording in progress"): Boolean {
         val extras = JSONObject()

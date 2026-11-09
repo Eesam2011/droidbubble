@@ -1067,6 +1067,7 @@
 - **Depends on:** S5.3, B4.2 and B4.3 (they edit the same function; land them first), B11.2 (the guard wraps the parse).
 - **Effort:** M   **Risk:** med — ordering, and the call or recording state machines that must stay on main. Mitigation: steps 2–4, and S5.3 as the gate.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** `buildNotificationInfo(sbn, notification, extras, settings, foregroundPackage, lowImportance): ParseResult` (`Drop`, `Ignore`, `Post(info, hasProgress)`) runs on a single `db-parser` thread; settings, the foreground app and the ranking importance are read on main at post time. `applyParseResult` runs on main under `guarded`, only if `parseSeq[key]` still equals the post's sequence; `onNotificationRemoved` removes the key, so an in-flight parse is dropped. The parse itself is wrapped like B11.2 (`parse:<pkg>`). `liveTimerBases` is confined to the parser thread (only the parse uses it). Test seam `parserDispatcherForTest`: posting tests use `Dispatchers.Unconfined`; `ParserOrderingTest` drains a queue out of order. S5.3 unchanged. Device check still open: an S4.3 trace with `db.posted` work off the main thread.
 
 ### B10.4 — Don't re-inflate a running clock app's custom view on every repost
 - **Goal:** A running Google Clock or AOSP timer, which reposts about once per second, inflates its RemoteViews once per state change, not once per second.

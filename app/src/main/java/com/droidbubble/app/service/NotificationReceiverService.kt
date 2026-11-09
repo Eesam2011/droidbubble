@@ -47,6 +47,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -64,6 +65,11 @@ private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
 class NotificationReceiverService : NotificationListenerService() {
 
     companion object {
+        /** Tests only: where parsing runs (B10.3), for example Dispatchers.Unconfined or a queue. */
+        @androidx.annotation.VisibleForTesting
+        @JvmField
+        var parserDispatcherForTest: kotlinx.coroutines.CoroutineDispatcher? = null
+
         /** B10.2: media refresh bursts are collected for this long. */
         const val MEDIA_REFRESH_DEBOUNCE_MS = 100L
         var instance: NotificationReceiverService? = null
@@ -356,6 +362,7 @@ class NotificationReceiverService : NotificationListenerService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        parserExecutor?.close()
         if (instance === this) {
             instance = null
         }
@@ -568,6 +575,16 @@ class NotificationReceiverService : NotificationListenerService() {
 
     private fun mediaNotificationOf(packageName: String): StatusBarNotification? =
         mediaNotifications.values.lastOrNull { it.packageName == packageName }
+
+    // B10.3: main-confined. The latest post sequence per key; a parse result applies only if it matches.
+    private val parseSeq = HashMap<String, Long>()
+    private var nextParseSeq = 0L
+    private var parserExecutor: kotlinx.coroutines.ExecutorCoroutineDispatcher? = null
+    private val parserDispatcher: kotlinx.coroutines.CoroutineDispatcher by lazy {
+        parserDispatcherForTest ?: java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "db-parser").apply { priority = Thread.NORM_PRIORITY - 1; isDaemon = true }
+        }.asCoroutineDispatcher().also { parserExecutor = it }
+    }
 
     private val artRequests = ArtRequests()
     private var cachedArtSourceSize: Pair<Int, Int>? = null
@@ -1253,6 +1270,73 @@ class NotificationReceiverService : NotificationListenerService() {
             return
         }
 
+        // B10.3: the heavy part (RemoteViews inflation, drawables, package-manager lookups) runs on
+        // the single parser thread, not in the main-thread slot of the island's pop-in animation.
+        // Everything it needs from main is read now; the result is applied on main, in post
+        // order: a result whose key was posted again, or removed, meanwhile is dropped.
+        val key = sbn.key
+        val seq = ++nextParseSeq
+        parseSeq[key] = seq
+        val settings = currentSettings
+        val foreground = IslandStateManager.foregroundPackage.value
+        val lowImportance = isLowImportance(key)
+        serviceScope.launch(parserDispatcher) {
+            val result = try {
+                buildNotificationInfo(sbn, notification, extras, settings, foreground, lowImportance)
+            } catch (t: Throwable) {
+                if (t is kotlin.coroutines.cancellation.CancellationException) throw t
+                CrashLog.nonFatal("parse:${sbn.packageName}", t)
+                if (t is OutOfMemoryError) throw t
+                null
+            }
+            withContext(Dispatchers.Main) {
+                if (result == null || parseSeq[key] != seq) return@withContext
+                guarded("apply:${sbn.packageName}") { applyParseResult(sbn, result) }
+            }
+        }
+    }
+
+    /** What parsing a posted notification decided (B10.3). Applied on main by [applyParseResult]. */
+    private sealed interface ParseResult {
+        /** Filtered out: a card showing for this key goes too. */
+        data object Drop : ParseResult
+        /** Ignored: a card showing for this key stays. */
+        data object Ignore : ParseResult
+        data class Post(val info: NotificationInfo, val hasProgress: Boolean) : ParseResult
+    }
+
+    private fun applyParseResult(sbn: StatusBarNotification, result: ParseResult) {
+        when (result) {
+            ParseResult.Drop -> IslandStateManager.removeNotification(sbn.key)
+            ParseResult.Ignore -> Unit
+            is ParseResult.Post -> {
+                // Same key switching between progress and alert (download -> "Download complete")
+                // Live updates / rides keep their own card even with a progress bar
+                if (result.hasProgress && com.droidbubble.app.island.liveActivityKind(result.info) == com.droidbubble.app.island.LiveActivityKind.NONE) {
+                    if (IslandStateManager.activeNotification.value?.key == sbn.key) IslandStateManager.removeNotification(sbn.key)
+                    IslandStateManager.updateProgress(result.info)
+                } else {
+                    if (IslandStateManager.activeProgress.value?.key == sbn.key) IslandStateManager.updateProgress(null)
+                    IslandStateManager.updateNotification(result.info)
+                }
+            }
+        }
+    }
+
+    /**
+     * B10.3: parses a posted notification on the parser thread. Reads only its arguments, the
+     * package manager and the notification's drawables. [liveTimerBases] is used only here, so it
+     * stays confined to the parser thread.
+     */
+    private fun buildNotificationInfo(
+        sbn: StatusBarNotification,
+        notification: Notification,
+        extras: android.os.Bundle,
+        settings: IslandSettings,
+        foregroundPackage: String?,
+        lowImportance: Boolean,
+    ): ParseResult {
+        val packageName = sbn.packageName
         // 3. Extract live progress tracking (e.g. Google Play Store, downloads, transfers, navigation)
         val template = extras.getString(Notification.EXTRA_TEMPLATE).orEmpty()
         val isProgressStyle = template.contains("ProgressStyle")
@@ -1306,19 +1390,16 @@ class NotificationReceiverService : NotificationListenerService() {
             customTimer != null
         // B3.1: each kind has its own toggle. "Incoming Notifications" only covers message banners;
         // calls, live activities and progress pass on their own switches.
-        if (!currentSettings.allows(gateKind(isCall = isCall, isLive = looksLikeTimer || isLiveCandidate, hasProgress = hasProgress))) {
-            dropIfShown()
-            return
+        if (!settings.allows(gateKind(isCall = isCall, isLive = looksLikeTimer || isLiveCandidate, hasProgress = hasProgress))) {
+            return ParseResult.Drop
         }
         if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate) {
-            dropIfShown()
-            return
+            return ParseResult.Drop
         }
 
         // Silent / low-importance channels don't pop the island (calls and live activities always do)
-        if (!isCall && !looksLikeTimer && !hasProgress && !isLiveCandidate && isLowImportance(sbn.key)) {
-            dropIfShown()
-            return
+        if (!isCall && !looksLikeTimer && !hasProgress && !isLiveCandidate && lowImportance) {
+            return ParseResult.Drop
         }
 
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }
@@ -1329,7 +1410,7 @@ class NotificationReceiverService : NotificationListenerService() {
             ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.takeIf { it.isNotBlank() }
             ?: customTimer?.timeText
 
-        if (title.isNullOrBlank() && text.isNullOrBlank()) { dropIfShown(); return }
+        if (title.isNullOrBlank() && text.isNullOrBlank()) return ParseResult.Drop
         // Not from the app on screen -- except calls, whose answered/ended updates must get through
         // even while the in-call screen is open
         // An update of a card that's already showing is ignored too, but the card is kept: it is hidden
@@ -1337,8 +1418,8 @@ class NotificationReceiverService : NotificationListenerService() {
         // Timers / stopwatches / recorders are the exception too: they're almost always started from
         // inside their app, and a countdown is never reposted, so dropping that first post would
         // mean the timer never reaches the island. The island keeps it hidden until the app is left.
-        if (!hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate && packageName == IslandStateManager.foregroundPackage.value) {
-            return
+        if (!hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate && packageName == foregroundPackage) {
+            return ParseResult.Ignore
         }
 
         val appName = try {
@@ -1449,20 +1530,14 @@ class NotificationReceiverService : NotificationListenerService() {
             shortCriticalText = shortCriticalText
         )
 
-        // Same key switching between progress and alert (download -> "Download complete")
-        // Live updates / rides keep their own card even with a progress bar
-        if (hasProgress && com.droidbubble.app.island.liveActivityKind(notifInfo) == com.droidbubble.app.island.LiveActivityKind.NONE) {
-            if (IslandStateManager.activeNotification.value?.key == sbn.key) IslandStateManager.removeNotification(sbn.key)
-            IslandStateManager.updateProgress(notifInfo)
-        } else {
-            if (IslandStateManager.activeProgress.value?.key == sbn.key) IslandStateManager.updateProgress(null)
-            IslandStateManager.updateNotification(notifInfo)
-        }
+        return ParseResult.Post(notifInfo, hasProgress)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         if (sbn == null) return
+        // B10.3: a parse still running for this key must not bring the card back
+        parseSeq.remove(sbn.key)
         CrashLog.breadcrumb("nrs", "removed pkg=${sbn.packageName} keyHash=${CrashLog.keyHash(sbn.key)}")
         guarded("removed:${sbn.packageName}") { handleRemoved(sbn) }
     }
