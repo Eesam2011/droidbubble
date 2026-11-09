@@ -838,7 +838,7 @@ fun LiveActivityNotificationView(notification: NotificationInfo, kind: LiveActiv
     val timeText = liveActivityTimeText(notification)
     val isPaused = controls.isPaused || notification.liveTimerBaseMs <= 0L
     val open = {
-        launchAppOrIntent(context, notification.packageName, notification.contentIntent)
+        openTarget(context, notification.contentIntent, notification.packageName)
         onCollapse()
     }
     fun fire(action: NotificationAction?): (() -> Unit)? = action?.let { a ->

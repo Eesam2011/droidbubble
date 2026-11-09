@@ -1,16 +1,12 @@
 package com.droidbubble.app.island
 
-import android.app.ActivityOptions
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.util.Log
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -1728,10 +1724,7 @@ fun IslandOverlayRoot(
                                         priority = secondaryPriority,
                                         media = currentMedia,
                                         notification = currentNotif,
-                                        progress = currentProgress,
-                                        onDismissNotification = {
-                                            IslandStateManager.dismissCurrentNotification()
-                                        }
+                                        progress = currentProgress
                                     )
                                 }
                             ),
@@ -1945,10 +1938,7 @@ fun IslandOverlayRoot(
                                         priority = primaryPriority,
                                         media = currentMedia,
                                         notification = currentNotif,
-                                        progress = currentProgress,
-                                        onDismissNotification = {
-                                            IslandStateManager.dismissCurrentNotification()
-                                        }
+                                        progress = currentProgress
                                     )
                                 }
                             }
@@ -2346,72 +2336,32 @@ fun IslandOverlayRoot(
     }
 }
 
-fun launchAppOrIntent(
-    context: android.content.Context,
-    packageName: String?,
-    fallbackPendingIntent: PendingIntent? = null
-): Boolean {
-    // 1. If it is an app, open it directly via its launcher intent with NEW_TASK
-    if (!packageName.isNullOrBlank()) {
-        try {
-            val pm = context.packageManager
-            val launchIntent = pm.getLaunchIntentForPackage(packageName)
-            if (launchIntent != null) {
-                launchIntent.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                )
-                context.startActivity(launchIntent)
-                return true
-            }
-        } catch (e: Throwable) {
-            Log.e("IslandView", "Failed to launch app by package name: $packageName", e)
-        }
-    }
-
-    // 2. If it is not a launchable app or launchIntent failed, try the PendingIntent with background activity start allowed
-    if (fallbackPendingIntent != null) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val options = ActivityOptions.makeBasic().apply {
-                    pendingIntentBackgroundActivityStartMode = ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                }.toBundle()
-                fallbackPendingIntent.send(context, 0, null, null, null, null, options)
-            } else {
-                fallbackPendingIntent.send()
-            }
-            return true
-        } catch (e: Throwable) {
-            Log.e("IslandView", "Failed to send pendingIntent", e)
-        }
-    }
-
-    return false
-}
-
+/**
+ * Long-press on the pill or the bubble (B6.3): opens the card's own target, like the body tap.
+ * A notification is then treated as opened, so an auto-cancel one clears and others keep their card.
+ */
 fun openAppForPriority(
     context: android.content.Context,
     priority: IslandPriority?,
     media: MediaInfo?,
     notification: NotificationInfo?,
     progress: NotificationInfo?,
-    onDismissNotification: (() -> Unit)? = null
 ) {
     when (priority) {
         IslandPriority.POP_NOTIFICATION -> {
             if (notification != null) {
-                launchAppOrIntent(context, notification.packageName, notification.contentIntent)
-                onDismissNotification?.invoke()
+                openTarget(context, notification.contentIntent, notification.packageName)
+                IslandStateManager.onNotificationOpened()
             }
         }
         IslandPriority.PROGRESS -> {
             if (progress != null) {
-                launchAppOrIntent(context, progress.packageName, progress.contentIntent)
+                openTarget(context, progress.contentIntent, progress.packageName)
             }
         }
         IslandPriority.MEDIA -> {
             if (media != null) {
-                launchAppOrIntent(context, media.packageName, media.sessionActivity)
+                openTarget(context, media.sessionActivity, media.packageName)
             }
         }
         else -> {}
@@ -3426,7 +3376,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         .clip(RoundedCornerShape(IslandTokens.RadiusChip))
                         .background(IslandTokens.SurfaceMuted)
                         .clickable {
-                            launchAppOrIntent(context, media?.packageName, media?.sessionActivity)
+                            openTarget(context, media?.sessionActivity, media?.packageName)
                             onCollapse()
                         },
                     placeholder = {
@@ -3690,32 +3640,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
 
     fun openNotification() {
         IslandStateManager.setKeyboardFocused(false)
-        val pendingIntent = notification?.contentIntent
-        var launched = false
-        if (pendingIntent != null) {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    val options = ActivityOptions.makeBasic().apply {
-                        pendingIntentBackgroundActivityStartMode = ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                    }.toBundle()
-                    pendingIntent.send(context, 0, null, null, null, null, options)
-                } else {
-                    pendingIntent.send()
-                }
-                launched = true
-            } catch (e: Exception) {
-                Log.e("ExpandedNotification", "Failed to send contentIntent", e)
-            }
-        }
-        if (!launched && !notification?.packageName.isNullOrBlank()) {
-            runCatching {
-                val launchIntent = context.packageManager.getLaunchIntentForPackage(notification.packageName)
-                if (launchIntent != null) {
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-                    context.startActivity(launchIntent)
-                }
-            }.onFailure { Log.e("ExpandedNotification", "Failed to launch ${notification.packageName}", it) }
-        }
+        openTarget(context, notification?.contentIntent, notification?.packageName)
         IslandStateManager.onNotificationOpened()
         onCollapse()
     }
@@ -3765,7 +3690,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         notification = notification,
                         size = iconSize,
                         modifier = Modifier.clickable {
-                            launchAppOrIntent(context, notification?.packageName, notification?.contentIntent)
+                            openTarget(context, notification?.contentIntent, notification?.packageName)
                             IslandStateManager.onNotificationOpened()
                             onCollapse()
                         },
@@ -3962,7 +3887,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
     )
 
     fun openProgressApp() {
-        launchAppOrIntent(context, notification?.packageName, notification?.contentIntent)
+        openTarget(context, notification?.contentIntent, notification?.packageName)
         onCollapse()
     }
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -156,6 +157,11 @@ class IslandHarness(
     fun tap(tag: String) {
         if (!exists(tag)) return
         rule.onAllNodesWithTag(tag)[0].performTouchInput { click() }
+    }
+
+    fun longPress(tag: String) {
+        if (!exists(tag)) return
+        rule.onAllNodesWithTag(tag)[0].performTouchInput { longClick() }
     }
 
     companion object {

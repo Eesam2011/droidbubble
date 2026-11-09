@@ -738,6 +738,7 @@
 - **Depends on:** none.
 - **Effort:** S   **Risk:** low — the background-activity-start rules on Android 14+ are already handled by the options bundle the body tap uses.
 - **Ships as:** Fix.
+- **Done in code (2026-11-09):** `island/OpenTarget.kt` `openTarget(context, primary, fallbackPackage)` replaces `launchAppOrIntent` at all eight call sites (long-press on pill and bubble, media cover, notification avatar and body, progress card, and `LiveActivities.kt` `open`). Long-press calls `onNotificationOpened()`. Tests: `OpenTargetTest` (own intent sent and launcher not used; launcher when there's none or it's cancelled) and `IslandLongPressTest` (UI long-press keeps a non-auto-cancel card, clears an auto-cancel one; checked to fail with the old dismiss). Device check still open: WhatsApp chat, media player screen, and an app without a contentIntent.
 
 ### B6.4 — Swipe right no longer hides the island (D6)
 - **Goal:** No horizontal swipe on the pill makes the island disappear. Left keeps minimising to the camera ring (as today). On the ring, a swipe right or a tap restores it.
