@@ -10,7 +10,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -49,6 +48,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Paused media older than this no longer occupies the island
 private const val STALE_PAUSED_MEDIA_MS = 10 * 60 * 1000L
@@ -512,6 +512,23 @@ class NotificationReceiverService : NotificationListenerService() {
         updateMediaInfo()
     }
 
+    private val artRequests = ArtRequests()
+    private var cachedArtSourceSize: Pair<Int, Int>? = null
+
+    /** B10.1: runs [work] on the IO dispatcher and applies the art only if its track is still current. */
+    private fun loadArtAsync(artKey: String, sourceSize: Pair<Int, Int>?, work: () -> Bitmap?) {
+        if (!artRequests.request(artKey)) return
+        serviceScope.launch {
+            val bitmap = withContext(Dispatchers.IO) { work() }
+            if (artRequests.complete(artKey, bitmap != null) && bitmap != null) {
+                cachedArtKey = artKey
+                cachedArtBitmap = bitmap
+                cachedArtSourceSize = sourceSize
+                updateMediaInfo()
+            }
+        }
+    }
+
     private fun updateMediaInfo() = traced("db.updateMediaInfo") { guarded("updateMediaInfo") { updateMediaInfoTraced() } }
 
     /**
@@ -599,23 +616,28 @@ class NotificationReceiverService : NotificationListenerService() {
 
         // Same track as last time: reuse the cached art unless the app sent a differently sized image
         val artKey = "${controller.packageName}::$title::${rawArtist.orEmpty()}::${metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()}"
+        artRequests.current(artKey)
+        val metadataSize = metadataArt?.let { it.width to it.height }
         val cachedArt = cachedArtBitmap?.takeIf {
-            artKey == cachedArtKey && (metadataArt == null || (metadataArt.width == it.width && metadataArt.height == it.height))
+            artKey == cachedArtKey && (metadataArt == null || metadataSize == cachedArtSourceSize)
         }
         var artBitmap = cachedArt ?: metadataArt
+        // B10.1: an oversized metadata bitmap is scaled down off the main thread; until then the
+        // original shows, as before
+        val oversizedMetadata = cachedArt == null && metadataArt != null &&
+            maxOf(metadataArt.width, metadataArt.height) > ArtDecoder.MAX_METADATA_PX
+        if (oversizedMetadata) {
+            loadArtAsync(artKey, metadataSize) { ArtDecoder.scaleDown(metadataArt!!, ArtDecoder.MAX_METADATA_PX) }
+        }
 
-        // If bitmap is not directly available, check if artwork URI is provided
+        // If bitmap is not directly available, check if artwork URI is provided. B10.1: decoded at
+        // a sampled size on the IO dispatcher, and applied only if this track is still playing.
         if (artBitmap == null) {
             val uriStr = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
                 ?: metadata?.getString(MediaMetadata.METADATA_KEY_ART_URI)
                 ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI)
             if (!uriStr.isNullOrBlank()) {
-                artBitmap = runCatching {
-                    val uri = Uri.parse(uriStr)
-                    contentResolver.openInputStream(uri)?.use { stream ->
-                        BitmapFactory.decodeStream(stream)
-                    }
-                }.getOrNull()
+                loadArtAsync(artKey, null) { ArtDecoder.decode(contentResolver, Uri.parse(uriStr)) }
             }
         }
 
@@ -628,9 +650,10 @@ class NotificationReceiverService : NotificationListenerService() {
             }.getOrNull()
         }
 
-        if (artBitmap != null) {
+        if (artBitmap != null && !oversizedMetadata && cachedArt == null) {
             cachedArtKey = artKey
             cachedArtBitmap = artBitmap
+            cachedArtSourceSize = metadataSize
         }
 
         val appIconBitmap = getAppIconBitmap(controller.packageName)

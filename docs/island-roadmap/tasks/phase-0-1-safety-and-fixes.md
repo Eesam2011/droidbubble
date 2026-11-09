@@ -1007,6 +1007,7 @@
 - **Depends on:** S4.3 (to see the improvement in a trace; not blocking).
 - **Effort:** M   **Risk:** med — ordering. Mitigation: the `artKey` check.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** `service/ArtDecoder.kt`: `decode(uri, 512)` (bounds pass, power-of-two sample, then a final scale to 512) and `scaleDown(1024)`. `updateMediaInfo` publishes at once with the cached or large-icon art and starts `loadArtAsync` on `Dispatchers.IO`; `ArtRequests` applies a result only if its track key is still current, never retries a failed key, and runs one decode per key. The cache now remembers the source size, so a scaled metadata bitmap stays cached. `ArtDecoderTest`: 4000 px to at most 512, aspect, sample sizes, 1024 scaling, out-of-order completion, no retry. Not done: a Looper assertion on the decode thread (the decode is only reachable through `loadArtAsync`'s IO launch). Device check still open: skip tracks quickly in Spotify and check no wrong art flashes.
 
 ### B10.2 — Debounced `refreshMedia`, without `activeNotifications` binder calls
 - **Goal:** Bursts of media callbacks and window events cause one media refresh. The media path never calls `activeNotifications`.
