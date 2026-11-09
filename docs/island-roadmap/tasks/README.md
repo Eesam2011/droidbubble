@@ -91,8 +91,8 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B6.2 | Ringing calls and alarms tuck instead of dismiss | done |
 | B6.3 | Open targets: contentIntent first | doing (code and tests done; device check pending) |
 | B6.4 | Swipe right no longer hides | done |
-| B7.1 | Weather: no fabricated data | todo |
-| B7.2 | Network label: no hard-coded "5G" | todo |
+| B7.1 | Weather: no fabricated data | dropped (weather widget removed) |
+| B7.2 | Network label: no hard-coded "5G" | dropped (network speed widget removed) |
 | B7.3 | Remove FPS remnants | done |
 | B8.1 | Equalizer throttle and draw-phase recording dot | doing (code and tests done; device refresh-rate check pending) |
 | B8.2 | Media slider without the 250 ms ticker | doing (code and tests done; device seek check pending) |
@@ -314,6 +314,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 ---
 
 ## Known cross-file notes
+- **Weather and network speed removed (2026-11-09, owner's decision).** The weather widget and the "Wi-Fi & Network Speed" widget are gone: `WeatherInfo`, `NetworkSpeedInfo`, `PersistentWidgetTelemetryManager`, `showWeather` / `showNetworkSpeed`, `IslandPriority.WEATHER` / `NETWORK_SPEED`, the expanded weather and network cards, the "persistent widgets" in the view and the window math, and their settings rows. Stored `"WEATHER"` / `"NETWORK_SPEED"` priorities are dropped by `parseFeaturePriorities`. B7.1 and B7.2 are dropped; B9.1's network-speed fix and its test went with the card. The "Wi-Fi connecting" glance in System Alerts (`showWifi`) stays. Skip weather and network-speed items in later phases (2–3, 4–6, 7, 8 and PLAN still mention them).
 - **Pre-Phase-0 cleanup (2026-11-08, owner-approved).** These are gone; skip any task text that still mentions them:
   - FPS everywhere (`IslandPriority.FPS`, `FpsInfo`, `showFps`, the settings row, telemetry). Stored `"FPS"`/`"TIMER"` priorities are dropped by `parseFeaturePriorities` (`model/IslandSettings.kt`). This was B7.3.
   - The settings `isTeardropCutout` (and the Tear-drop picker option), `mediaWaveAnimation`, `wavyProgressBar`, `spinningAlbumArt` and `cornerRadiusDp` (now the fixed `IslandTokens.CompactCornerRadius` = 22 dp).

@@ -78,7 +78,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
@@ -110,20 +109,9 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Air
-import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.SignalCellularAlt
-import androidx.compose.material.icons.filled.ArrowUpward
 import kotlinx.coroutines.flow.first
 import com.droidbubble.app.model.allows
-import com.droidbubble.app.model.HourlyWeather
-import com.droidbubble.app.model.WeatherInfo
-import com.droidbubble.app.model.NetworkSpeedInfo
 import com.droidbubble.app.island.IslandStateManager.RingerMode
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
@@ -161,7 +149,6 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -412,8 +399,6 @@ fun IslandOverlayRoot(
     val flashlightLevel by IslandStateManager.flashlightLevel.collectAsState()
     val maxFlashlightLevel by IslandStateManager.maxFlashlightLevel.collectAsState()
     val isKeyboardFocused by IslandStateManager.isKeyboardFocused.collectAsState()
-    val weatherInfo by IslandStateManager.weatherInfo.collectAsState()
-    val networkSpeedInfo by IslandStateManager.networkSpeedInfo.collectAsState()
     val connectionAlert by IslandStateManager.connectionAlert.collectAsState()
     val foregroundPackage by IslandStateManager.foregroundPackage.collectAsState()
     val userHidden by IslandStateManager.userHidden.collectAsState()
@@ -479,18 +464,8 @@ fun IslandOverlayRoot(
     val isBluetooth = allowInOrientation && connectionAlertEnabled && isBluetoothConnected && !isCharging && !isUnlock
     val isRingerMode = allowInOrientation && settings.showRingerMode && activeRingerMode != null && !isCharging && !isUnlock && !isBluetooth
 
-    val isWeather = allowInOrientation && settings.showWeather
-    val isNetworkSpeed = allowInOrientation && settings.showNetworkSpeed
-    val hasPersistent = isWeather || isNetworkSpeed
 
-    val isOccupied = allowInOrientation && (isRecording || isNotification || isMedia || isProgress || isCharging || isUnlock || isBluetooth || isFlashlight || isRingerMode || hasPersistent)
-
-    val persistentList = buildList {
-        if (isWeather) add(IslandPriority.WEATHER)
-        if (isNetworkSpeed) add(IslandPriority.NETWORK_SPEED)
-    }
-    val persistentPrimary = persistentList.firstOrNull()
-    val persistentSecondary = if (persistentList.size > 1) persistentList[1] else null
+    val isOccupied = allowInOrientation && (isRecording || isNotification || isMedia || isProgress || isCharging || isUnlock || isBluetooth || isFlashlight || isRingerMode)
 
     // Determine dual-island state (when 2+ activities occupy the island, temporarily overshadowed by charging, unlock, bluetooth, or ringer)
     val activeCount = (if (isRecording) 1 else 0) +
@@ -499,9 +474,7 @@ fun IslandOverlayRoot(
             (if (isProgress) 1 else 0) +
             (if (isFlashlight) 1 else 0)
     val ephemeralCount = activeCount
-    val isDual = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && (
-        ephemeralCount >= 2 || (ephemeralCount == 0 && persistentList.size >= 2)
-    )
+    val isDual = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && ephemeralCount >= 2
 
     // Primary & Secondary activity assignment ordered dynamically by settings.featurePriorities:
     val orderedEphemeralPriorities = buildList {
@@ -524,7 +497,6 @@ fun IslandOverlayRoot(
 
     val basePrimaryPriority: IslandPriority = when {
         orderedEphemeralPriorities.isNotEmpty() -> orderedEphemeralPriorities.first()
-        persistentPrimary != null -> persistentPrimary
         else -> IslandPriority.IDLE
     }
 
@@ -537,7 +509,6 @@ fun IslandOverlayRoot(
                 orderedEphemeralPriorities[1]
             }
         }
-        ephemeralCount == 0 -> persistentSecondary
         else -> null
     }
 
@@ -905,7 +876,7 @@ fun IslandOverlayRoot(
     // When expanding, it animates from its compact width down to 0.dp.
     // When minimising, it animates from 0.dp back to its compact width.
     val targetCompactWidth = when {
-        !isOccupied && !settings.alwaysShowPill && !hasPersistent -> 0.dp
+        !isOccupied && !settings.alwaysShowPill -> 0.dp
         isExpanded -> 0.dp // Shrinks horizontally into 0 width while card expands!
         isCharging -> chargingIslandWidth
         isRingerMode -> ringerIslandWidth
@@ -990,7 +961,7 @@ fun IslandOverlayRoot(
     val bubbleGap = 6.dp
     val restingBubbleCenterX = compactMainHalf + bubbleGap + (bubbleSize / 2f)
 
-    val shouldEmergeSecondary = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && !isExpanded && (isOccupied || hasPersistent) &&
+    val shouldEmergeSecondary = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && !isExpanded && isOccupied &&
         !userHidden && !userMinimized
     var secondaryBubbleEmerged by remember { mutableStateOf(false) }
     LaunchedEffect(shouldEmergeSecondary) {
@@ -1504,8 +1475,6 @@ fun IslandOverlayRoot(
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
-                                        weatherInfo = weatherInfo,
-                                        networkSpeedInfo = networkSpeedInfo,
                                         scale = settings.expandedScale,
                                         onCollapse = {
                                             triggerCollapseHaptic()
@@ -1672,8 +1641,6 @@ fun IslandOverlayRoot(
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
-                                        weatherInfo = weatherInfo,
-                                        networkSpeedInfo = networkSpeedInfo,
                                         scale = settings.expandedScale,
                                         onCollapse = {
                                             triggerCollapseHaptic()
@@ -1713,7 +1680,7 @@ fun IslandOverlayRoot(
                 val bubbleOffsetXPx = with(LocalDensity.current) { animatedBubbleOffsetX.roundToPx() }
                 val baseBubbleAlpha = if (isExpanded) {
                     ((1f - expandProgress * 4f).coerceIn(0f, 1f))
-                } else if (!isOccupied && !hasPersistent) {
+                } else if (!isOccupied) {
                     0f
                 } else {
                     1f
@@ -1780,8 +1747,6 @@ fun IslandOverlayRoot(
                                     media = currentMedia,
                                     notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
                                     recording = recording,
-                                    weatherInfo = weatherInfo,
-                                    networkSpeedInfo = networkSpeedInfo
                                 )
                             }
                         }
@@ -1914,10 +1879,10 @@ fun IslandOverlayRoot(
                                 if (userMinimized) {
                                     triggerHaptic()
                                     IslandStateManager.restoreIsland()
-                                } else if (!isExpanded && (isOccupied || hasPersistent) && !isUnlock && !isBluetooth && !isRingerMode) {
+                                } else if (!isExpanded && isOccupied && !isUnlock && !isBluetooth && !isRingerMode) {
                                     triggerHaptic()
                                     IslandStateManager.expand(primaryPriority)
-                                } else if (!isExpanded && !isOccupied && !hasPersistent && settings.alwaysShowPill) {
+                                } else if (!isExpanded && !isOccupied && settings.alwaysShowPill) {
                                     if (settings.hapticsEnabled) {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                             view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
@@ -2284,8 +2249,6 @@ fun IslandOverlayRoot(
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
-                                        weatherInfo = weatherInfo,
-                                        networkSpeedInfo = networkSpeedInfo,
                                         secondaryPriority = secondaryPriority,
                                         horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
                                     )
@@ -2299,7 +2262,7 @@ fun IslandOverlayRoot(
             // 3. Parentheses Accents: Neat parentheses-shaped brackets on each side of the island
             // Shorter than the height of the island, smoothly positioning symmetrically around 1 or 2 activities, and neatly close to the edges.
             // Hidden while two activities share the island (main pill + secondary bubble)
-            val targetParenthesisAlpha = if ((!isOccupied && !hasPersistent) || isDual || userHidden || userMinimized || settings.isNotch) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
+            val targetParenthesisAlpha = if (!isOccupied || isDual || userHidden || userMinimized || settings.isNotch) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
             val parenthesisAlphaAnim by animateFloatAsState(
                 targetValue = targetParenthesisAlpha,
                 animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
@@ -2453,8 +2416,6 @@ fun AuxiliaryBubbleContent(
     media: MediaInfo?,
     notification: NotificationInfo?,
     recording: ScreenRecordingState,
-    weatherInfo: WeatherInfo = WeatherInfo(),
-    networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo()
 ) {
     // Keep showing the last activity while the bubble animates away, instead of a generic bell
     val notification = rememberLastNonNull(notification)
@@ -2568,26 +2529,6 @@ fun AuxiliaryBubbleContent(
                 )
             }
         }
-        IslandPriority.WEATHER -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "${weatherInfo.temperatureC}°",
-                    color = Color(0xFFFF9F0A),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-        IslandPriority.NETWORK_SPEED -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.ArrowDownward,
-                    contentDescription = null,
-                    tint = Color(0xFF64D2FF),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
         else -> Unit
     }
 }
@@ -2637,8 +2578,6 @@ fun CompactContent(
     isCompactDual: Boolean = false,
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
-    weatherInfo: WeatherInfo = WeatherInfo(),
-    networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
     secondaryPriority: IslandPriority? = null,
     horizontalInset: Dp = 10.dp
 ) {
@@ -2772,52 +2711,7 @@ fun CompactContent(
                     )
                 }
 
-                IslandPriority.WEATHER -> {
-                    val weatherIcon = when {
-                        weatherInfo.condition.contains("Sun", ignoreCase = true) || weatherInfo.condition.contains("Clear", ignoreCase = true) -> Icons.Default.WbSunny
-                        weatherInfo.condition.contains("Rain", ignoreCase = true) -> Icons.Default.WaterDrop
-                        else -> Icons.Default.Cloud
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = weatherIcon,
-                            contentDescription = "Weather",
-                            tint = Color(0xFFFF9F0A),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        if (!isCompactDual) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = weatherInfo.condition,
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
 
-                IslandPriority.NETWORK_SPEED -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (networkSpeedInfo.isWifi) Icons.Default.Wifi else Icons.Default.ArrowDownward,
-                            contentDescription = "Speed",
-                            tint = Color(0xFF64D2FF),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        if (!isCompactDual) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (networkSpeedInfo.isWifi) "Wi-Fi" else "5G",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
 
                 IslandPriority.IDLE -> Unit
             }
@@ -2906,23 +2800,7 @@ fun CompactContent(
                     EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = compactEqTint)
                 }
 
-                IslandPriority.WEATHER -> {
-                    Text(
-                        text = "${weatherInfo.temperatureC}°",
-                        color = Color.White,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
 
-                IslandPriority.NETWORK_SPEED -> {
-                    Text(
-                        text = "↓ ${networkSpeedInfo.downloadSpeedFormatted}",
-                        color = Color(0xFF64D2FF),
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
 
                 IslandPriority.IDLE -> Unit
             }
@@ -2938,8 +2816,6 @@ fun ExpandedCardContent(
     recording: ScreenRecordingState,
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
-    weatherInfo: WeatherInfo = WeatherInfo(),
-    networkSpeedInfo: NetworkSpeedInfo = NetworkSpeedInfo(),
     scale: Float = 1.0f,
     onCollapse: () -> Unit
 ) {
@@ -2977,12 +2853,6 @@ fun ExpandedCardContent(
                 onCollapse = onCollapse,
                 scale = scale
             )
-        }
-        IslandPriority.WEATHER -> {
-            ExpandedWeatherView(weatherInfo = weatherInfo, onCollapse = onCollapse, scale = scale)
-        }
-        IslandPriority.NETWORK_SPEED -> {
-            ExpandedNetworkSpeedView(networkSpeedInfo = networkSpeedInfo, onCollapse = onCollapse, scale = scale)
         }
         IslandPriority.IDLE -> {
             LaunchedEffect(Unit) {
@@ -4177,280 +4047,6 @@ private fun formatDuration(millis: Long): String {
         String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
         String.format(Locale.US, "%02d:%02d", minutes, seconds)
-    }
-}
-
-@Composable
-fun ExpandedWeatherView(
-    weatherInfo: WeatherInfo,
-    onCollapse: () -> Unit,
-    scale: Float = 1.0f
-) {
-    val weatherIcon = when {
-        weatherInfo.condition.contains("Sun", ignoreCase = true) || weatherInfo.condition.contains("Clear", ignoreCase = true) -> Icons.Default.WbSunny
-        weatherInfo.condition.contains("Rain", ignoreCase = true) || weatherInfo.condition.contains("Drizzle", ignoreCase = true) || weatherInfo.condition.contains("Shower", ignoreCase = true) -> Icons.Default.WaterDrop
-        weatherInfo.condition.contains("Snow", ignoreCase = true) -> Icons.Default.AcUnit
-        weatherInfo.condition.contains("Thunder", ignoreCase = true) -> Icons.Default.Bolt
-        else -> Icons.Default.Cloud
-    }
-    val iconTint = if (weatherIcon == Icons.Default.WbSunny) Color(0xFFFFD60A) else Color(0xFF64D2FF)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.WEATHER, scale)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top section: Feature icon + City / Condition + Temp & H/L Badge
-        IslandHeader(
-            title = weatherInfo.cityName.ifBlank { "Local Weather" },
-            subtitle = weatherInfo.condition.ifBlank { "Partly Cloudy" },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
-                        .background(IslandTokens.SurfaceMuted),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = weatherIcon,
-                        contentDescription = "Weather",
-                        tint = iconTint,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            },
-            trailing = {
-                InfoChip {
-                    Text(
-                        text = "${weatherInfo.temperatureC}°",
-                        color = IslandTokens.TextPrimary,
-                        fontSize = IslandTokens.TypeBody,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "H:${weatherInfo.highC}° L:${weatherInfo.lowC}°",
-                        color = IslandTokens.TextSecondary,
-                        fontSize = IslandTokens.TypeMicro,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        )
-
-        // Center section: Minimal 5-hour micro forecast strip
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF1C1C1E))
-                .padding(vertical = 7.dp, horizontal = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val forecast = if (weatherInfo.hourlyForecast.isNotEmpty()) {
-                weatherInfo.hourlyForecast.take(5)
-            } else {
-                listOf(
-                    HourlyWeather("Now", weatherInfo.temperatureC, weatherInfo.condition),
-                    HourlyWeather("+1h", weatherInfo.temperatureC, weatherInfo.condition),
-                    HourlyWeather("+2h", weatherInfo.temperatureC, weatherInfo.condition),
-                    HourlyWeather("+3h", weatherInfo.temperatureC, weatherInfo.condition),
-                    HourlyWeather("+4h", weatherInfo.temperatureC, weatherInfo.condition)
-                )
-            }
-            forecast.forEach { hour ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = hour.timeLabel,
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = "${hour.tempC}°",
-                        color = Color.White,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-
-        // Bottom section: Clean inline stats: Humidity, Wind, UV
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Humidity: ${weatherInfo.humidityPct}%",
-                color = IslandTokens.TextSecondary,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "•",
-                color = IslandTokens.SurfaceDivider,
-                fontSize = IslandTokens.TypeMicro
-            )
-            Text(
-                text = "Wind: ${weatherInfo.windKmh} km/h",
-                color = IslandTokens.TextSecondary,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "•",
-                color = IslandTokens.SurfaceDivider,
-                fontSize = IslandTokens.TypeMicro
-            )
-            Text(
-                text = "UV Index: ${weatherInfo.uvIndex}",
-                color = IslandTokens.TextSecondary,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}
-
-@Composable
-fun ExpandedNetworkSpeedView(
-    networkSpeedInfo: NetworkSpeedInfo,
-    onCollapse: () -> Unit,
-    scale: Float = 1.0f
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.NETWORK_SPEED, scale)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top section: Feature icon + Network label / Latency + Top-right online chip
-        IslandHeader(
-            title = networkSpeedInfo.networkLabel.ifBlank { "Network Traffic" },
-            subtitle = if (networkSpeedInfo.linkDownMbps > 0) "Link ~${networkSpeedInfo.linkDownMbps} Mbps" else "Live traffic",
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
-                        .background(IslandTokens.SurfaceMuted),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (networkSpeedInfo.isWifi) Icons.Default.Wifi else Icons.Default.SignalCellularAlt,
-                        contentDescription = "Network",
-                        tint = IslandTokens.AccentBlue,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            },
-            trailing = {
-                InfoChip(
-                    text = "Online",
-                    dotColor = IslandTokens.AccentGreen
-                )
-            }
-        )
-
-        // Center section: Dual minimal cards for Download & Upload (Apple style)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Download Card
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF1C1C1E)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDownward,
-                            contentDescription = "Download",
-                            tint = Color(0xFF64D2FF),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Download",
-                            fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = networkSpeedInfo.downloadSpeedFormatted,
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White
-                    )
-                }
-            }
-
-            // Upload Card
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF1C1C1E)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowUpward,
-                            contentDescription = "Upload",
-                            tint = Color(0xFFBF5AF2),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Upload",
-                            fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = networkSpeedInfo.uploadSpeedFormatted,
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White
-                    )
-                }
-            }
-        }
-
-        // Bottom section: Clean session transfer summary
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Session Transfer",
-                color = Color(0xFFA1A1AA),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "${networkSpeedInfo.sessionTotalMb} MB Total",
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
     }
 }
 

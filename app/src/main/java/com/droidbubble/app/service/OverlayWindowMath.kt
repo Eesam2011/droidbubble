@@ -85,8 +85,6 @@ fun WindowSpec.toWindowPx(density: Float): WindowPx = when (this) {
 data class WindowOccupancy(
     /** A visible activity or system alert. */
     val occupied: Boolean,
-    /** Weather or network speed is on (always shown). */
-    val persistentWidgets: Boolean,
     /** Charging, unlock, connection or ringer: these interrupt the collapse latch. */
     val systemAlert: Boolean,
 )
@@ -113,7 +111,6 @@ fun windowOccupancy(i: WindowInputs): WindowOccupancy {
         flashlight || charging || unlock || connection || ringer
     return WindowOccupancy(
         occupied = occupied,
-        persistentWidgets = s.showWeather || s.showNetworkSpeed,
         systemAlert = charging || unlock || connection || ringer,
     )
 }
@@ -135,7 +132,7 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
     val ringer = s.showRingerMode && i.ringer
     val flashlight = s.showFlashlight && i.flashlight
 
-    val shouldShowCompact = (occ.occupied || s.alwaysShowPill || occ.persistentWidgets) && !i.userHidden
+    val shouldShowCompact = (occ.occupied || s.alwaysShowPill) && !i.userHidden
     if (!shouldShowCompact) return WindowSpec.Gone
 
     // B2.2: room beside the drawn pill. Settled: the camera brackets (about 7.6 dp out) and the
@@ -146,12 +143,8 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
         (if (s.showMedia && i.mediaShown) 1 else 0) +
         (if (s.showLiveProgress && i.progressShown) 1 else 0) +
         (if (flashlight) 1 else 0)
-    // The view's rule (IslandView isDual): two activities, or no activity and both persistent
-    // widgets (weather in the pill, network speed in the bubble). Missing the second case clipped
-    // the bubble once the settled window hugged the pill (B2.2).
-    val persistentCount = (if (s.showWeather) 1 else 0) + (if (s.showNetworkSpeed) 1 else 0)
-    val isDual = !charging && !unlock && !connection && !ringer &&
-        (activeCount >= 2 || (activeCount == 0 && persistentCount >= 2))
+    // The view's rule (IslandView isDual): two activities share the pill and the bubble
+    val isDual = !charging && !unlock && !connection && !ringer && activeCount >= 2
 
     val totalWidthDp = if (charging) {
         val chargingPillWidth = (s.widthDp + 20f).coerceAtLeast(140f)
@@ -178,7 +171,7 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
     }
 
     // userHidden is already excluded above, so touchability is just "is something there"
-    val touchable = occ.occupied || occ.persistentWidgets
+    val touchable = occ.occupied
     return WindowSpec.Compact(
         widthDp = if (s.isLeftCutout) null else totalWidthDp + 2f * abs(s.horizontalOffsetDp),
         // Settled: the tap bounce moves the pill down about 4 dp
@@ -211,8 +204,7 @@ fun initialWindowSpec(i: WindowInputs): WindowSpec {
     val rawOccupied = i.call || i.recording || i.notification || i.media || i.progress ||
         i.charging || i.unlock || i.connection || i.flashlight || i.ringer
     val occupied = rawOccupied && allowed
-    val persistentWidgets = (s.showWeather || s.showNetworkSpeed) && allowed
-    val shouldShowCompact = (occupied || s.alwaysShowPill || persistentWidgets) && allowed
+    val shouldShowCompact = (occupied || s.alwaysShowPill) && allowed
     if (!shouldShowCompact) return WindowSpec.Gone
 
     val mainHalf = (s.widthDp * 0.90f).coerceAtLeast(124f) / 2f
@@ -223,6 +215,6 @@ fun initialWindowSpec(i: WindowInputs): WindowSpec {
     return WindowSpec.Compact(
         widthDp = if (s.isLeftCutout) null else totalWidthDp + 2f * abs(s.horizontalOffsetDp),
         heightDp = (s.topOffsetDp + s.heightDp + 12).toFloat(),
-        touchable = occupied || persistentWidgets,
+        touchable = occupied,
     )
 }

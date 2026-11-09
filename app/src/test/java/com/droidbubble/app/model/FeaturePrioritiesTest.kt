@@ -13,9 +13,18 @@ class FeaturePrioritiesTest {
 
     @Test
     fun removedFps_isDroppedAndNotReAdded() {
-        val parsed = parseFeaturePriorities("CALL,MEDIA,FPS,WEATHER")
-        assertEquals(listOf("CALL", "MEDIA", "WEATHER"), parsed.take(3))
+        val parsed = parseFeaturePriorities("CALL,MEDIA,FPS,FLASHLIGHT")
+        assertEquals(listOf("CALL", "MEDIA", "FLASHLIGHT"), parsed.take(3))
         assertFalse("FPS" in parsed)
+        assertEquals(DEFAULT_FEATURE_PRIORITIES.toSet(), parsed.toSet())
+    }
+
+    @Test
+    fun removedWeatherAndNetworkSpeed_areDropped() {
+        val parsed = parseFeaturePriorities("WEATHER,CALL,NETWORK_SPEED,MEDIA")
+        assertEquals(listOf("CALL", "MEDIA"), parsed.take(2))
+        assertFalse("WEATHER" in parsed)
+        assertFalse("NETWORK_SPEED" in parsed)
         assertEquals(DEFAULT_FEATURE_PRIORITIES.toSet(), parsed.toSet())
     }
 

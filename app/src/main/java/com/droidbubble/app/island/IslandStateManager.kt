@@ -6,8 +6,6 @@ import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
-import com.droidbubble.app.model.WeatherInfo
-import com.droidbubble.app.model.NetworkSpeedInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -147,24 +145,6 @@ object IslandStateManager {
         _collapseSettled.value = true
     }
 
-    private val _weatherInfo = MutableStateFlow(WeatherInfo())
-    val weatherInfo: StateFlow<WeatherInfo> = _weatherInfo.asStateFlow()
-
-    fun updateWeather(info: WeatherInfo) {
-        if (_weatherInfo.value != info) {
-            _weatherInfo.value = info
-        }
-    }
-
-    private val _networkSpeedInfo = MutableStateFlow(NetworkSpeedInfo())
-    val networkSpeedInfo: StateFlow<NetworkSpeedInfo> = _networkSpeedInfo.asStateFlow()
-
-    fun updateNetworkSpeed(info: NetworkSpeedInfo) {
-        if (_networkSpeedInfo.value != info) {
-            _networkSpeedInfo.value = info
-        }
-    }
-
     private val _expandedPriority = MutableStateFlow<IslandPriority?>(null)
     val expandedPriority: StateFlow<IslandPriority?> = _expandedPriority.asStateFlow()
 
@@ -202,8 +182,6 @@ object IslandStateManager {
     var onEndCall: (() -> Unit)? = null
     var onToggleCallMuteOrSpeaker: (() -> Unit)? = null
 
-    // Callbacks for persistent widget actions
-    var onRefreshWeather: (() -> Unit)? = null
     var onResetNetworkSession: (() -> Unit)? = null
 
     // Callback to dismiss notification from listener

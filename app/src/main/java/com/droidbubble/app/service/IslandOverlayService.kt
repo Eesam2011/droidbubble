@@ -20,7 +20,6 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
-import android.os.PowerManager
 import kotlin.math.roundToInt
 import android.provider.Settings
 import android.view.Gravity
@@ -135,7 +134,6 @@ class IslandOverlayService : Service() {
     private var torchCameraId: String? = null
     private var maxTorchStrengthLevel: Int = 1
     private var torchCallback: CameraManager.TorchCallback? = null
-    private var persistentTelemetryManager: PersistentWidgetTelemetryManager? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -203,7 +201,6 @@ class IslandOverlayService : Service() {
                 return
             }
             if (action == Intent.ACTION_SCREEN_OFF) {
-                persistentTelemetryManager?.setScreenOn(false)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 IslandStateManager.setDeviceLocked(km?.isKeyguardLocked ?: true)
                 // The lock screen belongs to systemui (ignored), so forget the last app: its
@@ -212,7 +209,6 @@ class IslandOverlayService : Service() {
                 return
             }
             if (action == Intent.ACTION_SCREEN_ON) {
-                persistentTelemetryManager?.setScreenOn(true)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 val locked = km?.isKeyguardLocked == true
                 IslandStateManager.setDeviceLocked(locked)
@@ -380,12 +376,6 @@ class IslandOverlayService : Service() {
         createNotificationChannel()
         initCameraTorch()
         startAutoUpdateChecker()
-
-        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
-        persistentTelemetryManager = PersistentWidgetTelemetryManager(this).apply {
-            setScreenOn(powerManager?.isInteractive ?: true)
-            // started with the first real settings (B8.4)
-        }
 
         debugReceiver = DebugCommands.register(this)
 
@@ -718,12 +708,7 @@ class IslandOverlayService : Service() {
             settingsFlow.collectLatest { settings ->
                 currentSettings = settings
                 updateSpokenAlerts(settings.spokenAlerts)
-                if (!settingsReceived) {
-                    settingsReceived = true
-                    persistentTelemetryManager?.start(settings)
-                } else {
-                    persistentTelemetryManager?.updateSettings(settings)
-                }
+                settingsReceived = true
                 IslandStateManager.dismissMediaOnPause = settings.dismissMediaOnPause
                 IslandStateManager.autoDismissNotifications = settings.autoDismissNotifications
                 if (!settings.isEnabled) {
@@ -955,7 +940,6 @@ class IslandOverlayService : Service() {
         } else {
             val occupancy = windowOccupancy(inputs)
             val isOccupied = occupancy.occupied
-            val hasPersistentWidgets = occupancy.persistentWidgets
             val spec = compactWindowSpec(inputs)
 
             fun applyCompactBounds() {
@@ -1014,12 +998,12 @@ class IslandOverlayService : Service() {
                         updateWindowState(false)
                     }
                 }
-            } else if (!isOccupied && !currentSettings.alwaysShowPill && !hasPersistentWidgets) {
+            } else if (!isOccupied && !currentSettings.alwaysShowPill) {
                 // When unoccupied and not always showing pill and no persistent widgets, keep bounds briefly for the smooth shrink-to-middle animation, then collapse
                 collapseJob?.cancel()
                 collapseJob = serviceScope.launch {
                     kotlinx.coroutines.delay((420f / speedFactor).toLong().coerceIn(320L, 750L))
-                    if (!isOccupied && !IslandStateManager.isExpanded.value && !currentSettings.alwaysShowPill && !hasPersistentWidgets) {
+                    if (!isOccupied && !IslandStateManager.isExpanded.value && !currentSettings.alwaysShowPill) {
                         applyLayoutParams(
                             view = view,
                             params = params,
@@ -1088,8 +1072,6 @@ class IslandOverlayService : Service() {
         }
         DebugCommands.unregister(this, debugReceiver)
         debugReceiver = null
-        persistentTelemetryManager?.stop()
-        persistentTelemetryManager = null
         unregisterWifiCallback()
         runCatching { unregisterReceiver(powerReceiver) }
         torchCallback?.let { cb ->

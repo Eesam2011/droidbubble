@@ -89,7 +89,6 @@ import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.Height
@@ -651,9 +650,7 @@ fun MainScreen(
                         "NOTIFICATION",
                         "PROGRESS",
                         "RECORDING",
-                        "FLASHLIGHT",
-                        "WEATHER",
-                        "NETWORK_SPEED"
+                        "FLASHLIGHT"
                     )
                     val list = settings.featurePriorities.filter { it in valid }.toMutableList()
                     for (v in valid) {
@@ -673,9 +670,7 @@ fun MainScreen(
                             "NOTIFICATION",
                             "PROGRESS",
                             "RECORDING",
-                            "FLASHLIGHT",
-                            "WEATHER",
-                            "NETWORK_SPEED"
+                            "FLASHLIGHT"
                         )
                         val list = settings.featurePriorities.filter { it in valid }.toMutableList()
                         for (v in valid) {
@@ -715,8 +710,6 @@ fun MainScreen(
                                 "PROGRESS" -> settings.showLiveProgress
                                 "RECORDING" -> settings.showScreenRecording
                                 "FLASHLIGHT" -> settings.showFlashlight
-                                "WEATHER" -> settings.showWeather
-                                "NETWORK_SPEED" -> settings.showNetworkSpeed
                                 else -> false
                             }
 
@@ -727,8 +720,6 @@ fun MainScreen(
                                 "PROGRESS" -> "Live Progress & Activities"
                                 "RECORDING" -> "Screen Recording Indicator"
                                 "FLASHLIGHT" -> "Flashlight Indicator"
-                                "WEATHER" -> "Weather & Temperature"
-                                "NETWORK_SPEED" -> "Wi-Fi & Network Speed"
                                 else -> currentKey
                             }
 
@@ -739,8 +730,6 @@ fun MainScreen(
                                 "PROGRESS" -> Icons.Default.Animation
                                 "RECORDING" -> Icons.Default.Videocam
                                 "FLASHLIGHT" -> Icons.Default.FlashlightOn
-                                "WEATHER" -> Icons.Default.WbSunny
-                                "NETWORK_SPEED" -> Icons.Default.Wifi
                                 else -> Icons.Default.Apps
                             }
 
@@ -850,8 +839,6 @@ fun MainScreen(
                                                         "PROGRESS" -> s.copy(showLiveProgress = checked)
                                                         "RECORDING" -> s.copy(showScreenRecording = checked)
                                                         "FLASHLIGHT" -> s.copy(showFlashlight = checked)
-                                                        "WEATHER" -> s.copy(showWeather = checked)
-                                                        "NETWORK_SPEED" -> s.copy(showNetworkSpeed = checked)
                                                         else -> s
                                                     }
                                                 }

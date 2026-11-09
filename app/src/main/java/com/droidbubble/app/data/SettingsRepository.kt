@@ -54,8 +54,6 @@ private object PreferencesKeys {
     val BUBBLE_EFFECT_ENABLED = booleanPreferencesKey("bubble_effect_enabled")
     val DISMISS_MEDIA_ON_PAUSE = booleanPreferencesKey("dismiss_media_on_pause")
     val ALWAYS_SHOW_PILL = booleanPreferencesKey("always_show_pill")
-    val SHOW_WEATHER = booleanPreferencesKey("show_weather")
-    val SHOW_NETWORK_SPEED = booleanPreferencesKey("show_network_speed")
     val AUTO_DISMISS_NOTIFICATIONS = booleanPreferencesKey("auto_dismiss_notifications")
     val BLURRED_ALBUM_ART_BACKGROUND = booleanPreferencesKey("blurred_album_art_background")
     val HIDE_ON_LOCK_SCREEN = booleanPreferencesKey("hide_on_lock_screen")
@@ -116,8 +114,6 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         bubbleEffectEnabled = this[PreferencesKeys.BUBBLE_EFFECT_ENABLED] ?: true,
         dismissMediaOnPause = this[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] ?: false,
         alwaysShowPill = this[PreferencesKeys.ALWAYS_SHOW_PILL] ?: false,
-        showWeather = this[PreferencesKeys.SHOW_WEATHER] ?: false,
-        showNetworkSpeed = this[PreferencesKeys.SHOW_NETWORK_SPEED] ?: false,
         autoDismissNotifications = this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] ?: false,
         blurredAlbumArtBackground = this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] ?: false,
         hideOnLockScreen = this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
@@ -168,8 +164,6 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.BUBBLE_EFFECT_ENABLED] = s.bubbleEffectEnabled
     this[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] = s.dismissMediaOnPause
     this[PreferencesKeys.ALWAYS_SHOW_PILL] = s.alwaysShowPill
-    this[PreferencesKeys.SHOW_WEATHER] = s.showWeather
-    this[PreferencesKeys.SHOW_NETWORK_SPEED] = s.showNetworkSpeed
     this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] = s.autoDismissNotifications
     this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] = s.blurredAlbumArtBackground
     this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] = s.hideOnLockScreen

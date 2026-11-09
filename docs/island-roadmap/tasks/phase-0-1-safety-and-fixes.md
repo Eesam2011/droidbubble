@@ -796,6 +796,7 @@
 - **Depends on:** S2.2.
 - **Effort:** M   **Risk:** low.
 - **Ships as:** Fix (trust).
+- **Dropped (2026-11-09):** the owner removed the weather and network speed widgets entirely, so there is nothing left to fix.
 
 ### B7.2 — Network label: no hard-coded "5G"
 - **Goal:** The network widget says "Wi-Fi", "Cellular" or "Network", which are true, instead of "5G".
@@ -810,6 +811,7 @@
 - **Depends on:** none. Serialize with B7.1 (same telemetry file).
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix (trust).
+- **Dropped (2026-11-09):** the owner removed the weather and network speed widgets entirely, so there is nothing left to fix.
 
 ### B7.3 — Remove the FPS remnants
 - **Goal:** No FPS code path, enum value, setting row or flow is left.

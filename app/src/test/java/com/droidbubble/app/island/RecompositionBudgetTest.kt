@@ -7,7 +7,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandSettings
-import com.droidbubble.app.model.NetworkSpeedInfo
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -166,22 +165,5 @@ class RecompositionBudgetTest {
         frames(2000)
         val n = measure { frames(5000) }
         check("TIMER_PILL_5S", n, PerfBaseline.TIMER_PILL_5S)
-    }
-
-    @Test
-    fun networkSpeed_1Hz_3s() {
-        rule.runOnIdle { settings.value = settings.value.copy(showNetworkSpeed = true) }
-        frames(2000)
-        val n = measure {
-            for (i in 1..3) {
-                rule.runOnIdle {
-                    IslandStateManager.updateNetworkSpeed(
-                        NetworkSpeedInfo(downloadSpeedFormatted = "${i * 100} KB/s", downloadBytesPerSec = i * 100_000L)
-                    )
-                }
-                frames(1000)
-            }
-        }
-        check("NETWORK_SPEED_1HZ_3S", n, PerfBaseline.NETWORK_SPEED_1HZ_3S)
     }
 }

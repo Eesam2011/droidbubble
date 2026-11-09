@@ -6,13 +6,11 @@ val DEFAULT_FEATURE_PRIORITIES = listOf(
     "PROGRESS",
     "RECORDING",
     "NOTIFICATION",
-    "FLASHLIGHT",
-    "WEATHER",
-    "NETWORK_SPEED"
+    "FLASHLIGHT"
 )
 
 /** Feature keys that older versions stored but the app no longer has. Dropped when settings load. */
-val REMOVED_FEATURE_KEYS = setOf("TIMER", "FPS")
+val REMOVED_FEATURE_KEYS = setOf("TIMER", "FPS", "WEATHER", "NETWORK_SPEED")
 
 /**
  * Reads the stored comma-separated activity order. Removed features are dropped, and features
@@ -64,8 +62,6 @@ data class IslandSettings(
     val bubbleEffectEnabled: Boolean = true,
     val dismissMediaOnPause: Boolean = false,
     val alwaysShowPill: Boolean = false,
-    val showWeather: Boolean = false,
-    val showNetworkSpeed: Boolean = false,
     val autoDismissNotifications: Boolean = false,
     val blurredAlbumArtBackground: Boolean = false,
     val hideOnLockScreen: Boolean = false,

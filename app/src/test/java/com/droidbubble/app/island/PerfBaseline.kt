@@ -18,5 +18,4 @@ object PerfBaseline {
     // every-frame root recomposition (06 P0-1, M2), the same before and after B8.2.
     const val MEDIA_EXPANDED_PLAYING_3S_ROOT = 82
     const val MEDIA_EXPANDED_PLAYING_3S_CARD = 3
-    const val NETWORK_SPEED_1HZ_3S = 81
 }

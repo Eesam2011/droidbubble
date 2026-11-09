@@ -219,8 +219,6 @@ fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, prog
         IslandPriority.SCREEN_RECORDING -> 115.dp to 100.dp
         IslandPriority.PROGRESS -> 182.dp to 155.dp
         IslandPriority.FLASHLIGHT -> 205.dp to 165.dp
-        IslandPriority.WEATHER -> 195.dp to 155.dp
-        IslandPriority.NETWORK_SPEED -> 185.dp to 150.dp
         else -> 195.dp to 155.dp // media, idle, charging...
     }
     // Larger system font sizes get proportionally taller fixed-layout cards, so text isn't cut off
