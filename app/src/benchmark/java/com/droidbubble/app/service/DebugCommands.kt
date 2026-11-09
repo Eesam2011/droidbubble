@@ -9,5 +9,6 @@ import android.content.Context
  */
 object DebugCommands {
     fun register(context: Context): BroadcastReceiver? = null
+    fun enableStrictMode() {}
     fun unregister(context: Context, receiver: BroadcastReceiver?) {}
 }

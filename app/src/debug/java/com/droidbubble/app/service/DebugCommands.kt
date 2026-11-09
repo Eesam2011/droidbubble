@@ -42,6 +42,16 @@ object DebugCommands {
         return receiver
     }
 
+    /**
+     * B8.4: debug builds log main-thread disk reads and writes, so a blocking read in a hot path
+     * (such as the service's onCreate) shows up in logcat as a StrictMode violation.
+     */
+    fun enableStrictMode() {
+        android.os.StrictMode.setThreadPolicy(
+            android.os.StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().penaltyLog().build()
+        )
+    }
+
     fun unregister(context: Context, receiver: BroadcastReceiver?) {
         if (receiver != null) runCatching { context.unregisterReceiver(receiver) }
     }

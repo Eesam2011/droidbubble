@@ -902,6 +902,7 @@
 - **Depends on:** B1.1, B8.3 (same block).
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** `onCreate` no longer reads settings; `startSettingsCollector()` (called from `onStartCommand`) starts telemetry and adds the overlay on the first emission. A repeat `onStartCommand` with settings already received and no overlay calls `initOverlay()` directly, since the collector won't re-emit. `DebugCommands.enableStrictMode()` (debug: disk reads and writes, log penalty; no-op elsewhere) runs first in `onCreate`. `OverlayStartTest`: no overlay before the first settings, overlay after; a disabled island never shows. Device check still open: right size after reboot (`BootReceiver`) and after app start.
 
 ### B8.5 — Touches no longer recompose the root
 - **Goal:** Dragging the media or flashlight slider doesn't recompose `IslandOverlayRoot` or restart effects at the input rate.

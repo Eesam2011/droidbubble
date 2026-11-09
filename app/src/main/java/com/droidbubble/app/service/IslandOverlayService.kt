@@ -72,7 +72,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.runBlocking
 import com.droidbubble.app.util.traced
 
 class IslandOverlayService : Service() {
@@ -355,17 +354,11 @@ class IslandOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        DebugCommands.enableStrictMode()
         com.droidbubble.app.util.CrashLog.install(this)
         serviceInstance = this
-        currentSettings = runBlocking(Dispatchers.IO) {
-            try {
-                settingsFlow.first()
-            } catch (_: Exception) {
-                IslandSettings()
-            }
-        }
-        IslandStateManager.dismissMediaOnPause = currentSettings.dismissMediaOnPause
-        IslandStateManager.autoDismissNotifications = currentSettings.autoDismissNotifications
+        // B8.4: no blocking settings read here. currentSettings keeps its defaults until the first
+        // emission of settingsFlow, and the overlay and telemetry wait for it (startSettingsCollector).
         val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         if (km != null) {
             IslandStateManager.setDeviceLocked(km.isKeyguardLocked)
@@ -382,7 +375,7 @@ class IslandOverlayService : Service() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
         persistentTelemetryManager = PersistentWidgetTelemetryManager(this).apply {
             setScreenOn(powerManager?.isInteractive ?: true)
-            start(currentSettings)
+            // started with the first real settings (B8.4)
         }
 
         debugReceiver = DebugCommands.register(this)
@@ -424,7 +417,10 @@ class IslandOverlayService : Service() {
         startForegroundService()
 
         if (Settings.canDrawOverlays(this)) {
-            initOverlay()
+            // B8.4: the overlay is added by the settings collector once the real settings arrive,
+            // so a disabled island or a custom size never shows wrong for a moment
+            if (settingsReceived && composeView == null && currentSettings.isEnabled) initOverlay()
+            startSettingsCollector()
         } else {
             stopSelf()
         }
@@ -680,13 +676,25 @@ class IslandOverlayService : Service() {
             }
         }
 
-        // Listen for settings changes. Started once per service: it adds/removes the overlay
-        // itself, so it must survive removeOverlay() and not be duplicated by each initOverlay()
+        startSettingsCollector()
+    }
+
+    /**
+     * Listens for settings changes. Started once per service: it adds and removes the overlay
+     * itself, so it must survive removeOverlay() and not be duplicated. The first emission is the
+     * real settings (B8.4): it starts telemetry and adds the overlay.
+     */
+    private fun startSettingsCollector() {
         if (settingsJob == null) settingsJob = serviceScope.launch {
             settingsFlow.collectLatest { settings ->
                 currentSettings = settings
                 updateSpokenAlerts(settings.spokenAlerts)
-                persistentTelemetryManager?.updateSettings(settings)
+                if (!settingsReceived) {
+                    settingsReceived = true
+                    persistentTelemetryManager?.start(settings)
+                } else {
+                    persistentTelemetryManager?.updateSettings(settings)
+                }
                 IslandStateManager.dismissMediaOnPause = settings.dismissMediaOnPause
                 IslandStateManager.autoDismissNotifications = settings.autoDismissNotifications
                 if (!settings.isEnabled) {
@@ -704,6 +712,10 @@ class IslandOverlayService : Service() {
     private var isCollapsing = false
     private val overlayJobs = mutableListOf<kotlinx.coroutines.Job>()
     private var settingsJob: kotlinx.coroutines.Job? = null
+    private var settingsReceived = false
+
+    @androidx.annotation.VisibleForTesting
+    internal val overlayViewForTest: View? get() = composeView
     private var lastShapeKey: List<Any>? = null
     private val settingsFlow: kotlinx.coroutines.flow.Flow<IslandSettings>
         get() = settingsFlowForTest ?: settingsRepository.settingsFlow
