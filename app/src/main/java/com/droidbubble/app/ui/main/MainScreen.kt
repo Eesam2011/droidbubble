@@ -722,7 +722,7 @@ fun MainScreen(
                             val featureTitle = when (currentKey) {
                                 "CALL" -> "Phone Calls"
                                 "MEDIA" -> "Media Player"
-                                "NOTIFICATION" -> "Incoming Notifications"
+                                "NOTIFICATION" -> "Message Notifications"
                                 "PROGRESS" -> "Live Progress & Activities"
                                 "RECORDING" -> "Screen Recording Indicator"
                                 "FLASHLIGHT" -> "Flashlight Indicator"
@@ -861,6 +861,37 @@ fun MainScreen(
                             }
                         }
                     }
+                }
+            }
+
+            // B3.2: live activities have their own switch, below the reorderable list. Not a
+            // featurePriorities key: Phase 7 A2.2 adds the LIVE bucket with a migration.
+            item {
+                SettingsCardItem(
+                    position = GroupPosition.SINGLE,
+                    modifier = Modifier.padding(top = 4.dp),
+                    isActive = settings.showLiveActivities
+                ) {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = { Text("Live Activities", fontWeight = FontWeight.SemiBold) },
+                        supportingContent = { Text("Calls, timers, alarms, recorders, rides and scores") },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = settings.showLiveActivities,
+                                onCheckedChange = { checked ->
+                                    viewModel.updateSettings { it.copy(showLiveActivities = checked) }
+                                }
+                            )
+                        }
+                    )
                 }
             }
 

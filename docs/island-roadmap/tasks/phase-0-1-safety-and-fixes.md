@@ -533,6 +533,7 @@
 - **Depends on:** B3.1.
 - **Effort:** S   **Risk:** low. `MainScreen.kt` is shared with Phase 8 (C1, C5): one session at a time.
 - **Ships as:** Fix (companion app).
+- **Done in code (2026-11-09):** a SINGLE card below the reorderable list (Timer icon, title "Live Activities", subtitle as specified), bound to `showLiveActivities`; "Incoming Notifications" is now "Message Notifications". `MainScreenViewModelSettingsTest` (Robolectric) checks the switch persists through the view model; it is a new class because the existing `MainScreenViewModelTest` is plain JUnit. Manual check still open: the row toggles live activities, drag-to-reorder unaffected.
 
 ---
 

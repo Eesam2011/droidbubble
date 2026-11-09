@@ -78,7 +78,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B2.2 | Trim the compact window envelope | todo |
 | B2.3 | Touchable region via `IslandTouchManager` (probe, flag, fallback) | todo |
 | B3.1 | Separate `showLiveActivities` gate, on by default | doing (code and tests done; device check pending) |
-| B3.2 | "Live Activities" toggle in settings | todo |
+| B3.2 | "Live Activities" toggle in settings | doing (code and test done; manual check pending) |
 | B4.1 | Strict score regex; TRACKING before SPORTS | done |
 | B4.2 | Package hints only for ongoing notifications | todo |
 | B4.3 | Whole-word "end" matching | todo |
