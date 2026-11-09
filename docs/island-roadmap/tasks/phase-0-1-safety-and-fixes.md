@@ -1106,6 +1106,7 @@
 - **Depends on:** B11.1.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Reliability.
+- **Done (2026-11-09):** `guarded(tag)` wraps the posted body, a new `handleRemoved`, `refreshMedia` and `updateMediaInfo`. Bundle's typed getters return defaults for wrong-typed extras rather than throw, so the wrong-types fixture alone doesn't reach the guard; `NotificationGuardTest` checks it doesn't stop the listener, and forces a throw through `importanceForTest` to check the skip, the `nonfatal.txt` entry and the next notification.
 
 ### B11.3 — Crash-loop guard and safe mode
 - **Goal:** After 3 crashes within 10 minutes, the island restarts in safe mode: the activity kind and package that were active at the crash are paused for 1 hour, and the user is told, with a way to undo it.

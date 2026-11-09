@@ -365,7 +365,8 @@ class NotificationReceiverService : NotificationListenerService() {
         serviceScope.cancel()
     }
 
-    fun refreshMedia(candidateController: MediaController? = null) = traced("db.refreshMedia") { refreshMediaTraced(candidateController) }
+    fun refreshMedia(candidateController: MediaController? = null) =
+        traced("db.refreshMedia") { guarded("refreshMedia") { refreshMediaTraced(candidateController) } }
 
     private fun refreshMediaTraced(candidateController: MediaController?) {
         CrashLog.breadcrumb("nrs", "refreshMedia candidate=${candidateController?.packageName ?: "-"}")
@@ -509,7 +510,23 @@ class NotificationReceiverService : NotificationListenerService() {
         updateMediaInfo()
     }
 
-    private fun updateMediaInfo() = traced("db.updateMediaInfo") { updateMediaInfoTraced() }
+    private fun updateMediaInfo() = traced("db.updateMediaInfo") { guarded("updateMediaInfo") { updateMediaInfoTraced() } }
+
+    /**
+     * B11.2: one malformed notification or a misbehaving media session is skipped and logged
+     * (CrashLog.nonFatal) instead of crashing the listener, which START_STICKY would restart into
+     * the same notification again. Cancellation passes through; an OutOfMemoryError is logged and
+     * rethrown, because the process state is unknown after it.
+     */
+    private inline fun guarded(tag: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (t: Throwable) {
+            if (t is kotlin.coroutines.cancellation.CancellationException) throw t
+            CrashLog.nonFatal(tag, t)
+            if (t is OutOfMemoryError) throw t
+        }
+    }
 
     private fun updateMediaInfoTraced() {
         if (!currentSettings.showMedia) {
@@ -1065,7 +1082,7 @@ class NotificationReceiverService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         if (sbn != null) CrashLog.breadcrumb("nrs", "posted pkg=${sbn.packageName} keyHash=${CrashLog.keyHash(sbn.key)}")
-        traced("db.posted") { handlePosted(sbn) }
+        traced("db.posted") { guarded("posted:${sbn?.packageName}") { handlePosted(sbn) } }
     }
 
     private fun handlePosted(sbn: StatusBarNotification?) {
@@ -1359,6 +1376,10 @@ class NotificationReceiverService : NotificationListenerService() {
         super.onNotificationRemoved(sbn)
         if (sbn == null) return
         CrashLog.breadcrumb("nrs", "removed pkg=${sbn.packageName} keyHash=${CrashLog.keyHash(sbn.key)}")
+        guarded("removed:${sbn.packageName}") { handleRemoved(sbn) }
+    }
+
+    private fun handleRemoved(sbn: StatusBarNotification) {
         if (systemRecordingKey == sbn.key || (sbn.notification != null && isScreenRecordingNotification(sbn, sbn.notification))) {
             // Many recorders remove+repost the same ongoing notification on every update,
             // so postpone the stop briefly: an immediate repost cancels this and keeps the timer alive.
