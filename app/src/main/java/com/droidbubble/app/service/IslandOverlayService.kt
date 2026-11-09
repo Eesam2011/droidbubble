@@ -41,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -378,24 +379,28 @@ class IslandOverlayService : Service() {
 
         debugReceiver = DebugCommands.register(this)
 
-        val powerFilter = IntentFilter().apply {
+        // System events (B1.2): sent by the system process, which a not-exported receiver still
+        // hears, while other apps can't reach it.
+        val systemFilter = IntentFilter().apply {
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction("android.os.action.CHARGING")
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
+            addAction("android.media.INTERNAL_RINGER_MODE_CHANGED_ACTION")
+        }
+        ContextCompat.registerReceiver(this, powerReceiver, systemFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        // Bluetooth events come from the Bluetooth app's own UID, not the system's, so a
+        // not-exported receiver would drop them. They are protected broadcasts: only the system
+        // and the Bluetooth stack can send them, so exporting this filter lets no app in.
+        val bluetoothFilter = IntentFilter().apply {
             addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
             addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
             addAction("android.bluetooth.adapter.action.CONNECTION_STATE_CHANGED")
-            addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
-            addAction("android.media.INTERNAL_RINGER_MODE_CHANGED_ACTION")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(powerReceiver, powerFilter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(powerReceiver, powerFilter)
-        }
+        ContextCompat.registerReceiver(this, powerReceiver, bluetoothFilter, ContextCompat.RECEIVER_EXPORTED)
 
         registerWifiCallback()
     }
