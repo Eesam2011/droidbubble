@@ -159,6 +159,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.LocalTextStyle
@@ -3255,9 +3256,14 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     val hasValidDuration = rawDuration > 0L
     val duration = if (hasValidDuration) rawDuration else 0L
 
-    var livePosition by remember(media?.packageName, media?.title) {
-        mutableLongStateOf(media?.computeCurrentPosition() ?: 0L)
-    }
+    RecompositionProbe.onMediaCard?.invoke()
+
+    // B8.2: the position is held outside snapshot state and pushed into the slider each frame
+    // while playing, which re-lays out the slider only. The card recomposes once a second, for
+    // the time label (secondTick), instead of on every frame.
+    val livePosition = remember(media?.packageName, media?.title) { longArrayOf(media?.computeCurrentPosition() ?: 0L) }
+    var secondTick by remember(media?.packageName, media?.title) { mutableLongStateOf(livePosition[0] / 1000L) }
+    val sliderState = remember { SliderState(value = 0f) }
 
     // Players re-report their position with small clock drift; accepting tiny backward steps
     // made the time and bar twitch. Only real jumps (> 1.5s, i.e. a seek) may go backwards.
@@ -3266,16 +3272,20 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
         return if (media?.isPlaying == true && fresh < previous && previous - fresh < 1500L) previous else fresh
     }
 
-    LaunchedEffect(media?.isPlaying, media?.positionMs, media?.lastPositionUpdateTimeMs, isSeeking, isSeekPending) {
-        if (!isSeeking && !isSeekPending) {
-            livePosition = stablePosition(livePosition)
-            if (media?.isPlaying == true) {
-                while (isActive) {
-                    kotlinx.coroutines.delay(250)
-                    if (!isSeeking && !isSeekPending) {
-                        livePosition = stablePosition(livePosition)
-                    }
-                }
+    fun showPosition(positionMs: Long) {
+        livePosition[0] = positionMs
+        if (hasValidDuration) sliderState.value = (positionMs.toFloat() / duration).coerceIn(0f, 1f)
+        val second = positionMs / 1000L
+        if (second != secondTick) secondTick = second
+    }
+
+    LaunchedEffect(media?.isPlaying, media?.positionMs, media?.lastPositionUpdateTimeMs, isSeeking, isSeekPending, duration) {
+        if (isSeeking || isSeekPending) return@LaunchedEffect
+        showPosition(stablePosition(livePosition[0]))
+        if (media?.isPlaying == true) {
+            while (isActive) {
+                // The infinite-animation variant: an endless loop that idle waits (tests) don't wait on
+                withInfiniteAnimationFrameMillis { showPosition(stablePosition(livePosition[0])) }
             }
         }
     }
@@ -3283,22 +3293,9 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     val latestMedia by rememberUpdatedState(media)
 
     val currentPosition = when {
-        isSeeking || isSeekPending -> if (hasValidDuration) (scrubFraction * duration).toLong().coerceIn(0L, duration) else livePosition
-        else -> livePosition
+        isSeeking || isSeekPending -> if (hasValidDuration) (scrubFraction * duration).toLong().coerceIn(0L, duration) else secondTick * 1000L
+        else -> secondTick * 1000L
     }
-
-    val rawSliderProgress = when {
-        hasValidDuration -> (livePosition.toFloat() / duration).coerceIn(0f, 1f)
-        else -> 0f
-    }
-    // Glide between the 250ms position ticks instead of stepping (only while playing & expanded)
-    val smoothSliderProgress by animateFloatAsState(
-        targetValue = rawSliderProgress,
-        animationSpec = if (isSeekPending || media?.isPlaying != true) snap() else tween(260, easing = LinearEasing),
-        label = "sliderProgress"
-    )
-    // Until the player confirms the seek, keep showing where the user let go
-    val sliderProgress = if (isSeeking || isSeekPending) scrubFraction else smoothSliderProgress
 
     val displayArt = media?.albumArt ?: media?.appIcon
     val mediaAccentColor = remember(displayArt) { extractMediaAccentColor(displayArt) }
@@ -3449,17 +3446,16 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
 
             Spacer(modifier = Modifier.width(IslandTokens.SpaceMd))
 
-            Slider(
-                value = sliderProgress,
-                enabled = hasValidDuration,
-                onValueChange = { frac ->
-                    isSeeking = true
-                    scrubFraction = frac
-                },
-                onValueChangeFinished = {
+            sliderState.onValueChange = { frac ->
+                isSeeking = true
+                scrubFraction = frac
+                sliderState.value = frac
+            }
+            sliderState.onValueChangeFinished = {
                     if (hasValidDuration) {
                         val seekTargetMs = (scrubFraction * duration).toLong().coerceIn(0L, duration)
-                        livePosition = seekTargetMs
+                        // Until the player confirms the seek, keep showing where the user let go
+                        showPosition(seekTargetMs)
                         isSeekPending = true
                         isSeeking = false
                         IslandStateManager.onSeekTo?.invoke(seekTargetMs)
@@ -3476,13 +3472,16 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                                 if (elapsed >= 500L && abs(reported - expected) < 1500L) break
                                 if (elapsed >= 2500L) break
                             }
-                            livePosition = latestMedia?.computeCurrentPosition() ?: seekTargetMs
+                            showPosition(latestMedia?.computeCurrentPosition() ?: seekTargetMs)
                             isSeekPending = false
                         }
                     } else {
                         isSeeking = false
                     }
-                },
+            }
+            Slider(
+                state = sliderState,
+                enabled = hasValidDuration,
                 thumb = {
                     if (hasValidDuration) {
                         Box(

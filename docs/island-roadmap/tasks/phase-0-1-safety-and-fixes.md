@@ -867,6 +867,7 @@
 - **Depends on:** S4.1, S2.2.
 - **Effort:** M   **Risk:** med — seek edge cases. Mitigation: the device check with Spotify and YouTube Music, including seek and pause.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** a Material3 `SliderState`, written from a `withInfiniteAnimationFrameMillis` loop while playing (a plain `withFrameMillis` loop kept Compose tests from going idle, so auto-collapse fired); the position lives in a plain `LongArray`; the time label reads `secondTick`. Seek logic unchanged. S4.1 `expandedMediaPlaying_3s` (with `ShadowSystemClock` moving, since playback follows `SystemClock`): the card went from 104 to 2 recompositions in 3 s. **Root not met:** the root still recomposes 82 times in 3 s, the same before and after. That is the every-frame root recomposition (06 P0-1), which M2 owns; the baseline records 82 as a guard. S2: `expanded_media` and `expanded_dual` re-recorded after review (only the equalizer differs). Device check still open: smooth slider, seek, pause, labels tick each second, with Spotify and YouTube Music.
 
 ### B8.3 — Glass pane windows only when "Liquid glass" is on, and never blocking
 - **Goal:** No extra windows or urgent-priority threads exist unless `liquidGlassCards` is on, and creating them never blocks the main thread.

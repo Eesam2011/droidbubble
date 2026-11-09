@@ -7,4 +7,8 @@ package com.droidbubble.app.island
 object RecompositionProbe {
     @JvmField
     var onRoot: (() -> Unit)? = null
+
+    /** Called on every composition of the expanded media card (B8.2). */
+    @JvmField
+    var onMediaCard: (() -> Unit)? = null
 }

@@ -14,5 +14,9 @@ object PerfBaseline {
     const val MEDIA_PILL_REST_5S = 0
     const val TIMER_PILL_5S = 0
     const val FLASHLIGHT_DRAG_1S = 2
+    // B8.2: the card was 104 before (250 ms ticker + tween). The root's 82 is the known
+    // every-frame root recomposition (06 P0-1, M2), the same before and after B8.2.
+    const val MEDIA_EXPANDED_PLAYING_3S_ROOT = 82
+    const val MEDIA_EXPANDED_PLAYING_3S_CARD = 3
     const val NETWORK_SPEED_1HZ_3S = 81
 }

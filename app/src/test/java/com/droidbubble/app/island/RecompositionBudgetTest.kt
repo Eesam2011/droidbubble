@@ -12,6 +12,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performTouchInput
 import com.droidbubble.app.model.IslandPriority
+import android.os.SystemClock
+import java.time.Duration
+import org.robolectric.shadows.ShadowSystemClock
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -38,6 +41,7 @@ class RecompositionBudgetTest {
     private val h = IslandHarness(rule)
     private val settings = mutableStateOf(IslandSettings(showNotifications = true))
     private var count = 0
+    private var cardCount = 0
 
     @Before
     fun setUp() {
@@ -47,6 +51,7 @@ class RecompositionBudgetTest {
         // The wall clock moves with the test clock, so timers tick exactly as time is advanced
         IslandClock.wallMs = { IslandHarness.FROZEN_WALL_MS + rule.mainClock.currentTime }
         RecompositionProbe.onRoot = { count++ }
+        RecompositionProbe.onMediaCard = { cardCount++ }
         h.setContent(settings)
         frames(500)
     }
@@ -54,6 +59,7 @@ class RecompositionBudgetTest {
     @After
     fun tearDown() {
         RecompositionProbe.onRoot = null
+        RecompositionProbe.onMediaCard = null
         h.unfreezeClock()
         IslandStateManager.resetForTest()
     }
@@ -129,6 +135,29 @@ class RecompositionBudgetTest {
             frames(100)
         }
         check("FLASHLIGHT_DRAG_1S", n, PerfBaseline.FLASHLIGHT_DRAG_1S)
+    }
+
+    @Test
+    fun expandedMediaPlaying_3s() {
+        // B8.2: the playing media card used to recompose on every frame (250 ms ticker + tween)
+        // The playback position follows SystemClock, which Robolectric freezes: move it with the
+        // frames here, and give the song a real update time, so the music actually plays
+        fun playingFrames(ms: Long) {
+            repeat((ms / 16).toInt()) {
+                rule.mainClock.advanceTimeBy(16)
+                ShadowSystemClock.advanceBy(Duration.ofMillis(16))
+            }
+            rule.waitForIdle()
+        }
+        rule.runOnIdle {
+            IslandStateManager.updateMedia(IslandFixtures.song.copy(lastPositionUpdateTimeMs = SystemClock.elapsedRealtime()))
+            IslandStateManager.expand(IslandPriority.MEDIA)
+        }
+        playingFrames(1500)
+        cardCount = 0
+        val root = measure { playingFrames(3000) }
+        check("MEDIA_EXPANDED_PLAYING_3S_ROOT", root, PerfBaseline.MEDIA_EXPANDED_PLAYING_3S_ROOT)
+        check("MEDIA_EXPANDED_PLAYING_3S_CARD", cardCount, PerfBaseline.MEDIA_EXPANDED_PLAYING_3S_CARD)
     }
 
     @Test
