@@ -630,6 +630,7 @@
 - **Depends on:** B4.1 (`liveActivityKind` must already be the hardened version).
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix.
+- **Done (2026-11-09):** `island/DismissSignature.kt` as specified; `dismissedSignatures` replaces `dismissedNotificationText`. Both `IslandStateBehaviorTest` cases added. Also: the B3.2 view-model check moved into `SettingsRepositoryTest`'s single method, because the DataStore delegate is a process singleton and a second test class touching it hit a locked file on Windows.
 
 ---
 

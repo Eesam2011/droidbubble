@@ -543,9 +543,10 @@ object IslandStateManager {
     // when the alert is dismissed or removed instead of being lost
     private var stashedLiveNotification: NotificationInfo? = null
 
-    // Cards the user dismissed, by key -> text at dismissal. Apps re-post the same notification
-    // often (timers, ongoing calls); an unchanged re-post must not bring the card back.
-    private val dismissedNotificationText = mutableMapOf<String, String>()
+    // Cards the user dismissed, by key -> dismissSignature at dismissal (B4.5). Apps re-post the
+    // same notification often (timers, ongoing calls, ride ETAs); a re-post that only ticks a
+    // number must not bring the card back, a real state change does.
+    private val dismissedSignatures = mutableMapOf<String, Int>()
     private val dismissedProgressKeys = mutableSetOf<String>()
 
     private fun restoreStashedLive(): Boolean {
@@ -570,8 +571,8 @@ object IslandStateManager {
         if (notification == null) {
             stashedLiveNotification = null
         } else {
-            if (dismissedNotificationText[notification.key] == notification.text) return
-            dismissedNotificationText.remove(notification.key)
+            if (dismissedSignatures[notification.key] == dismissSignature(notification)) return
+            dismissedSignatures.remove(notification.key)
             val current = _activeNotification.value
             // A ringing call keeps the card: other alerts that arrive meanwhile (missed-call
             // reminders, messages...) stay in the shade instead of covering the answer button
@@ -652,7 +653,7 @@ object IslandStateManager {
 
     fun removeNotification(key: String) {
         var removed = false
-        dismissedNotificationText.remove(key)
+        dismissedSignatures.remove(key)
         dismissedProgressKeys.remove(key)
         if (stashedLiveNotification?.key == key) stashedLiveNotification = null
         if (_activeNotification.value?.key == key) {
@@ -692,7 +693,7 @@ object IslandStateManager {
         val notif = _activeNotification.value ?: return false
         // Dismiss card only, without cancelling actual system notification
         val wasRinging = isIncomingCallRinging
-        dismissedNotificationText[notif.key] = notif.text
+        dismissedSignatures[notif.key] = dismissSignature(notif)
         _activeNotification.value = null
         _isPopInActive.value = false
         // A live activity that was waiting behind this alert takes its place
@@ -785,7 +786,7 @@ object IslandStateManager {
         torchRawOn = false
         torchToggleTimes.clear()
         stashedLiveNotification = null
-        dismissedNotificationText.clear()
+        dismissedSignatures.clear()
         dismissedProgressKeys.clear()
         dismissedMediaPackage = null
         lastTrackKey = null

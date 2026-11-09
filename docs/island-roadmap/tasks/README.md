@@ -83,7 +83,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B4.2 | Package hints only for ongoing notifications | done |
 | B4.3 | Whole-word "end" matching | done |
 | B4.4 | Fewer screen-recording false positives | done |
-| B4.5 | Dismissed cards return only on a real state change | todo |
+| B4.5 | Dismissed cards return only on a real state change | done |
 | B5.1 | High-contrast outline on all four edges | todo |
 | B5.2 | Text tokens; placeholder at 4.9:1 | todo |
 | B5.3 | React live to system high contrast | todo |

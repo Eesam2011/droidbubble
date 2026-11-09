@@ -90,6 +90,32 @@ class IslandStateBehaviorTest {
         IslandStateManager.onCancelSystemNotification = null
     }
 
+    // --- B4.5: a dismissed card returns only on a real state change -----------------------------
+
+    @Test
+    fun dismissedRide_staysGoneOnEtaTick_returnsOnStatusChange() {
+        val ride = NotificationInfo(
+            key = "ride", packageName = "com.ubercab", appName = "Uber", title = "Driver arriving",
+            text = "Arrives in 4 min", isOngoing = true
+        )
+        IslandStateManager.updateNotification(ride)
+        assertTrue(IslandStateManager.dismissCurrentNotification())
+        IslandStateManager.updateNotification(ride.copy(text = "Arrives in 3 min"))
+        assertNull("an ETA tick keeps it dismissed", IslandStateManager.activeNotification.value)
+        IslandStateManager.updateNotification(ride.copy(text = "Driver has arrived"))
+        assertEquals("ride", IslandStateManager.activeNotification.value?.key)
+    }
+
+    @Test
+    fun dismissedMessage_returnsOnNewText() {
+        IslandStateManager.updateNotification(msg())
+        assertTrue(IslandStateManager.dismissCurrentNotification())
+        IslandStateManager.updateNotification(msg())
+        assertNull("the same message stays dismissed", IslandStateManager.activeNotification.value)
+        IslandStateManager.updateNotification(msg().copy(text = "Are you coming?"))
+        assertEquals("m", IslandStateManager.activeNotification.value?.key)
+    }
+
     @Test
     fun swipeAway_clearsCardAndShade() {
         var cancelled: String? = null
