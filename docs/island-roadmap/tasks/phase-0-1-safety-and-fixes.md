@@ -954,6 +954,7 @@
 - **Depends on:** B8.6.
 - **Effort:** S   **Risk:** low. `MainScreen.kt` is shared with Phase 8: one session at a time.
 - **Ships as:** Perf.
+- **Done (2026-11-09), step 1 only:** `SliderSettingItem` and the curve editor's `SliderSettingItemPct` hold a local `dragValue`, show it live, and call `onCommit` once from `onValueChangeFinished`; all seven size and appearance call sites and both curve rows use `onCommit`. Step 2 (live preview through `IslandStateManager.previewSettings`) is left to C2.2, as the task allows, so the island now follows a slider on release rather than while dragging. `SliderCommitTest`: a 2 s drag writes nothing until release, then once, and the label shows the dragged value.
 
 ---
 

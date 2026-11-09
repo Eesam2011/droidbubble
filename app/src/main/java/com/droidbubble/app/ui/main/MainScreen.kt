@@ -166,6 +166,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1733,8 +1734,11 @@ fun SliderSettingItem(
     unit: String,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
-    onValueChange: (Float) -> Unit
+    onCommit: (Float) -> Unit
 ) {
+    // B8.7: the drag moves a value held here (the label follows it live); the setting is written
+    // once, when the finger lifts, instead of on every slider tick
+    var dragValue by remember(value) { mutableFloatStateOf(value) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1758,7 +1762,7 @@ fun SliderSettingItem(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${if (unit == "x" || unit == "dp") String.format(Locale.US, "%.1f", value).replace(".0", "") else value.toInt()} $unit",
+                    text = "${if (unit == "x" || unit == "dp") String.format(Locale.US, "%.1f", dragValue).replace(".0", "") else dragValue.toInt()} $unit",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1767,8 +1771,9 @@ fun SliderSettingItem(
         }
         Spacer(modifier = Modifier.height(8.dp))
         Slider(
-            value = value,
-            onValueChange = onValueChange,
+            value = dragValue,
+            onValueChange = { dragValue = it },
+            onValueChangeFinished = { onCommit(dragValue) },
             valueRange = valueRange,
             steps = steps,
             modifier = Modifier.height(24.dp)
@@ -1860,7 +1865,7 @@ fun DimensionsPage(
                             value = settings.widthDp.toFloat(),
                             unit = "dp",
                             valueRange = 50f..260f,
-                            onValueChange = { onUpdateSettings { s -> s.copy(widthDp = it.roundToInt()) } }
+                            onCommit = { onUpdateSettings { s -> s.copy(widthDp = it.roundToInt()) } }
                         )
                     }
 
@@ -1870,7 +1875,7 @@ fun DimensionsPage(
                             value = settings.heightDp.toFloat(),
                             unit = "dp",
                             valueRange = 12f..56f,
-                            onValueChange = { onUpdateSettings { s -> s.copy(heightDp = it.roundToInt()) } }
+                            onCommit = { onUpdateSettings { s -> s.copy(heightDp = it.roundToInt()) } }
                         )
                     }
 
@@ -1880,7 +1885,7 @@ fun DimensionsPage(
                             value = settings.topOffsetDp.toFloat(),
                             unit = "dp",
                             valueRange = 0f..60f,
-                            onValueChange = { onUpdateSettings { s -> s.copy(topOffsetDp = it.roundToInt()) } }
+                            onCommit = { onUpdateSettings { s -> s.copy(topOffsetDp = it.roundToInt()) } }
                         )
                     }
 
@@ -1890,7 +1895,7 @@ fun DimensionsPage(
                             value = settings.horizontalOffsetDp.toFloat(),
                             unit = "dp",
                             valueRange = -50f..50f,
-                            onValueChange = { onUpdateSettings { s -> s.copy(horizontalOffsetDp = it.roundToInt()) } }
+                            onCommit = { onUpdateSettings { s -> s.copy(horizontalOffsetDp = it.roundToInt()) } }
                         )
                     }
 
@@ -1901,7 +1906,7 @@ fun DimensionsPage(
                             unit = "x",
                             valueRange = 0.8f..1.3f,
                             steps = 5,
-                            onValueChange = { onUpdateSettings { s -> s.copy(expandedScale = (it * 10).roundToInt() / 10f) } }
+                            onCommit = { onUpdateSettings { s -> s.copy(expandedScale = (it * 10).roundToInt() / 10f) } }
                         )
                     }
 
@@ -1912,7 +1917,7 @@ fun DimensionsPage(
                             unit = "x",
                             valueRange = 0.5f..2.0f,
                             steps = 14,
-                            onValueChange = { onUpdateSettings { s -> s.copy(animationSpeed = (it * 10).roundToInt() / 10f) } }
+                            onCommit = { onUpdateSettings { s -> s.copy(animationSpeed = (it * 10).roundToInt() / 10f) } }
                         )
                     }
                 }
@@ -2208,7 +2213,7 @@ fun AppearancePage(
                                 value = settings.outlineThicknessDp,
                                 unit = "dp",
                                 valueRange = 0.5f..4.0f,
-                                onValueChange = { onUpdateSettings { s -> s.copy(outlineThicknessDp = (it * 10).roundToInt() / 10f) } }
+                                onCommit = { onUpdateSettings { s -> s.copy(outlineThicknessDp = (it * 10).roundToInt() / 10f) } }
                             )
                         }
                     }
@@ -2659,17 +2664,17 @@ fun AnimationCurveEditor(
             val bounce = ((1f - damping) / 0.7f).coerceIn(0f, 1f)
             SliderSettingItemPct(
                 label = "Bounce",
-                valueText = "${(bounce * 100).toInt()}%",
+                valueText = { b -> "${(b * 100).toInt()}%" },
                 value = bounce,
                 valueRange = 0f..1f,
-                onValueChange = { b -> setCurve((1f - 0.7f * b), stiffness) }
+                onCommit = { b -> setCurve((1f - 0.7f * b), stiffness) }
             )
             SliderSettingItemPct(
                 label = "Snap",
-                valueText = "${stiffness.toInt()}",
+                valueText = { k -> "${k.toInt()}" },
                 value = stiffness,
                 valueRange = 150f..700f,
-                onValueChange = { k -> setCurve(damping, k.roundToInt().toFloat()) }
+                onCommit = { k -> setCurve(damping, k.roundToInt().toFloat()) }
             )
         }
     }
@@ -2678,11 +2683,13 @@ fun AnimationCurveEditor(
 @Composable
 private fun SliderSettingItemPct(
     label: String,
-    valueText: String,
+    valueText: (Float) -> String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
-    onValueChange: (Float) -> Unit
+    onCommit: (Float) -> Unit
 ) {
+    // B8.7: as SliderSettingItem, the setting is written once when the drag ends
+    var dragValue by remember(value) { mutableFloatStateOf(value) }
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2696,9 +2703,15 @@ private fun SliderSettingItemPct(
                     .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
-                Text(valueText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(valueText(dragValue), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
         }
-        Slider(value = value, onValueChange = onValueChange, valueRange = valueRange, modifier = Modifier.height(28.dp))
+        Slider(
+            value = dragValue,
+            onValueChange = { dragValue = it },
+            onValueChangeFinished = { onCommit(dragValue) },
+            valueRange = valueRange,
+            modifier = Modifier.height(28.dp)
+        )
     }
 }
