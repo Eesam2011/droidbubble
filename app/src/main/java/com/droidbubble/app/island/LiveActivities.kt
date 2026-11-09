@@ -706,7 +706,7 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
         ) {
             // No decline intent from the phone app: open its call screen instead of silently failing
             sendIslandPendingIntent(context, notification.declineIntent ?: notification.contentIntent)
-            IslandStateManager.dismissCurrentNotification()
+            IslandStateManager.dismissCurrentNotification(endingRingingOrAlert = true)
         }
         if (notification.isIncomingCall) {
             Spacer(modifier = Modifier.width(layout.buttonGap))
@@ -891,7 +891,7 @@ fun LiveActivityNotificationView(notification: NotificationInfo, kind: LiveActiv
                 notification = notification,
                 scale = scale,
                 onOpen = open,
-                onStop = fire(alert.stop) ?: { IslandStateManager.dismissCurrentNotification(); Unit },
+                onStop = fire(alert.stop) ?: { IslandStateManager.dismissCurrentNotification(endingRingingOrAlert = true); Unit },
                 onExtra = fire(alert.extra),
                 extraLabel = alert.extra?.title
             )

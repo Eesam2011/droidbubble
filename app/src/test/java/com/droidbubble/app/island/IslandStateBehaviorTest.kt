@@ -90,6 +90,38 @@ class IslandStateBehaviorTest {
         IslandStateManager.onCancelSystemNotification = null
     }
 
+    // --- B6.2: ringing calls and alarms tuck instead of being swiped away ----------------------
+
+    @Test
+    fun clearCurrentNotification_refusesWhileRinging() {
+        var cancelled: String? = null
+        IslandStateManager.onCancelSystemNotification = { cancelled = it }
+        IslandStateManager.updateNotification(ringing)
+        assertFalse(IslandStateManager.clearCurrentNotification())
+        assertFalse(IslandStateManager.dismissCurrentNotification())
+        assertTrue(IslandStateManager.activeNotification.value?.isIncomingCall == true)
+        assertNull("the shade notification is untouched", cancelled)
+        // Decline ends it
+        assertTrue(IslandStateManager.dismissCurrentNotification(endingRingingOrAlert = true))
+        assertNull(IslandStateManager.activeNotification.value)
+        IslandStateManager.onCancelSystemNotification = null
+    }
+
+    @Test
+    fun clearCurrentNotification_refusesForAlert() {
+        var cancelled: String? = null
+        IslandStateManager.onCancelSystemNotification = { cancelled = it }
+        val timesUp = NotificationInfo(
+            key = "alert", packageName = "com.google.android.deskclock", appName = "Clock",
+            title = "Time's up", text = "Timer", isAlert = true, isOngoing = true
+        )
+        IslandStateManager.updateNotification(timesUp)
+        assertFalse(IslandStateManager.clearCurrentNotification())
+        assertEquals("alert", IslandStateManager.activeNotification.value?.key)
+        assertNull(cancelled)
+        IslandStateManager.onCancelSystemNotification = null
+    }
+
     // --- B4.5: a dismissed card returns only on a real state change -----------------------------
 
     @Test

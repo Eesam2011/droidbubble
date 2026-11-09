@@ -721,6 +721,7 @@
 - **Depends on:** S1.1.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix.
+- **Done (2026-11-09):** both card swipe handlers tuck a ringing call or alert (`collapse()`), and `clearCurrentNotification` / `dismissCurrentNotification` refuse while ringing or alerting. Deviation: the Decline button and the alert Stop fallback also call `dismissCurrentNotification`, so it takes `endingRingingOrAlert = true` from those two only; otherwise they'd stop removing the card. Tests: both `IslandStateBehaviorTest` cases and `IslandOverlayCrashTest.ringingCall_sideSwipe_tucksAndKeepsCard`.
 
 ### B6.3 — Open targets: the notification's own intent first
 - **Goal:** Long-press, avatar and app-name taps open the exact conversation or detail (`contentIntent`), and media opens its `sessionActivity`. The launcher intent is only the fallback.

@@ -215,6 +215,8 @@ object IslandStateManager {
     /** Swipe-to-clear on the pill: clears the card AND the notification in the shade. */
     fun clearCurrentNotification(): Boolean {
         val notif = _activeNotification.value ?: return false
+        // B6.2: a ringing call or alarm is never swiped away, here or in the shade
+        if (notif.isRingingOrAlert) return false
         onCancelSystemNotification?.invoke(notif.key)
         return dismissCurrentNotification()
     }
@@ -549,6 +551,8 @@ object IslandStateManager {
     private val dismissedSignatures = mutableMapOf<String, Int>()
     private val dismissedProgressKeys = mutableSetOf<String>()
 
+    private val NotificationInfo.isRingingOrAlert: Boolean get() = isIncomingCall || isAlert
+
     private fun restoreStashedLive(): Boolean {
         val live = stashedLiveNotification ?: return false
         stashedLiveNotification = null
@@ -688,9 +692,15 @@ object IslandStateManager {
         }
     }
 
-    fun dismissCurrentNotification(): Boolean {
-        autoDismissNotificationJob?.cancel()
+    /**
+     * Hides the current card without cancelling the system notification. While a call is ringing or
+     * an alarm is going off it refuses (B6.2), unless [endingRingingOrAlert]: only the card's own
+     * Decline and Stop buttons pass that, because they end the call or alarm.
+     */
+    fun dismissCurrentNotification(endingRingingOrAlert: Boolean = false): Boolean {
         val notif = _activeNotification.value ?: return false
+        if (notif.isRingingOrAlert && !endingRingingOrAlert) return false
+        autoDismissNotificationJob?.cancel()
         // Dismiss card only, without cancelling actual system notification
         val wasRinging = isIncomingCallRinging
         dismissedSignatures[notif.key] = dismissSignature(notif)

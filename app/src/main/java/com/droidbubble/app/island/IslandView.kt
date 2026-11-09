@@ -1355,8 +1355,15 @@ fun IslandOverlayRoot(
                                                         }
                                                         IslandPriority.POP_NOTIFICATION -> {
                                                             if (abs(card1OffsetX) > threshold) {
-                                                                triggerHaptic()
-                                                                IslandStateManager.clearCurrentNotification()
+                                                                if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
+                                                                    // B6.2: a ringing call or alarm tucks back to the pill instead
+                                                                    // of losing its Answer / Stop buttons. Decline and Stop end it.
+                                                                    triggerCollapseHaptic()
+                                                                    IslandStateManager.collapse()
+                                                                } else {
+                                                                    triggerHaptic()
+                                                                    IslandStateManager.clearCurrentNotification()
+                                                                }
                                                             }
                                                         }
                                                         IslandPriority.PROGRESS -> {
@@ -1529,8 +1536,15 @@ fun IslandOverlayRoot(
                                                         }
                                                         IslandPriority.POP_NOTIFICATION -> {
                                                             if (abs(card2OffsetX) > threshold) {
-                                                                triggerHaptic()
-                                                                IslandStateManager.clearCurrentNotification()
+                                                                if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
+                                                                    // B6.2: a ringing call or alarm tucks back to the pill instead
+                                                                    // of losing its Answer / Stop buttons. Decline and Stop end it.
+                                                                    triggerCollapseHaptic()
+                                                                    IslandStateManager.collapse()
+                                                                } else {
+                                                                    triggerHaptic()
+                                                                    IslandStateManager.clearCurrentNotification()
+                                                                }
                                                             }
                                                         }
                                                         IslandPriority.PROGRESS -> {

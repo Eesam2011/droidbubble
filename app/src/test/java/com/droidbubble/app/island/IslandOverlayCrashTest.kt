@@ -11,6 +11,7 @@ import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.ScreenRecordingState
 import org.junit.After
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -109,6 +110,24 @@ class IslandOverlayCrashTest {
         swipePill(300f)
         swipePill(300f)
         settle()
+    }
+
+    @Test
+    fun ringingCall_sideSwipe_tucksAndKeepsCard() {
+        var cancelled: String? = null
+        IslandStateManager.onCancelSystemNotification = { cancelled = it }
+        onState {
+            IslandStateManager.updateNotification(incomingCall)
+            IslandStateManager.expand(null)
+        }
+        settle()
+        assertTrue(IslandStateManager.isExpanded.value)
+        swipeCard(500f)
+        settle()
+        assertTrue(IslandStateManager.activeNotification.value?.isIncomingCall == true)
+        assertFalse(IslandStateManager.isExpanded.value)
+        assertNull("the shade notification is untouched", cancelled)
+        IslandStateManager.onCancelSystemNotification = null
     }
 
     @Test
