@@ -885,6 +885,7 @@
 - **Depends on:** B1.1 (same `onCreate` and `initOverlay` area; avoids conflicts).
 - **Effort:** S   **Risk:** med — window z-order with glass on. Mitigation: the device check.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** panes are created only with `liquidGlassCards` on; `create(onReady)` returns at once and calls back on the main thread after every pane was tried, and the island window is added from that callback (on a later switch-on, it is removed and re-added above the new panes). Switching off dismisses them. Test seam: `IslandOverlayService.settingsFlowForTest`, and the service's `SettingsRepository` is now lazy, so service tests never open the process-wide DataStore. `GlassPaneLifecycleTest` covers off at start, switching on and off, and on at start. Device check still open: `dumpsys window | grep GlassPane` empty with glass off; with glass on, the blur stays under the card with no frame above the island.
 
 ### B8.4 — No `runBlocking` in `Service.onCreate`
 - **Goal:** The overlay service starts without blocking the main thread on DataStore.

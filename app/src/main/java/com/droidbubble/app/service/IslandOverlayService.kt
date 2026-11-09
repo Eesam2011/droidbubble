@@ -87,6 +87,14 @@ class IslandOverlayService : Service() {
 
         private var serviceInstance: IslandOverlayService? = null
 
+        /**
+         * Tests only: the settings the service reads instead of the DataStore. The DataStore delegate
+         * is a process singleton bound to the first test's files dir, so service tests can't use it.
+         */
+        @androidx.annotation.VisibleForTesting
+        @JvmField
+        var settingsFlowForTest: kotlinx.coroutines.flow.Flow<IslandSettings>? = null
+
         fun onAccessibilityServiceChanged(accessibilityService: IslandAccessibilityService?) {
             serviceInstance?.handleAccessibilityServiceChanged(accessibilityService)
         }
@@ -111,7 +119,8 @@ class IslandOverlayService : Service() {
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private lateinit var settingsRepository: SettingsRepository
+    // Lazy: tests that supply settingsFlowForTest never open the process-wide DataStore
+    private val settingsRepository by lazy { SettingsRepository(this) }
     private var windowManager: WindowManager? = null
     private var composeView: ComposeView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
@@ -348,10 +357,9 @@ class IslandOverlayService : Service() {
         super.onCreate()
         com.droidbubble.app.util.CrashLog.install(this)
         serviceInstance = this
-        settingsRepository = SettingsRepository(this)
         currentSettings = runBlocking(Dispatchers.IO) {
             try {
-                settingsRepository.settingsFlow.first()
+                settingsFlow.first()
             } catch (_: Exception) {
                 IslandSettings()
             }
@@ -539,7 +547,7 @@ class IslandOverlayService : Service() {
             fitsSystemWindows = false
 
             setContent {
-                val storedSettings by settingsRepository.settingsFlow.collectAsState(initial = currentSettings)
+                val storedSettings by settingsFlow.collectAsState(initial = currentSettings)
                 // High contrast: the app's own setting, or Android's "High contrast text"
                 val systemHighContrast = remember {
                     runCatching {
@@ -586,14 +594,19 @@ class IslandOverlayService : Service() {
         overlayJobs.forEach { it.cancel() }
         overlayJobs.clear()
 
-        // Liquid glass blur windows go in first so they always stay beneath the island
+        // Liquid glass blur windows go in first so they always stay beneath the island. B8.3: they
+        // exist only while "Liquid glass" is on (no windows or URGENT_DISPLAY threads otherwise),
+        // and the island window is added once they're on screen instead of blocking for them.
+        glassContext = aService ?: this
+        glassWindowType = windowType
         glassPaneWindows?.dismiss()
-        glassPaneWindows = GlassPaneWindows(aService ?: this, windowType).also { it.create() }
-
-        try {
-            windowManager?.addView(view, layoutParams)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        glassPaneWindows = null
+        if (currentSettings.liquidGlassCards) {
+            glassPaneWindows = GlassPaneWindows(glassContext!!, windowType).also { panes ->
+                panes.create { if (composeView === view && glassPaneWindows === panes) addIslandView(view) }
+            }
+        } else {
+            addIslandView(view)
         }
 
         glassPaneJob?.cancel()
@@ -670,7 +683,7 @@ class IslandOverlayService : Service() {
         // Listen for settings changes. Started once per service: it adds/removes the overlay
         // itself, so it must survive removeOverlay() and not be duplicated by each initOverlay()
         if (settingsJob == null) settingsJob = serviceScope.launch {
-            settingsRepository.settingsFlow.collectLatest { settings ->
+            settingsFlow.collectLatest { settings ->
                 currentSettings = settings
                 updateSpokenAlerts(settings.spokenAlerts)
                 persistentTelemetryManager?.updateSettings(settings)
@@ -681,6 +694,7 @@ class IslandOverlayService : Service() {
                 } else if (composeView == null) {
                     initOverlay()
                 } else {
+                    syncGlassPanes(settings.liquidGlassCards)
                     updateWindowState(IslandStateManager.isExpanded.value)
                 }
             }
@@ -691,7 +705,47 @@ class IslandOverlayService : Service() {
     private val overlayJobs = mutableListOf<kotlinx.coroutines.Job>()
     private var settingsJob: kotlinx.coroutines.Job? = null
     private var lastShapeKey: List<Any>? = null
+    private val settingsFlow: kotlinx.coroutines.flow.Flow<IslandSettings>
+        get() = settingsFlowForTest ?: settingsRepository.settingsFlow
+
     private var glassPaneWindows: GlassPaneWindows? = null
+    private var glassContext: Context? = null
+    private var glassWindowType: Int = 0
+
+    @androidx.annotation.VisibleForTesting
+    internal val glassPanesForTest: GlassPaneWindows? get() = glassPaneWindows
+
+    private fun addIslandView(view: View) {
+        if (view.parent != null) return
+        try {
+            windowManager?.addView(view, layoutParams)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * B8.3: "Liquid glass" switched while the island is up. On: add the panes, then re-add the
+     * island so it sits above them. Off: remove the panes and their threads.
+     */
+    private fun syncGlassPanes(on: Boolean) {
+        val view = composeView ?: return
+        if (on && glassPaneWindows == null) {
+            val context = glassContext ?: return
+            glassPaneWindows = GlassPaneWindows(context, glassWindowType).also { panes ->
+                panes.create {
+                    if (composeView !== view || glassPaneWindows !== panes) return@create
+                    if (view.parent != null) runCatching { windowManager?.removeViewImmediate(view) }
+                    addIslandView(view)
+                    panes.update(IslandStateManager.glassPanes.value)
+                }
+            }
+        } else if (!on && glassPaneWindows != null) {
+            glassPaneWindows?.dismiss()
+            glassPaneWindows = null
+            IslandStateManager.setGlassBlurAvailable(false)
+        }
+    }
     private var glassPaneJob: kotlinx.coroutines.Job? = null
     private var collapseJob: kotlinx.coroutines.Job? = null
 

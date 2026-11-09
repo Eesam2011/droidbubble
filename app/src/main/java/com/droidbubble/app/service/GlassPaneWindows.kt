@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.os.Process
 import android.util.Log
 import android.view.Gravity
@@ -16,9 +17,8 @@ import android.view.Window
 import android.view.WindowManager
 import com.droidbubble.app.R
 import com.droidbubble.app.island.IslandStateManager
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
 
@@ -169,15 +169,19 @@ class GlassPaneWindows(private val context: Context, private val windowType: Int
     private class Pending(val target: IslandStateManager.GlassPane?)
 
     /**
-     * Adds the panes, each on its own thread. Blocks briefly until they're on screen, because they
-     * must be added before the island window to stay beneath it.
+     * Adds the panes, each on its own thread, and returns at once (B8.3: it used to block the main
+     * thread for up to 1.5 s). [onReady] runs on the main thread once every pane has been tried:
+     * the panes must be on screen before the island window is added, to stay beneath it.
+     * [update] calls before that are kept as the latest rects and applied by each pane in order.
      */
-    fun create(count: Int = 2) {
+    fun create(count: Int = 2, onReady: () -> Unit = {}) {
+        val main = Handler(Looper.getMainLooper())
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             IslandStateManager.setGlassBlurAvailable(false)
+            main.post(onReady)
             return
         }
-        val added = CountDownLatch(count)
+        val remaining = AtomicInteger(count)
         val created = List(count) { PaneWorker(it) }
         workers = created
         created.forEach { worker ->
@@ -185,16 +189,13 @@ class GlassPaneWindows(private val context: Context, private val windowType: Int
                 try {
                     worker.create()
                 } finally {
-                    added.countDown()
+                    if (remaining.decrementAndGet() == 0) {
+                        IslandStateManager.setGlassBlurAvailable(isBlurSupported)
+                        runCatching { windowManager?.addCrossWindowBlurEnabledListener({ worker.handler.post(it) }, blurListener) }
+                        main.post(onReady)
+                    }
                 }
             }
-        }
-        if (!added.await(1500, TimeUnit.MILLISECONDS)) {
-            Log.w(TAG, "Glass panes took too long to appear")
-        }
-        IslandStateManager.setGlassBlurAvailable(isBlurSupported)
-        workers.firstOrNull()?.let { first ->
-            runCatching { windowManager?.addCrossWindowBlurEnabledListener({ first.handler.post(it) }, blurListener) }
         }
     }
 
