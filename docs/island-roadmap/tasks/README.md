@@ -109,7 +109,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B10.4 | Cache clock-app custom-view reads | done |
 | B11.1 | Breadcrumb ring in CrashLog | done |
 | B11.2 | Per-notification and media guards | done |
-| B11.3 | Crash-loop guard and safe mode | todo |
+| B11.3 | Crash-loop guard and safe mode | doing (code and tests done; device crash-loop check pending) |
 
 ### Phase 2–3: Foundations and one living shape ([file](phase-2-3-foundations-and-shape.md))
 | ID | Title | Status |

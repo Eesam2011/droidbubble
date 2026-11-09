@@ -3,6 +3,7 @@ package com.droidbubble.app.service
 import com.droidbubble.app.model.gateKind
 import com.droidbubble.app.model.allows
 import com.droidbubble.app.util.CrashLog
+import com.droidbubble.app.util.SafeMode
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
@@ -1306,6 +1307,14 @@ class NotificationReceiverService : NotificationListenerService() {
     }
 
     private fun applyParseResult(sbn: StatusBarNotification, result: ParseResult) {
+        // B11.3: safe mode paused this package (or this kind of its cards) after a crash loop
+        if (result is ParseResult.Post) {
+            val pause = SafeMode.activePause(this, System.currentTimeMillis())
+            if (pause != null && pause.covers(sbn.packageName, com.droidbubble.app.island.liveActivityKind(result.info).name)) {
+                IslandStateManager.removeNotification(sbn.key)
+                return
+            }
+        }
         when (result) {
             ParseResult.Drop -> IslandStateManager.removeNotification(sbn.key)
             ParseResult.Ignore -> Unit

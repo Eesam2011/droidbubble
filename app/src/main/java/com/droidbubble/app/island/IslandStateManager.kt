@@ -560,12 +560,19 @@ object IslandStateManager {
         return true
     }
 
+    /** B11.3: true for a notification safe mode has paused. Set by the island service. */
+    @Volatile
+    var safeModeFilter: ((NotificationInfo) -> Boolean)? = null
+
     fun updateNotification(notification: NotificationInfo?) {
         CrashLog.breadcrumb(
             "state",
             if (notification == null) "notification cleared"
-            else "notification kind=${liveActivityKind(notification)} keyHash=${CrashLog.keyHash(notification.key)}"
+            // B11.3: "primary" names what the island shows, for the crash-loop guard
+            else "primary kind=${liveActivityKind(notification)} pkg=${notification.packageName} keyHash=${CrashLog.keyHash(notification.key)}"
         )
+        // B11.3: a kind paused by safe mode is refused here too (the listener drops it first)
+        if (notification != null && safeModeFilter?.invoke(notification) == true) return
         // Plain downloads go to the progress card; rides, deliveries and Android 16 live updates
         // keep their own live-activity design even though they carry a progress bar
         if (notification != null && notification.hasProgress && liveActivityKind(notification) == LiveActivityKind.NONE) {
@@ -798,6 +805,7 @@ object IslandStateManager {
         stashedLiveNotification = null
         dismissedSignatures.clear()
         CountdownTotals.resetForTest()
+        safeModeFilter = null
         dismissedProgressKeys.clear()
         dismissedMediaPackage = null
         lastTrackKey = null

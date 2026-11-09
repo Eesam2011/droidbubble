@@ -40,6 +40,8 @@ object CrashLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             runCatching { appContext?.let { write(it, thread, error) } }
+            // B11.3: crash times and the last primary activity, for the crash-loop guard
+            runCatching { appContext?.let { SafeMode.recordCrash(it, System.currentTimeMillis(), SafeMode.lastPrimary(breadcrumbs())) } }
             previous?.uncaughtException(thread, error)
         }
     }

@@ -1147,6 +1147,7 @@
 - **Depends on:** B11.1, B11.2, B1.1 (the debug-only test action).
 - **Effort:** M   **Risk:** med — a safe mode that triggers wrongly hides real activities. Mitigation: the 1 h expiry and the visible "Resume".
 - **Ships as:** Reliability.
+- **Done in code (2026-11-09):** `util/SafeMode.kt` (SharedPreferences, `commit()`): `recordCrash` from the crash handler, `evaluateOnStart` in the overlay service's `onCreate`, `activePause`, `resume`. The "primary" breadcrumb comes from `IslandStateManager.updateNotification` (`primary kind=… pkg=… keyHash=…`), not from `IslandOverlayRoot`: it carries the package and fires only on notification changes, never per frame. The listener drops a paused package/kind when applying a parse; `IslandStateManager.safeModeFilter` refuses it as the second line. The service notification reads "Paused <App> on the island" with a "Resume" action (`PendingIntent.getService`, `FLAG_IMMUTABLE`, `ACTION_SAFE_MODE_RESUME`). Debug-only `ACTION_CRASH_TEST` (extra `pkg`) records a primary and throws. `SafeModeTest` and `SafeModeServiceTest` added. Device check still open: three crash tests within 10 min, then the pause notification and Resume.
 
 ---
 

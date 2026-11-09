@@ -81,7 +81,7 @@ class CrashLogTest {
         IslandStateManager.expand(null)
         IslandStateManager.collapse()
         val report = CrashLog.report(Thread.currentThread(), RuntimeException("x"))
-        assertTrue(report.contains("notification kind=NONE keyHash="))
+        assertTrue(report.contains("primary kind=NONE pkg=com.whatsapp keyHash="))
         assertTrue(report.contains("state expand priority=current"))
         assertFalse(report.contains("SECRET_SENDER"))
         assertFalse(report.contains("SECRET_BODY"))

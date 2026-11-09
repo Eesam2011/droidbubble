@@ -33,6 +33,7 @@ object DebugCommands {
         "ACTION_SIMULATE_CHARGING", "ACTION_SIMULATE_MEDIA", "ACTION_SIMULATE_NOTIFICATION",
         "ACTION_SIMULATE_PROGRESS", "ACTION_SIMULATE_RECORDING", "ACTION_SIMULATE_CALL",
         "ACTION_SIMULATE_RINGER", "ACTION_EXPAND", "ACTION_COLLAPSE", "ACTION_RESET",
+        "ACTION_CRASH_TEST",
     ).map { PREFIX + it }
 
     fun register(context: Context): BroadcastReceiver {
@@ -59,6 +60,12 @@ object DebugCommands {
     private class Receiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
             when (intent?.action) {
+                // B11.3: crash with a package as the island's primary, to try the crash-loop guard
+                PREFIX + "ACTION_CRASH_TEST" -> {
+                    val pkg = intent.getStringExtra("pkg") ?: "com.example.crashy"
+                    com.droidbubble.app.util.CrashLog.breadcrumb("state", "primary kind=NONE pkg=$pkg keyHash=-")
+                    throw IllegalStateException("ACTION_CRASH_TEST (debug)")
+                }
                 "com.droidbubble.app.ACTION_SIMULATE_MEDIA" -> {
                     val title = intent.getStringExtra("title") ?: "Starboy"
                     val artist = intent.getStringExtra("artist") ?: "The Weeknd"

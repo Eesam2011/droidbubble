@@ -53,7 +53,8 @@ class DebugCommandsTest {
     }
 
     @Test
-    fun registersAllThirteenActions() {
-        assertEquals(13, DebugCommands.ACTIONS.size)
+    fun registersAllActions() {
+        // the 13 test commands, plus the B11.3 crash test
+        assertEquals(14, DebugCommands.ACTIONS.size)
     }
 }

@@ -81,6 +81,8 @@ class IslandOverlayService : Service() {
         const val NOTIFICATION_ID = 1001
         const val ACTION_START = "com.droidbubble.app.START_OVERLAY"
         const val ACTION_STOP = "com.droidbubble.app.STOP_OVERLAY"
+        /** B11.3: the "Resume" action of the safe-mode notification. */
+        const val ACTION_SAFE_MODE_RESUME = "com.droidbubble.app.SAFE_MODE_RESUME"
         const val CHANNEL_UPDATES_ID = "droidbubble_app_updates"
         const val UPDATE_NOTIFICATION_ID = 2002
 
@@ -357,6 +359,13 @@ class IslandOverlayService : Service() {
         DebugCommands.enableStrictMode()
         com.droidbubble.app.util.CrashLog.install(this)
         serviceInstance = this
+        // B11.3: after a crash loop, pause the activity that was on the island at the crash
+        com.droidbubble.app.util.SafeMode.evaluateOnStart(this, System.currentTimeMillis())
+        val appContext = applicationContext
+        IslandStateManager.safeModeFilter = { info ->
+            com.droidbubble.app.util.SafeMode.activePause(appContext, System.currentTimeMillis())
+                ?.covers(info.packageName, com.droidbubble.app.island.liveActivityKind(info).name) == true
+        }
         // B8.4: no blocking settings read here. currentSettings keeps its defaults until the first
         // emission of settingsFlow, and the overlay and telemetry wait for it (startSettingsCollector).
         val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
@@ -407,6 +416,9 @@ class IslandOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SAFE_MODE_RESUME) {
+            com.droidbubble.app.util.SafeMode.resume(this)
+        }
         if (intent?.action == ACTION_STOP) {
             removeOverlay()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -439,7 +451,7 @@ class IslandOverlayService : Service() {
             this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_island)
             .setContentTitle("Droidbubble is active")
             .setContentText("Dynamic Island is running")
@@ -449,7 +461,23 @@ class IslandOverlayService : Service() {
             .setShowWhen(false)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-            .build()
+        // B11.3: say what safe mode paused, with a way to undo it at once
+        com.droidbubble.app.util.SafeMode.activePause(this, System.currentTimeMillis())?.let { pause ->
+            val appName = runCatching {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pause.pkg, 0)).toString()
+            }.getOrDefault(pause.pkg)
+            val resume = PendingIntent.getService(
+                this, 1,
+                Intent(this, IslandOverlayService::class.java).setAction(ACTION_SAFE_MODE_RESUME),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.setContentTitle("Paused $appName on the island")
+                .setContentText("After repeated crashes. It comes back in an hour.")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .addAction(0, "Resume", resume)
+        }
+        val notification = builder.build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
