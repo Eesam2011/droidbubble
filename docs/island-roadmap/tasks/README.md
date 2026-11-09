@@ -90,7 +90,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B6.1 | No invented reply chips | todo |
 | B6.2 | Ringing calls and alarms tuck instead of dismiss | done |
 | B6.3 | Open targets: contentIntent first | doing (code and tests done; device check pending) |
-| B6.4 | Swipe right no longer hides | todo |
+| B6.4 | Swipe right no longer hides | done |
 | B7.1 | Weather: no fabricated data | todo |
 | B7.2 | Network label: no hard-coded "5G" | todo |
 | B7.3 | Remove FPS remnants | done |

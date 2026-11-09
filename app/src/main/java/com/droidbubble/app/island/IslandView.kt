@@ -1859,8 +1859,10 @@ fun IslandOverlayRoot(
                                 )
                             } else Modifier
                         )
-                        // Swipe right: hide the pill. Swipe left: shrink it into the camera circle.
-                        // On the camera circle, a right swipe (or a tap) brings the pill back.
+                        // Swipe left: shrink the pill into the camera circle. On the camera circle, a
+                        // right swipe (or a tap) brings it back. A right swipe on the full pill does
+                        // nothing (B6.4, D6): it used to hide the island until the next event, a trap.
+                        // The drag is still consumed so it doesn't leak to the card below.
                         .pointerInput(isExpanded, userMinimized) {
                             var dragTotal = 0f
                             detectHorizontalDragGestures(
@@ -1876,10 +1878,6 @@ fun IslandOverlayRoot(
                                         userMinimized && dragTotal > threshold -> {
                                             triggerHaptic()
                                             IslandStateManager.restoreIsland()
-                                        }
-                                        dragTotal > threshold -> {
-                                            triggerHaptic()
-                                            IslandStateManager.hideIsland()
                                         }
                                         dragTotal < -threshold && !userMinimized -> {
                                             triggerHaptic()

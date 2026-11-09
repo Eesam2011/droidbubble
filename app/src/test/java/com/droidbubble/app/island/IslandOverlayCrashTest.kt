@@ -81,14 +81,16 @@ class IslandOverlayCrashTest {
     }
 
     @Test
-    fun swipeRightTwice_onMediaPill() {
+    fun swipeRightTwice_onMediaPill_doesNotHide() {
+        // B6.4 (D6): a right swipe used to hide the island; it no longer does anything
         onState { IslandStateManager.updateMedia(song) }
         settle()
         swipePill(300f)
-        settle(120) // second swipe lands while the pill is still shrinking away
+        settle(120)
         swipePill(300f)
         settle()
-        assertTrue(IslandStateManager.userHidden.value)
+        assertFalse(IslandStateManager.userHidden.value)
+        assertFalse(IslandStateManager.userMinimized.value)
     }
 
     @Test

@@ -766,6 +766,7 @@
 - **Depends on:** S1.1.
 - **Effort:** S   **Risk:** low — users lose the hide gesture until C3.5 or C4 add the replacement. State this in the release notes.
 - **Ships as:** Fix (gesture).
+- **Done (2026-11-09):** as specified. `hideIsland()` stays for C3.5 and C4. Release note: the swipe-right hide gesture is gone until C3.5 or C4 add a replacement.
 
 ---
 
