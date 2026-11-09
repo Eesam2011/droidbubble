@@ -48,23 +48,20 @@ class FixtureCharacterizationTest {
         put("call/whatsapp_incoming_ar|messages_on", "A4")
         put("call/whatsapp_video_es|messages_on", "A4")
         put("call/samsung_incoming_tr|messages_on", "A4")
+        // Since B3.1 the defaults column shows calls and live activities too, so the same bugs show there
+        put("call/whatsapp_incoming_ar|defaults", "A4")
+        put("call/whatsapp_video_es|defaults", "A4")
+        put("call/samsung_incoming_tr|defaults", "A4")
         put("screenrec/samsung_es|messages_on", "A4")
         put("screenrec/samsung_es|defaults", "A4")
         put("screenrec/xiaomi_id|messages_on", "A4")
-        // B3.1: with fresh-install settings, ringing calls and live activities are dropped
-        for (name in listOf(
-            "call/gphone_incoming_en", "call/gphone_screening_en", "call/samsung_incoming_tr",
-            "call/whatsapp_incoming_ar", "call/whatsapp_video_es",
-            "clock/gclock_alarm_ringing_es", "clock/gclock_stopwatch_en", "clock/gclock_timer_running_en",
-            "clock/gclock_timesup_fr", "clock/samsung_timer_ar",
-            "recorder/grecorder_en", "recorder/miui_recorder_zh", "recorder/samsung_voicenote_ru",
-            "progress/careem_ongoing_ar", "sports/score_en",
-            "tracking/flight_boarding_en", "tracking/uber_arrive_time_en",
-        )) put("$name|defaults", "B3.1")
+        put("screenrec/xiaomi_id|defaults", "A4")
         // B4.2: a low-importance marketing push pops because of its package
         put("promo/uber_marketing_en|messages_on", "B4.2")
+        put("promo/uber_marketing_en|defaults", "B4.2")
         // B4.3: "Send" matches "end" and becomes a decline intent
         put("message/send_action_en|messages_on", "B4.3")
+        put("message/send_action_en|defaults", "B4.3")
         // B4.4: an idle third-party recorder is taken as a recording
         put("screenrec/thirdparty_idle_en|messages_on", "B4.4")
         put("screenrec/thirdparty_idle_en|defaults", "B4.4")

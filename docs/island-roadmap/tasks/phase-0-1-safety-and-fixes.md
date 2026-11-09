@@ -517,6 +517,7 @@
 - **Depends on:** S5.3, S3.2.
 - **Effort:** M   **Risk:** med — users who turned notifications off on purpose now see timers and rides. That is intended (D5); the new toggle in B3.2 lets them turn it off.
 - **Ships as:** Fix (behaviour, user-visible).
+- **Done in code (2026-11-09):** `model/NotificationGate.kt` (`gateKind`, `allows`) and `notificationSlotGate(n)` in `LiveActivities.kt`, shared by the view and the window math (`WindowInputs.notificationGate`). The listener's gate moved below `looksLikeTimer`; ringing calls now pass on `showCalls`. S5.3 defaults column: the 17 B3.1 rows now show their activity. Six defaults rows newly show existing bugs and carry the same markers as their `messages_on` rows: three non-English calls and `xiaomi_id` (A4), `uber_marketing_en` (B4.2), `send_action_en` (B4.3). Device check still open: every Test panel demo shows with fresh-install settings, a WhatsApp message doesn't, and Phone Calls off hides ringing calls.
 
 ### B3.2 — A "Live Activities" toggle in the settings app
 - **Goal:** Users can turn live activities off separately from message notifications, and the labels say which is which.

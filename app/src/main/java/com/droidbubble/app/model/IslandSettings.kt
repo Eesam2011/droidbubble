@@ -42,6 +42,8 @@ data class IslandSettings(
     val showCalls: Boolean = true,
     val showMedia: Boolean = true,
     val showNotifications: Boolean = false,
+    /** Calls aside, live activities (timers, alarms, recorders, rides, scores): on by default (B3.1, D5). */
+    val showLiveActivities: Boolean = true,
     val showLiveProgress: Boolean = true,
     val showScreenRecording: Boolean = true,
     val showFlashlight: Boolean = true,

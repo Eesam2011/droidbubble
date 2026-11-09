@@ -2,6 +2,8 @@ package com.droidbubble.app.service
 
 import android.view.WindowManager
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.NotificationGateKind
+import com.droidbubble.app.model.allows
 import kotlin.math.abs
 
 /**
@@ -37,6 +39,8 @@ data class WindowInputs(
     val notificationPackage: String? = null,
     val progressPackage: String? = null,
     val incomingCall: Boolean = false,
+    /** Which toggle governs the notification slot (B3.1); see [notificationSlotGate]. */
+    val notificationGate: NotificationGateKind = NotificationGateKind.MESSAGE,
 ) {
     private fun notInFront(pkg: String?) = foregroundPackage == null || pkg != foregroundPackage
 
@@ -97,7 +101,7 @@ fun windowOccupancy(i: WindowInputs): WindowOccupancy {
     val flashlight = s.showFlashlight && i.flashlight
     val occupied = (s.showCalls && i.call) ||
         (s.showMedia && i.mediaShown) ||
-        (s.showNotifications && i.notificationShown) ||
+        (s.allows(i.notificationGate) && i.notificationShown) ||
         (s.showLiveProgress && i.progressShown) ||
         (s.showScreenRecording && i.recording) ||
         flashlight || charging || unlock || connection || ringer
@@ -129,7 +133,7 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
     if (!shouldShowCompact) return WindowSpec.Gone
 
     val activeCount = (if (s.showScreenRecording && i.recording) 1 else 0) +
-        (if (s.showNotifications && i.notificationShown) 1 else 0) +
+        (if (s.allows(i.notificationGate) && i.notificationShown) 1 else 0) +
         (if (s.showMedia && i.mediaShown) 1 else 0) +
         (if (s.showLiveProgress && i.progressShown) 1 else 0) +
         (if (flashlight) 1 else 0)

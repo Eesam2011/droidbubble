@@ -120,6 +120,7 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.ArrowUpward
 import kotlinx.coroutines.flow.first
+import com.droidbubble.app.model.allows
 import com.droidbubble.app.model.HourlyWeather
 import com.droidbubble.app.model.WeatherInfo
 import com.droidbubble.app.model.NetworkSpeedInfo
@@ -462,7 +463,9 @@ fun IslandOverlayRoot(
     val isProgress = allowInOrientation && currentProgress != null && settings.showLiveProgress &&
         currentProgress.packageName != foregroundPackage
     // A ringing call always shows, even if the phone app's call screen is the foreground window
-    val isNotification = allowInOrientation && currentNotif != null && settings.showNotifications &&
+    // B3.1: messages need "Incoming Notifications", calls and live activities their own toggles
+    val notifGate = remember(currentNotif) { currentNotif?.let { notificationSlotGate(it) } }
+    val isNotification = allowInOrientation && currentNotif != null && notifGate != null && settings.allows(notifGate) &&
         (currentNotif.packageName != foregroundPackage || currentNotif.isIncomingCall)
     val isMedia = allowInOrientation && currentMedia != null && currentMedia.packageName != foregroundPackage && (!settings.dismissMediaOnPause || currentMedia.isPlaying) && (currentMedia.isPlaying || currentMedia.title.isNotBlank()) && settings.showMedia
     val isFlashlight = allowInOrientation && settings.showFlashlight && isFlashlightOn

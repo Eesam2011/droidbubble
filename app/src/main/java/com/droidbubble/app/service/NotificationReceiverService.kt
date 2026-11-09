@@ -1,5 +1,7 @@
 package com.droidbubble.app.service
 
+import com.droidbubble.app.model.gateKind
+import com.droidbubble.app.model.allows
 import com.droidbubble.app.util.CrashLog
 import android.app.ActivityOptions
 import android.app.Notification
@@ -1087,7 +1089,8 @@ class NotificationReceiverService : NotificationListenerService() {
 
     private fun handlePosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
-        if (!currentSettings.showNotifications && !currentSettings.showLiveProgress && !currentSettings.showScreenRecording && !currentSettings.showCalls) return
+        if (!currentSettings.showNotifications && !currentSettings.showLiveActivities && !currentSettings.showLiveProgress &&
+            !currentSettings.showScreenRecording && !currentSettings.showCalls) return
 
         val packageName = sbn.packageName
         if (packageName == this.packageName) return // Ignore self
@@ -1196,13 +1199,6 @@ class NotificationReceiverService : NotificationListenerService() {
         val isNavigation = (isNavCategory || isNavApp) && isOngoing
         val hasProgress = maxProgress > 0 || isIndeterminate || (progress >= 0 && maxProgress > 0) || isNavigation
 
-        // Separate check: live progress notifications vs normal notification alerts
-        if (hasProgress) {
-            if (!currentSettings.showLiveProgress) { dropIfShown(); return }
-        } else {
-            if (!currentSettings.showNotifications) { dropIfShown(); return }
-        }
-
         val callType = extras.getInt("android.callType", 0) // CallStyle: 1 incoming, 2 ongoing, 3 screening
         val isCall = notification.category == Notification.CATEGORY_CALL ||
             extras.getString(Notification.EXTRA_TEMPLATE)?.contains("CallStyle") == true
@@ -1221,6 +1217,12 @@ class NotificationReceiverService : NotificationListenerService() {
         val looksLikeTimer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) ||
             parseTimerTextMillis(extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()) != null ||
             customTimer != null
+        // B3.1: each kind has its own toggle. "Incoming Notifications" only covers message banners;
+        // calls, live activities and progress pass on their own switches.
+        if (!currentSettings.allows(gateKind(isCall = isCall, isLive = looksLikeTimer || isLiveCandidate, hasProgress = hasProgress))) {
+            dropIfShown()
+            return
+        }
         if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate) {
             dropIfShown()
             return

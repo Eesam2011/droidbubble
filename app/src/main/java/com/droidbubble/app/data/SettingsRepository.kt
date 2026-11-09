@@ -34,6 +34,7 @@ class SettingsRepository(private val context: Context) {
         val SHOW_CALLS = booleanPreferencesKey("show_calls")
         val SHOW_MEDIA = booleanPreferencesKey("show_media")
         val SHOW_NOTIFICATIONS = booleanPreferencesKey("show_notifications")
+        val SHOW_LIVE_ACTIVITIES = booleanPreferencesKey("show_live_activities")
         val SHOW_LIVE_PROGRESS = booleanPreferencesKey("show_live_progress")
         val SHOW_SCREEN_RECORDING = booleanPreferencesKey("show_screen_recording")
         val SHOW_FLASHLIGHT = booleanPreferencesKey("show_flashlight")
@@ -92,6 +93,7 @@ class SettingsRepository(private val context: Context) {
             showCalls = preferences[PreferencesKeys.SHOW_CALLS] ?: true,
             showMedia = preferences[PreferencesKeys.SHOW_MEDIA] ?: true,
             showNotifications = preferences[PreferencesKeys.SHOW_NOTIFICATIONS] ?: false,
+            showLiveActivities = preferences[PreferencesKeys.SHOW_LIVE_ACTIVITIES] ?: true,
             showLiveProgress = preferences[PreferencesKeys.SHOW_LIVE_PROGRESS] ?: true,
             showScreenRecording = preferences[PreferencesKeys.SHOW_SCREEN_RECORDING] ?: true,
             showFlashlight = preferences[PreferencesKeys.SHOW_FLASHLIGHT] ?: true,
@@ -151,6 +153,7 @@ class SettingsRepository(private val context: Context) {
                 showCalls = preferences[PreferencesKeys.SHOW_CALLS] ?: true,
                 showMedia = preferences[PreferencesKeys.SHOW_MEDIA] ?: true,
                 showNotifications = preferences[PreferencesKeys.SHOW_NOTIFICATIONS] ?: false,
+                showLiveActivities = preferences[PreferencesKeys.SHOW_LIVE_ACTIVITIES] ?: true,
                 showLiveProgress = preferences[PreferencesKeys.SHOW_LIVE_PROGRESS] ?: true,
                 showScreenRecording = preferences[PreferencesKeys.SHOW_SCREEN_RECORDING] ?: true,
             showFlashlight = preferences[PreferencesKeys.SHOW_FLASHLIGHT] ?: true,
@@ -200,6 +203,7 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.SHOW_CALLS] = newSettings.showCalls
             preferences[PreferencesKeys.SHOW_MEDIA] = newSettings.showMedia
             preferences[PreferencesKeys.SHOW_NOTIFICATIONS] = newSettings.showNotifications
+            preferences[PreferencesKeys.SHOW_LIVE_ACTIVITIES] = newSettings.showLiveActivities
             preferences[PreferencesKeys.SHOW_LIVE_PROGRESS] = newSettings.showLiveProgress
             preferences[PreferencesKeys.SHOW_SCREEN_RECORDING] = newSettings.showScreenRecording
             preferences[PreferencesKeys.SHOW_FLASHLIGHT] = newSettings.showFlashlight

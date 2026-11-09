@@ -1,6 +1,7 @@
 package com.droidbubble.app.service
 
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.NotificationGateKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -86,11 +87,14 @@ class OverlayWindowMathTest {
             compact(260f)),
         Row("progress, its app in the foreground", WindowInputs(d, progress = true, progressPackage = CHROME, foregroundPackage = CHROME), WindowSpec.Gone),
 
-        // Known bugs, today's values
-        // BUG B3.1: a running timer is a notification, so with fresh-install settings it is dropped
-        Row("timer, defaults", WindowInputs(d, notification = true), WindowSpec.Gone),
-        // BUG B3.1: a ringing CallStyle call is a notification too (not an ongoing call state)
-        Row("ringing call, defaults", WindowInputs(d, notification = true), WindowSpec.Gone),
+        // B3.1: each notification kind has its own toggle; "Incoming Notifications" is messages only
+        Row("timer, defaults (showNotifications = false)", WindowInputs(d, notification = true, notificationGate = NotificationGateKind.LIVE), compact(260f)),
+        Row("ringing call, defaults", WindowInputs(d, notification = true, notificationGate = NotificationGateKind.CALL), compact(260f)),
+        Row("message, defaults", WindowInputs(d, notification = true, notificationGate = NotificationGateKind.MESSAGE), WindowSpec.Gone),
+        Row("ringing call, Phone Calls off",
+            WindowInputs(d.copy(showCalls = false), notification = true, notificationGate = NotificationGateKind.CALL), WindowSpec.Gone),
+        Row("timer, Live Activities off",
+            WindowInputs(d.copy(showLiveActivities = false), notification = true, notificationGate = NotificationGateKind.LIVE), WindowSpec.Gone),
     )
 
     @Test

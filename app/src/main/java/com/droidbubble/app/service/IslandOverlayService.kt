@@ -787,6 +787,8 @@ class IslandOverlayService : Service() {
         notificationPackage = IslandStateManager.activeNotification.value?.packageName,
         progressPackage = IslandStateManager.activeProgress.value?.packageName,
         incomingCall = IslandStateManager.activeNotification.value?.isIncomingCall == true,
+        notificationGate = IslandStateManager.activeNotification.value?.let { com.droidbubble.app.island.notificationSlotGate(it) }
+            ?: com.droidbubble.app.model.NotificationGateKind.MESSAGE,
     )
 
     private var lastLoggedSpec: WindowSpec? = null

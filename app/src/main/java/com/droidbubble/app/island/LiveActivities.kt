@@ -270,6 +270,17 @@ fun liveActivityKind(n: NotificationInfo?): LiveActivityKind {
     return LiveActivityKind.NONE
 }
 
+/**
+ * B3.1: the toggle that governs a notification in the island's notification slot. Plain
+ * downloads already went to the progress card, so a live activity with a bar counts as LIVE.
+ */
+fun notificationSlotGate(n: NotificationInfo): com.droidbubble.app.model.NotificationGateKind =
+    com.droidbubble.app.model.gateKind(
+        isCall = n.isCall,
+        isLive = n.isLiveActivity || liveActivityKind(n) != LiveActivityKind.NONE,
+        hasProgress = false,
+    )
+
 /** Remembers each countdown's full length so the pill can draw how much is left as a ring. */
 object CountdownTotals {
     private val totals = HashMap<String, Long>()
