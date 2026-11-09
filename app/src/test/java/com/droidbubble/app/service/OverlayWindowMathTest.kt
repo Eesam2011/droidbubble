@@ -87,6 +87,15 @@ class OverlayWindowMathTest {
             compact(260f)),
         Row("progress, its app in the foreground", WindowInputs(d, progress = true, progressPackage = CHROME, foregroundPackage = CHROME), WindowSpec.Gone),
 
+        // B2.2: settled, the window hugs the drawn pill: 12 dp per side, 6 dp below (54 dp tall)
+        Row("media, settled", WindowInputs(d, media = true, settled = true), compact(204f, h = 54f)),
+        Row("charging, settled", WindowInputs(d, charging = true, settled = true), compact(224f, h = 54f)),
+        Row("dual, settled", WindowInputs(messagesOn, media = true, notification = true, settled = true), compact(288f, h = 54f)),
+        Row("minimized, settled", WindowInputs(d, media = true, userMinimized = true, settled = true), compact(60f, h = 54f)),
+        Row("left cutout, settled", WindowInputs(d.copy(isLeftCutout = true), media = true, settled = true), compact(null, h = 54f)),
+        Row("expanded ignores settled", WindowInputs(d, media = true, expanded = true, settled = true), WindowSpec.FullScreen),
+        Row("idle, settled", WindowInputs(d, settled = true), WindowSpec.Gone),
+
         // B3.1: each notification kind has its own toggle; "Incoming Notifications" is messages only
         Row("timer, defaults (showNotifications = false)", WindowInputs(d, notification = true, notificationGate = NotificationGateKind.LIVE), compact(260f)),
         Row("ringing call, defaults", WindowInputs(d, notification = true, notificationGate = NotificationGateKind.CALL), compact(260f)),
@@ -96,6 +105,13 @@ class OverlayWindowMathTest {
         Row("timer, Live Activities off",
             WindowInputs(d.copy(showLiveActivities = false), notification = true, notificationGate = NotificationGateKind.LIVE), WindowSpec.Gone),
     )
+
+    @Test
+    fun morphHold_scalesWithAnimationSpeed() {
+        assertEquals(1200L, morphHoldMs(1f))
+        assertEquals(1500L, morphHoldMs(0.8f))
+        assertEquals(4000L, morphHoldMs(0.1f)) // clamped at 0.3x
+    }
 
     @Test
     fun compactWindowSpec_table() {

@@ -451,6 +451,7 @@
 - **Depends on:** B2.1.
 - **Effort:** S   **Risk:** med — clipping an overshoot frame. Mitigation: the device recording at 0.5× animation speed.
 - **Ships as:** Fix.
+- **Done in code (2026-11-09):** `WindowInputs.settled`. Settled, the compact window is the drawn width plus 12 dp per side (the camera brackets reach about 7.6 dp beyond the pill; the tap bounce adds up to 1.04x) and `topOffset + height + 6` tall (the bounce moves the pill down about 4 dp). The dual envelope is `(width/2 + 6 + height + 12) × 2`. While the shape changes, the old wide envelope stays for `morphHoldMs(animationSpeed)` (1200 ms at 1x), then the service re-applies the settled size, so spring overshoot and shrinking pills are never clipped. `settled` defaults to false, so the existing S3.2 rows still describe the morphing envelope; seven settled rows added. **Device (OPPO CPH2631, 90 × 25 dp pill):** 340 × 90 px while morphing, 228 × 78 px settled; the resting pill and brackets are not clipped. Still open: the 0.5x recording of charging, ringer and dual transitions, and a tap 30 dp beside the pill reaching the status bar.
 
 ### B2.3 — Touches outside the pill pass through (touchable region, behind a probe)
 - **Goal:** In compact mode only the pill and bubble rectangles take touches. Everything else in the window, including the strip above the pill, passes through to the status bar and the app.

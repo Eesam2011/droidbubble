@@ -41,6 +41,12 @@ data class WindowInputs(
     val incomingCall: Boolean = false,
     /** Which toggle governs the notification slot (B3.1); see [notificationSlotGate]. */
     val notificationGate: NotificationGateKind = NotificationGateKind.MESSAGE,
+    /**
+     * B2.2: the island has finished animating. Settled, the window hugs what is drawn
+     * ([SETTLED_MARGIN_DP] per side); while it morphs (the default) it keeps the wide envelope,
+     * so a spring overshoot or a shrinking pill is never clipped.
+     */
+    val settled: Boolean = false,
 ) {
     private fun notInFront(pkg: String?) = foregroundPackage == null || pkg != foregroundPackage
 
@@ -132,6 +138,9 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
     val shouldShowCompact = (occ.occupied || s.alwaysShowPill || occ.persistentWidgets) && !i.userHidden
     if (!shouldShowCompact) return WindowSpec.Gone
 
+    // B2.2: room beside the drawn pill. Settled: the camera brackets (about 7.6 dp out) and the
+    // tap bounce (up to 1.04x). Morphing: the old flat margin, for spring overshoot.
+    val side = if (i.settled) SETTLED_MARGIN_DP else MORPH_MARGIN_DP
     val activeCount = (if (s.showScreenRecording && i.recording) 1 else 0) +
         (if (s.allows(i.notificationGate) && i.notificationShown) 1 else 0) +
         (if (s.showMedia && i.mediaShown) 1 else 0) +
@@ -141,31 +150,48 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
 
     val totalWidthDp = if (charging) {
         val chargingPillWidth = (s.widthDp + 20f).coerceAtLeast(140f)
-        chargingPillWidth + 80f
+        chargingPillWidth + 2f * side
     } else if (ringer) {
         val pillWidth = (s.widthDp * 0.95f).coerceAtLeast(130f)
-        pillWidth + 80f
+        pillWidth + 2f * side
     } else if (unlock || connection) {
         val pillWidth = (s.widthDp * 0.82f).coerceAtLeast(108f)
-        pillWidth + 80f
+        pillWidth + 2f * side
     } else if (i.userMinimized) {
-        s.heightDp + 24f
+        if (i.settled) s.heightDp + 2f * SETTLED_MARGIN_DP else s.heightDp + 24f
     } else if (isDual) {
         val mainHalf = s.widthDp / 2f
-        val rightEdge = mainHalf + 8f + s.heightDp + 40f
-        (rightEdge * 2f).coerceAtLeast(s.widthDp + 80f)
+        if (i.settled) {
+            // The bubble sits 6 dp beside the pill (IslandView bubbleGap)
+            (mainHalf + 6f + s.heightDp + SETTLED_MARGIN_DP) * 2f
+        } else {
+            val rightEdge = mainHalf + 8f + s.heightDp + 40f
+            (rightEdge * 2f).coerceAtLeast(s.widthDp + 80f)
+        }
     } else {
-        s.widthDp + 80f
+        s.widthDp + 2f * side
     }
 
     // userHidden is already excluded above, so touchability is just "is something there"
     val touchable = occ.occupied || occ.persistentWidgets
     return WindowSpec.Compact(
         widthDp = if (s.isLeftCutout) null else totalWidthDp + 2f * abs(s.horizontalOffsetDp),
-        heightDp = (s.topOffsetDp + s.heightDp + 12).toFloat(),
+        // Settled: the tap bounce moves the pill down about 4 dp
+        heightDp = (s.topOffsetDp + s.heightDp + if (i.settled) SETTLED_BOTTOM_DP else 12).toFloat(),
         touchable = touchable,
     )
 }
+
+/** B2.2: the settled window's room beside and below the drawn pill. */
+const val SETTLED_MARGIN_DP = 12f
+const val SETTLED_BOTTOM_DP = 6
+private const val MORPH_MARGIN_DP = 40f
+
+/**
+ * B2.2: how long a shape change keeps the wide envelope: long enough for the split spring at the
+ * lowest damping the settings allow, scaled by the island's animation speed.
+ */
+fun morphHoldMs(animationSpeed: Float): Long = kotlin.math.round(1200f / animationSpeed.coerceIn(0.3f, 3f)).toLong()
 
 /**
  * The window `initOverlay` creates before the first state update. Kept separate on purpose,

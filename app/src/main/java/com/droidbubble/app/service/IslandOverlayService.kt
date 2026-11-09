@@ -684,6 +684,7 @@ class IslandOverlayService : Service() {
                 if (shapeKey != lastShapeKey) {
                     lastShapeKey = shapeKey
                     boostRefreshRate()
+                    startMorphHold()
                 }
                 updateWindowState(expanded)
             }
@@ -883,7 +884,23 @@ class IslandOverlayService : Service() {
         incomingCall = IslandStateManager.activeNotification.value?.isIncomingCall == true,
         notificationGate = IslandStateManager.activeNotification.value?.let { com.droidbubble.app.island.notificationSlotGate(it) }
             ?: com.droidbubble.app.model.NotificationGateKind.MESSAGE,
+        settled = android.os.SystemClock.uptimeMillis() >= morphUntilMs,
     )
+
+    // B2.2: until this time the compact window keeps the wide envelope (a shape change animates)
+    private var morphUntilMs = 0L
+    private var settleJob: kotlinx.coroutines.Job? = null
+
+    /** A shape change: wide envelope now, then tighten once the island has settled. */
+    private fun startMorphHold() {
+        val hold = morphHoldMs(currentSettings.animationSpeed)
+        morphUntilMs = android.os.SystemClock.uptimeMillis() + hold
+        settleJob?.cancel()
+        settleJob = serviceScope.launch {
+            kotlinx.coroutines.delay(hold + 16)
+            updateWindowState(IslandStateManager.isExpanded.value)
+        }
+    }
 
     private var lastLoggedSpec: WindowSpec? = null
 
