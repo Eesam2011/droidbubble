@@ -78,9 +78,9 @@ object FixtureGolden {
         "screenrec/xiaomi_id|defaults" to "flow=none",
         "sports/score_en|messages_on" to "flow=notification kind=SPORTS incoming=false answer=false decline=false pause=false stop=false",
         "sports/score_en|defaults" to "flow=none knownIssue=B3.1",
-        "tracking/flight_boarding_en|messages_on" to "flow=notification kind=SPORTS incoming=false answer=false decline=false pause=false stop=false knownIssue=B4.1",
+        "tracking/flight_boarding_en|messages_on" to "flow=notification kind=TRACKING incoming=false answer=false decline=false pause=false stop=false",
         "tracking/flight_boarding_en|defaults" to "flow=none knownIssue=B3.1",
-        "tracking/uber_arrive_time_en|messages_on" to "flow=notification kind=SPORTS incoming=false answer=false decline=false pause=false stop=false knownIssue=B4.1",
+        "tracking/uber_arrive_time_en|messages_on" to "flow=notification kind=TRACKING incoming=false answer=false decline=false pause=false stop=false",
         "tracking/uber_arrive_time_en|defaults" to "flow=none knownIssue=B3.1",
     )
 }

@@ -61,9 +61,6 @@ class FixtureCharacterizationTest {
             "progress/careem_ongoing_ar", "sports/score_en",
             "tracking/flight_boarding_en", "tracking/uber_arrive_time_en",
         )) put("$name|defaults", "B3.1")
-        // B4.1: times parsed as scores
-        put("tracking/uber_arrive_time_en|messages_on", "B4.1")
-        put("tracking/flight_boarding_en|messages_on", "B4.1")
         // B4.2: a low-importance marketing push pops because of its package
         put("promo/uber_marketing_en|messages_on", "B4.2")
         // B4.3: "Send" matches "end" and becomes a decline intent

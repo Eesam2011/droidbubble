@@ -552,6 +552,7 @@
 - **Depends on:** S5.3.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix.
+- **Done (2026-11-09):** `matchScore` adds the colon, AM/PM/h, letter and time-word rules; the time words are checked at the edges next to the numbers ("Arriving by 10 - 11" fails), not only as whole team names. Order: a tracking app's ongoing or promoted update is TRACKING first, then scores, then any other promoted notification is TRACKING. A plain swap would have turned a promoted Google live score into TRACKING, which the spec says must stay SPORTS. S5.3: only `uber_arrive_time_en` and `flight_boarding_en` changed, both to TRACKING.
 
 ### B4.2 — Package hints bypass the filters only for ongoing notifications
 - **Goal:** Silent or marketing pushes from Uber, Delta, United, sports apps or recorder apps no longer pop the island. Only their ongoing or foreground-service notifications count as live candidates.

@@ -143,7 +143,7 @@ private val TRACKING_PACKAGE_HINTS = listOf(
 private val SPORTS_PACKAGE_HINTS = listOf(
     "espn", "fotmob", "mobilefootball", "onefootball", "sofascore", "livescore", "thescore", "sportacular",
     "bbc.sport", "forzafootball", "365scores", "scores365", "flashscore", "cricbuzz", "cricinfo", "nba", "nfl",
-    "mlb", "premierleague", "uefa", "fifa", "googlequicksearchbox"
+    "mlb", "premierleague", "uefa", "fifa"
 )
 private val PAUSE_RESUME_REGEX = Regex("""\b(pause|resume|continue|play|start)\b""", RegexOption.IGNORE_CASE)
 private val RESUME_REGEX = Regex("""\b(resume|continue|play|start)\b""", RegexOption.IGNORE_CASE)
@@ -152,8 +152,12 @@ private val ALERT_STOP_REGEX = Regex("""\b(stop|dismiss|turn off|cancel|done)\b"
 private val ALERT_EXTRA_REGEX = Regex("""(\+\s?\d|\badd\b|\bsnooze\b|\bminute|\bmin\b)""", RegexOption.IGNORE_CASE)
 private val CLOCK_TIME_REGEX = Regex("""\b\d{1,2}:\d{2}(\s?[AaPp]\.?[Mm]\.?)?""")
 private val ETA_REGEX = Regex("""\b(\d{1,3})\s?(min|mins|minutes)\b""", RegexOption.IGNORE_CASE)
-// "Arsenal 2 - 1 Chelsea", "ARS 2–1 CHE", "Lakers 98 : 101 Celtics"
-private val SCORE_REGEX = Regex("""^\s*(.+?)\s+(\d{1,3})\s*[-–—:]\s*(\d{1,3})\s+(.+?)\s*$""")
+// "Arsenal 2 - 1 Chelsea", "ARS 2–1 CHE", "Lakers 98 : 101 Celtics" (a colon only from a sports app)
+private val SCORE_REGEX = Regex("""^\s*(.+?)\s+(\d{1,3})\s*([-–—:])\s*(\d{1,3})\s+(.+?)\s*$""")
+// A clock time, not a score: "10:45 PM", "10:30 p.m.", "18:00 h"
+private val TIME_SUFFIX_REGEX = Regex("""^(a\.?m\b\.?|p\.?m\b\.?|h\b)""", RegexOption.IGNORE_CASE)
+// Words that sit next to a time, never a team: "Arrive at 10-11", "Boarding until 10-30 gate B"
+private val NOT_A_TEAM = setOf("at", "by", "from", "until", "gate")
 
 private fun String.hasAny(hints: List<String>) = hints.any { it in this }
 
@@ -173,22 +177,32 @@ fun isClockOrRecorderPackage(packageName: String): Boolean = isRecorderPackage(p
 /** Ride-share, delivery, flight or parcel tracking app, judged by package name. */
 fun isTrackingPackage(packageName: String): Boolean = packageName.lowercase().hasAny(TRACKING_PACKAGE_HINTS)
 
-/** Live-score app (or the Google app, which posts live scores), judged by package name. */
+/** Live-score app, judged by package name. (The Google app is not one: B4.1.) */
 fun isSportsPackage(packageName: String): Boolean = packageName.lowercase().hasAny(SPORTS_PACKAGE_HINTS)
 
 /** A parsed live score. */
 data class LiveScore(val home: String, val homeScore: String, val awayScore: String, val away: String, val status: String?)
 
 fun parseLiveScore(n: NotificationInfo): LiveScore? {
-    SCORE_REGEX.matchEntire(n.title)?.let { m ->
-        val (a, x, y, b) = m.destructured
-        return LiveScore(a.trim(), x, y, b.trim(), n.text.takeIf { it.isNotBlank() })
-    }
-    SCORE_REGEX.matchEntire(n.text)?.let { m ->
-        val (a, x, y, b) = m.destructured
-        return LiveScore(a.trim(), x, y, b.trim(), n.title.takeIf { it.isNotBlank() })
-    }
-    return null
+    val colonOk = isSportsPackage(n.packageName)
+    return matchScore(n.title, colonOk, status = n.text) ?: matchScore(n.text, colonOk, status = n.title)
+}
+
+/**
+ * B4.1: a score is "team N - M team". The separator is a hyphen or a dash; a colon only from a
+ * sports app, and never before AM / PM / h. Both teams need a letter, and a word that sits next to
+ * a time ("at", "by", "from", "until", "gate") can't border the numbers.
+ */
+private fun matchScore(line: String, colonOk: Boolean, status: String): LiveScore? {
+    val m = SCORE_REGEX.matchEntire(line) ?: return null
+    val (home, x, sep, y, away) = m.destructured
+    if (sep == ":" && !colonOk) return null
+    if (TIME_SUFFIX_REGEX.containsMatchIn(away.trimStart())) return null
+    if (home.none(Char::isLetter) || away.none(Char::isLetter)) return null
+    val homeEdge = home.trim().substringAfterLast(' ').lowercase()
+    val awayEdge = away.trim().substringBefore(' ').lowercase()
+    if (homeEdge in NOT_A_TEAM || awayEdge in NOT_A_TEAM) return null
+    return LiveScore(home.trim(), x, y, away.trim(), status.takeIf { it.isNotBlank() })
 }
 
 /** Wall-clock time an alarm is set for, as printed ("7:00 AM"). */
@@ -247,8 +261,12 @@ fun liveActivityKind(n: NotificationInfo?): LiveActivityKind {
     }
     // Upcoming / snoozed alarm from a clock app
     if (isClockApp && ("alarm" in words || "snooz" in words) && alarmTimeText(n) != null) return LiveActivityKind.ALARM
+    // B4.1: a tracking app's live update is tracking before anything parses as a score. A promoted
+    // notification from any other app can still be a live score.
+    val trackingApp = isTrackingPackage(n.packageName)
+    if (trackingApp && (n.isOngoing || n.isPromoted)) return LiveActivityKind.TRACKING
     if ((isSportsPackage(n.packageName) || n.isOngoing || n.isPromoted) && parseLiveScore(n) != null) return LiveActivityKind.SPORTS
-    if (n.isPromoted || (n.isOngoing && isTrackingPackage(n.packageName))) return LiveActivityKind.TRACKING
+    if (n.isPromoted) return LiveActivityKind.TRACKING
     return LiveActivityKind.NONE
 }
 

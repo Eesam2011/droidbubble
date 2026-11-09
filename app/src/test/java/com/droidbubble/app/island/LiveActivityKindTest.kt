@@ -121,6 +121,43 @@ class LiveActivityKindTest {
     }
 
     @Test
+    fun timesAreNeverScores() {
+        // B4.1: a colon time from a ride or flight app is tracking, not a score
+        val uber = n(pkg = "com.ubercab", title = "Your driver", text = "Arrive at 10:45 PM")
+        assertNull(parseLiveScore(uber))
+        assertEquals(LiveActivityKind.TRACKING, liveActivityKind(uber))
+        val flight = n(pkg = "com.example.airline", title = "Flight BA 117", text = "Boarding at 10:30 Gate B")
+        assertNull(parseLiveScore(flight))
+        assertTrue(liveActivityKind(flight) != LiveActivityKind.SPORTS)
+        // Hyphen ranges next to time words aren't scores either
+        assertNull(parseLiveScore(n(pkg = "com.example", title = "Delivery", text = "Arriving by 10 - 11 tonight")))
+        assertNull(parseLiveScore(n(pkg = "com.example", title = "Shift", text = "Open 9 - 5 h")))
+        // Numbers on both sides with no letters aren't teams
+        assertNull(parseLiveScore(n(pkg = "com.espn.score_center", title = "2024 1 - 2 2025", text = "")))
+    }
+
+    @Test
+    fun colonScores_onlyFromSportsApps() {
+        val nba = n(pkg = "com.espn.score_center", title = "Lakers 98 : 101 Celtics", text = "Q4 2:31", ongoing = false)
+        assertEquals(LiveActivityKind.SPORTS, liveActivityKind(nba))
+        assertEquals("Celtics", parseLiveScore(nba)?.away)
+        // The same line from a non-sports app isn't a score
+        assertNull(parseLiveScore(n(pkg = "com.whatsapp", title = "Lakers 98 : 101 Celtics", text = "")))
+        // And a colon followed by PM is a time even in a sports app
+        assertNull(parseLiveScore(n(pkg = "com.espn.score_center", title = "Kickoff 7 : 30 pm tonight", text = "")))
+    }
+
+    @Test
+    fun googleApp_isNotASportsApp() {
+        assertFalse(isSportsPackage("com.google.android.googlequicksearchbox"))
+        // An ordinary Google app notification with a hyphen range stays a plain card
+        assertEquals(LiveActivityKind.NONE, liveActivityKind(n(pkg = "com.google.android.googlequicksearchbox", title = "Weather", text = "Highs 20 - 25 today", ongoing = false)))
+        // A promoted Google live score still gets the sports design
+        val promoted = n(pkg = "com.google.android.googlequicksearchbox", title = "Arsenal 2 - 1 Chelsea", text = "67'", ongoing = false).copy(isPromoted = true)
+        assertEquals(LiveActivityKind.SPORTS, liveActivityKind(promoted))
+    }
+
+    @Test
     fun countdownTotals_growWithExtraTime() {
         assertEquals(60_000L, CountdownTotals.totalFor("t", 60_000L))
         assertEquals(60_000L, CountdownTotals.totalFor("t", 30_000L))
