@@ -1,9 +1,31 @@
 Island expand / collapse frame timing baseline (S4.2)
 
-Not recorded yet: needs a real device (120 Hz preferred).
-Run:   ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
-Then paste here: device, Android version, build (git rev), date, and for each test the
-frameDurationCpuMs and frameOverrunMs P50 / P90 / P99 plus the jank count from
-~/.droidbubble-build/macrobenchmark/outputs/connected_android_test_additional_output/.../*-benchmarkData.json
+Device:   OnePlus CPH2631 (OP5AE7L1), Android 16 (API 36), 720x1604, display at 90 Hz
+Build:    app `benchmark` build type (R8, profileable) at 5eae00c, CompilationMode.Partial()
+Date:     2026-11-09
+Test:     IslandExpandBenchmark.expandAndCollapse, 10 iterations, WARM
+          (Download demo on the island, tap the pill to expand, tap below the card to collapse)
+State:    the owner's own settings (island 90x25 dp, top offset 8 dp, animation speed 0.8x)
+
+                      P50     P90     P95     P99
+frameDurationCpuMs    3.6     6.8     8.0    10.9
+frameOverrunMs      -11.4    -7.1    -5.2     0.1
+
+Frames:   1563 in all (150-175 per iteration, median 152.5)
+Jank:     17 frames with overrun > 0 (1.1 %); per iteration 5, 2, 2, 1, 2, 0, 0, 4, 1, 0
+
+How to re-run without losing the app's data (the Gradle connected task uninstalls the app after
+the run, which drops its settings and permission grants):
+  ./gradlew :app:assembleBenchmark :macrobenchmark:assembleBenchmark
+  adb install -r ~/.droidbubble-build/app/outputs/apk/benchmark/Droidbubble-benchmark.apk
+  adb install -r ~/.droidbubble-build/macrobenchmark/outputs/apk/benchmark/macrobenchmark-benchmark.apk
+  adb shell am instrument -w -r -e class com.droidbubble.macrobenchmark.IslandExpandBenchmark \
+      com.droidbubble.macrobenchmark/androidx.test.runner.AndroidJUnitRunner
+  JSON: /storage/emulated/0/Android/media/com.droidbubble.macrobenchmark/*-benchmarkData.json
+On a spare phone, `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest` does the same.
+
+Needs: the island turned on, the overlay permission (the test grants it by appops) and the
+accessibility service already enabled. Leave the phone alone during the run (about 4 minutes).
+Afterwards the island is empty until something new shows on it: the benchmark restarts the app.
 
 Fallback without the module: adb shell dumpsys gfxinfo com.droidbubble.app framestats

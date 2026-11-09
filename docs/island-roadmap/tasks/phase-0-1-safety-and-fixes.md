@@ -252,6 +252,7 @@
 - **Depends on:** none; it can run before B1. If B1 lands first, check that the benchmark build has no debug receiver.
 - **Effort:** M   **Risk:** med — AGP 9 plus the `com.android.test` set-up, and tapping a system overlay through UiAutomator. Fallback: measure with `dumpsys gfxinfo com.droidbubble.app framestats` from the same script.
 - **Ships as:** Tooling (device-only).
+- **Done (2026-11-09):** baseline on a 90 Hz OnePlus CPH2631 (no 120 Hz phone at hand) in `macrobenchmark/BASELINE.txt`. Run through `adb install -r` plus `am instrument`, not the Gradle connected task, which uninstalls the app and its data afterwards. The accessibility service was already on, so the set-up doesn't touch secure settings. The pill is found from the island's overlay window, not from default sizes, and the list is swiped slowly, because a tap on a flinging list only stops it.
 
 ### S4.3 — Trace sections and a Perfetto recipe
 - **Goal:** One command captures a trace in which island work is labelled: notification parsing, media refresh, window updates and the root composition.
