@@ -1,5 +1,6 @@
 package com.droidbubble.app.service
 
+import com.droidbubble.app.util.CrashLog
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
@@ -367,6 +368,7 @@ class NotificationReceiverService : NotificationListenerService() {
     fun refreshMedia(candidateController: MediaController? = null) = traced("db.refreshMedia") { refreshMediaTraced(candidateController) }
 
     private fun refreshMediaTraced(candidateController: MediaController?) {
+        CrashLog.breadcrumb("nrs", "refreshMedia candidate=${candidateController?.packageName ?: "-"}")
         try {
             val componentName = ComponentName(this, NotificationReceiverService::class.java)
             val controllers = mediaSessionManager?.getActiveSessions(componentName)?.toMutableList() ?: mutableListOf()
@@ -1062,6 +1064,7 @@ class NotificationReceiverService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
+        if (sbn != null) CrashLog.breadcrumb("nrs", "posted pkg=${sbn.packageName} keyHash=${CrashLog.keyHash(sbn.key)}")
         traced("db.posted") { handlePosted(sbn) }
     }
 
@@ -1355,6 +1358,7 @@ class NotificationReceiverService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         if (sbn == null) return
+        CrashLog.breadcrumb("nrs", "removed pkg=${sbn.packageName} keyHash=${CrashLog.keyHash(sbn.key)}")
         if (systemRecordingKey == sbn.key || (sbn.notification != null && isScreenRecordingNotification(sbn, sbn.notification))) {
             // Many recorders remove+repost the same ongoing notification on every update,
             // so postpone the stop briefly: an immediate repost cancels this and keeps the timer alive.

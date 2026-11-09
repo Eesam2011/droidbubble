@@ -1,5 +1,6 @@
 package com.droidbubble.app.island
 
+import com.droidbubble.app.util.CrashLog
 import com.droidbubble.app.model.ActiveCallState
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.MediaInfo
@@ -555,6 +556,11 @@ object IslandStateManager {
     }
 
     fun updateNotification(notification: NotificationInfo?) {
+        CrashLog.breadcrumb(
+            "state",
+            if (notification == null) "notification cleared"
+            else "notification kind=${liveActivityKind(notification)} keyHash=${CrashLog.keyHash(notification.key)}"
+        )
         // Plain downloads go to the progress card; rides, deliveries and Android 16 live updates
         // keep their own live-activity design even though they carry a progress bar
         if (notification != null && notification.hasProgress && liveActivityKind(notification) == LiveActivityKind.NONE) {
@@ -736,6 +742,7 @@ object IslandStateManager {
     }
 
     fun expand(priority: IslandPriority? = null) {
+        CrashLog.breadcrumb("state", "expand priority=${priority?.name ?: "current"}")
         val resolved = priority ?: currentPriority
         if (resolved == IslandPriority.POP_NOTIFICATION) {
             autoDismissNotificationJob?.cancel()
@@ -746,6 +753,7 @@ object IslandStateManager {
     }
 
     fun collapse() {
+        CrashLog.breadcrumb("state", "collapse")
         _isExpanded.value = false
         _expandedPriority.value = null
         _isKeyboardFocused.value = false

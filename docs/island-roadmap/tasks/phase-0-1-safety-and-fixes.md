@@ -1091,6 +1091,7 @@
 - **Depends on:** none.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Reliability.
+- **Done (2026-11-09):** `CrashLog` keeps a synchronized ring of 64 breadcrumbs (`elapsedRealtime tag msg`), appends them to the crash report, and `nonFatal` writes `nonfatal.txt` (last 20) with the class and top 8 frames but not the message, which can quote content. `attach(context)` lets tests write without installing the crash handler; `clear` also clears `nonfatal.txt`. Breadcrumbs: posted, removed, refreshMedia (NRS), window spec changes only (service), notification kind with a key hash, expand, collapse (state). `CrashLogTest` covers overflow, rotation, format and that no title, text or raw key reaches the report.
 
 ### B11.2 — Guard each notification and each media refresh
 - **Goal:** One malformed notification, or a misbehaving media session, can't crash the process. It is skipped and logged.

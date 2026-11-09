@@ -107,7 +107,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B10.2 | Debounced refreshMedia without activeNotifications | todo |
 | B10.3 | Parser dispatcher and per-key sequence numbers | todo |
 | B10.4 | Cache clock-app custom-view reads | todo |
-| B11.1 | Breadcrumb ring in CrashLog | todo |
+| B11.1 | Breadcrumb ring in CrashLog | done |
 | B11.2 | Per-notification and media guards | todo |
 | B11.3 | Crash-loop guard and safe mode | todo |
 

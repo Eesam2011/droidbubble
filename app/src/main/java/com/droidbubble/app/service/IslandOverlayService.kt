@@ -789,6 +789,8 @@ class IslandOverlayService : Service() {
         incomingCall = IslandStateManager.activeNotification.value?.isIncomingCall == true,
     )
 
+    private var lastLoggedSpec: WindowSpec? = null
+
     private fun updateWindowState(expanded: Boolean) {
         val view = composeView ?: return
         val params = layoutParams ?: return
@@ -799,6 +801,12 @@ class IslandOverlayService : Service() {
             IslandStateManager.setDeviceLocked(km.isKeyguardLocked)
         }
         val inputs = windowInputs(expanded)
+        compactWindowSpec(inputs).let { spec ->
+            if (spec != lastLoggedSpec) {
+                lastLoggedSpec = spec
+                com.droidbubble.app.util.CrashLog.breadcrumb("window", "spec=$spec")
+            }
+        }
 
         if (!islandAllowed(inputs)) {
             collapseJob?.cancel()
