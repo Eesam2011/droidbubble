@@ -385,7 +385,7 @@
 - **Depends on:** none. Land it first in Phase 1.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix (security).
-- **Done (2026-11-09):** `DebugCommands` in `src/debug` (not exported, all API levels, no adb control per the owner), no-ops in `src/release` and `src/benchmark` (a build type's `matchingFallbacks` covers dependencies only, not sources). `register` takes a `Context`. AGP 9 makes unit tests for debug only, so `app/build.gradle.kts` enables release's for `src/testRelease`. Release and benchmark dex have no `com.droidbubble.app.ACTION_*` string; the debug dex does. Device check (another UID sends `ACTION_EXPAND` to a release build) still open.
+- **Done (2026-11-09):** `DebugCommands` in `src/debug` (not exported, all API levels, no adb control per the owner), no-ops in `src/release` and `src/benchmark` (a build type's `matchingFallbacks` covers dependencies only, not sources). `register` takes a `Context`. AGP 9 makes unit tests for debug only, so `app/build.gradle.kts` enables release's for `src/testRelease`. Release and benchmark dex have no `com.droidbubble.app.ACTION_*` string; the debug dex does. Device check passed (2026-11-09, OnePlus CPH2631): `adb shell am broadcast` of SIMULATE_NOTIFICATION, EXPAND and SIMULATE_MEDIA to the benchmark build did nothing.
 
 ### B1.2 — Runtime system receivers not exported, plus an exported-surface test
 - **Goal:** The service's system-event receiver is registered `RECEIVER_NOT_EXPORTED`. A test pins the list of exported components, so a new exported one can't slip in.
@@ -407,7 +407,7 @@
 - **Depends on:** B1.1 (same lines of `onCreate`).
 - **Effort:** S   **Risk:** low — OEM ringer broadcasts are the only unknown; the device check covers them.
 - **Ships as:** Fix (security).
-- **Done in code (2026-11-09):** the filter is split. Power, charging, unlock, screen and both ringer actions are registered `RECEIVER_NOT_EXPORTED` (the system process sends them). The four Bluetooth actions stay `RECEIVER_EXPORTED`: the Bluetooth app sends them from its own UID, which a not-exported receiver drops (`checkComponentPermission` passes only root, system and the same app); they are protected broadcasts, so no other app can send them. `ExportedSurfaceTest` also lists two debug-only library activities (`PreviewActivity`, the ui-test-manifest `ComponentActivity`) that are absent from release. Device check still open: charger, ringer, Bluetooth, lock and unlock.
+- **Done in code (2026-11-09):** the filter is split. Power, charging, unlock, screen and both ringer actions are registered `RECEIVER_NOT_EXPORTED` (the system process sends them). The four Bluetooth actions stay `RECEIVER_EXPORTED`: the Bluetooth app sends them from its own UID, which a not-exported receiver drops (`checkComponentPermission` passes only root, system and the same app); they are protected broadcasts, so no other app can send them. `ExportedSurfaceTest` also lists two debug-only library activities (`PreviewActivity`, the ui-test-manifest `ComponentActivity`) that are absent from release. Device check passed (2026-11-09, OnePlus CPH2631): charger, ringer, Bluetooth and unlock glances all appear. Note: `adb install -r` of an update switched the accessibility service off on this phone; the owner re-enabled it.
 
 ---
 
