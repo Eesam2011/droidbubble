@@ -1384,7 +1384,7 @@ class NotificationReceiverService : NotificationListenerService() {
             !extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) &&
             (isClockOrRecorderPackage(packageName) || notification.category == Notification.CATEGORY_ALARM ||
                 notification.category == "stopwatch")
-        ) readCustomViewTimer(notification) else null
+        ) cachedCustomViewTimer(sbn.key, notification) else null
         val looksLikeTimer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) ||
             parseTimerTextMillis(extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()) != null ||
             customTimer != null
@@ -1538,6 +1538,7 @@ class NotificationReceiverService : NotificationListenerService() {
         if (sbn == null) return
         // B10.3: a parse still running for this key must not bring the card back
         parseSeq.remove(sbn.key)
+        customTimers.remove(sbn.key)
         CrashLog.breadcrumb("nrs", "removed pkg=${sbn.packageName} keyHash=${CrashLog.keyHash(sbn.key)}")
         guarded("removed:${sbn.packageName}") { handleRemoved(sbn) }
     }
@@ -1651,9 +1652,28 @@ class NotificationReceiverService : NotificationListenerService() {
      * Only standard notifications built with setCustomContentView carry these views; for everything
      * else contentView is null on Android 7+ and this returns right away.
      */
+    private val customTimers = CustomTimerCache<CustomViewTimer?>()
+
+    @androidx.annotation.VisibleForTesting
+    internal val customViewInflationsForTest = java.util.concurrent.atomic.AtomicInteger()
+
+    /**
+     * B10.4: a running timer's reading is reused while its buttons stay the same, instead of
+     * inflating its RemoteViews on every repost (about once a second). Parser thread.
+     */
+    private fun cachedCustomViewTimer(key: String, notification: Notification): CustomViewTimer? {
+        val signature = notification.actions?.map { it?.title?.toString().orEmpty() }.orEmpty()
+        val now = System.currentTimeMillis()
+        customTimers.lookup(key, signature, now)?.let { return it }
+        val timer = readCustomViewTimer(notification)
+        customTimers.store(key, signature, timer, running = timer?.running == true, nowMs = now)
+        return timer
+    }
+
     @Suppress("DEPRECATION")
     private fun readCustomViewTimer(notification: Notification): CustomViewTimer? {
         val views = notification.contentView ?: notification.bigContentView ?: return null
+        customViewInflationsForTest.incrementAndGet()
         val root = runCatching { views.apply(this, android.widget.FrameLayout(this)) }.getOrNull() ?: return null
         var chrono: android.widget.Chronometer? = null
         val labels = mutableListOf<String>()

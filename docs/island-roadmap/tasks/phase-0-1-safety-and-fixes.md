@@ -1082,6 +1082,7 @@
 - **Depends on:** B10.3.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Perf.
+- **Done (2026-11-09):** `service/CustomTimerCache.kt` (key → action titles, reading, running, time; `ConcurrentHashMap`, since the parser writes and `onNotificationRemoved` clears). `cachedCustomViewTimer` reuses a running timer's reading while the buttons match, for up to 30 s. The JSON fixtures can't carry RemoteViews, so `CustomTimerCacheTest` drives the cache through a reader double: 10 reposts inflate once, pausing re-reads, the 30 s safety net and removal. `customViewInflationsForTest` counts real inflations for a later device-built test.
 
 ---
 
