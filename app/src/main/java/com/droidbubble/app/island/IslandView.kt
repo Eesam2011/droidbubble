@@ -3765,13 +3765,11 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(metrics.replyRowSpacing)
             ) {
-                // Smart reply choices chips
-                val smartChoices = remember(replyAction) {
-                    val choices = replyAction?.remoteInputChoices ?: emptyList()
-                    if (choices.isNotEmpty()) choices else listOf("OK", "Sure", "Thanks!")
-                }
+                // B6.1: smart reply chips only when the app supplied them (RemoteInput choices). The
+                // card used to invent "OK", "Sure" and "Thanks!", which sent on one tap.
+                val smartChoices = remember(notification) { replyChoices(notification) }
 
-                Row(
+                if (smartChoices.isNotEmpty()) Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {

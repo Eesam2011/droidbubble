@@ -382,9 +382,12 @@ fun measureNotificationCardHeight(
     }
 
     if (isReplying) {
-        val chipHeight = textHeight("OK", TextStyle(fontSize = m.replyChipFontSize, fontWeight = FontWeight.Medium), innerWidth, 1) +
-            m.replyChipVerticalPadding * 2
-        height += m.actionsGap + chipHeight + m.replyRowSpacing + m.replyInputHeight
+        // B6.1: the chip row exists only when the app supplied reply choices
+        val chipRow = if (replyChoices(notification).isNotEmpty()) {
+            textHeight("OK", TextStyle(fontSize = m.replyChipFontSize, fontWeight = FontWeight.Medium), innerWidth, 1) +
+                m.replyChipVerticalPadding * 2 + m.replyRowSpacing
+        } else 0.dp
+        height += m.actionsGap + chipRow + m.replyInputHeight
     } else if (visibleNotificationActions(notification).isNotEmpty()) {
         height += m.actionsGap + m.buttonHeight
     }
@@ -765,3 +768,12 @@ fun TimerClockIcon(baseMs: Long, countDown: Boolean, size: Dp, color: Color, mod
     }
 }
 
+/**
+ * B6.1: the smart-reply choices the app itself supplied for its reply action, or none. Shared by
+ * the reply row and the card height, so the card never reserves room for a missing chip row.
+ */
+fun replyChoices(notification: NotificationInfo?): List<String> =
+    notification?.actions
+        ?.firstOrNull { it.isReply || it.title.contains("Reply", ignoreCase = true) }
+        ?.remoteInputChoices
+        .orEmpty()

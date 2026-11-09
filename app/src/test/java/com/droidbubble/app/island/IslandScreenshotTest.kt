@@ -15,6 +15,7 @@ import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.NotificationAction
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
 import org.junit.Assert.assertNotNull
@@ -99,6 +100,18 @@ class IslandScreenshotTest {
 
     @Test fun expandedMessageReplyOpen() = shot("expanded_message_reply", after = ::openReply) {
         IslandStateManager.updateNotification(IslandFixtures.message())
+        IslandStateManager.expand(null)
+    }
+
+    @Test fun expandedMessageReplyWithAppChoices() = shot("expanded_message_reply_choices", after = ::openReply) {
+        IslandStateManager.updateNotification(
+            IslandFixtures.message().copy(
+                actions = listOf(
+                    NotificationAction("Reply", null, remoteInputKey = "r", remoteInputChoices = listOf("On my way")),
+                    NotificationAction("Mark as read", null)
+                )
+            )
+        )
         IslandStateManager.expand(null)
     }
 

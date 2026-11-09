@@ -705,6 +705,7 @@
 - **Depends on:** S2.2. Serialize with Phase 8 C3.6 (same reply row).
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix.
+- **Done (2026-11-09), approved by the owner from before/after screenshots:** `replyChoices(n)` (IslandComponents) is shared by the reply row and `measureNotificationCardHeight`, so with no app choices there is no chip row and no reserved height. S2 `expanded_message_reply` re-recorded (no chips, shorter card); new state `expanded_message_reply_choices` (one "On my way" chip).
 
 ### B6.2 — Ringing calls and alarms tuck back instead of being dismissed
 - **Goal:** A sideways swipe on a ringing call, a ringing alarm or a "Time's up" card collapses it to compact. The card stays, and the system notification is never cancelled.
