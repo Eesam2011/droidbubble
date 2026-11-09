@@ -79,7 +79,7 @@ class IslandCharacterizationTest {
             IslandStateManager.updateMedia(IslandFixtures.song)
             IslandStateManager.hideIsland()
         },
-        State("media_app_in_foreground", knownIssue = "B2.1: nothing drawn, but the window still takes touches") {
+        State("media_app_in_foreground") {
             IslandStateManager.setForegroundPackage(IslandFixtures.song.packageName)
             IslandStateManager.updateMedia(IslandFixtures.song)
         },

@@ -429,6 +429,7 @@
 - **Depends on:** S3.2.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix.
+- **Done in code (2026-11-09):** `WindowInputs` gains `foregroundPackage`, the media, notification and progress packages and `incomingCall`; `mediaShown`, `notificationShown` and `progressShown` mirror the view rule (an unknown foreground app hides nothing) and feed occupancy and the dual count. The service's combine watches `foregroundPackage`. S3.2 rows flipped and six added; S1.3 `media_app_in_foreground` no longer carries a knownIssue. Device check still open: Spotify in front, tap its top centre and pull the shade from the centre.
 
 ### B2.2 — Trim the compact window to the pill and bubble envelope
 - **Goal:** The compact window is only as large as the drawn pill and bubble, plus the room their animations need, instead of `width + 80 dp` and `height + 12 dp`.

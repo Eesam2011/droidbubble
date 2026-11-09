@@ -21,6 +21,13 @@ class OverlayWindowMathTest {
 
     private fun compact(w: Float?, h: Float = 60f, touchable: Boolean = true) = WindowSpec.Compact(w, h, touchable)
 
+    private companion object {
+        const val SPOTIFY = "com.spotify.music"
+        const val CHROME = "com.android.chrome"
+        const val WHATSAPP = "com.whatsapp"
+        const val DIALER = "com.google.android.dialer"
+    }
+
     private val compactRows = listOf(
         Row("idle", WindowInputs(d), WindowSpec.Gone),
         Row("idle + alwaysShowPill", WindowInputs(d.copy(alwaysShowPill = true)), compact(260f, touchable = false)),
@@ -66,10 +73,20 @@ class OverlayWindowMathTest {
         Row("expanded", WindowInputs(d, expanded = true, media = true), WindowSpec.FullScreen),
         Row("expanded but not allowed (landscape)", WindowInputs(d, expanded = true, landscape = true, media = true), WindowSpec.Gone),
 
+        // B2.1: an app's own activities hide while it is in front, and the window goes with them
+        Row("media, its app in the foreground", WindowInputs(d, media = true, mediaPackage = SPOTIFY, foregroundPackage = SPOTIFY), WindowSpec.Gone),
+        Row("media, another app in the foreground", WindowInputs(d, media = true, mediaPackage = SPOTIFY, foregroundPackage = CHROME), compact(260f)),
+        Row("media, foreground unknown", WindowInputs(d, media = true, mediaPackage = SPOTIFY), compact(260f)),
+        Row("media app in front + a message from another app: single width, touchable",
+            WindowInputs(messagesOn, media = true, mediaPackage = SPOTIFY, notification = true, notificationPackage = WHATSAPP, foregroundPackage = SPOTIFY),
+            compact(260f)),
+        Row("message, its app in the foreground", WindowInputs(messagesOn, notification = true, notificationPackage = WHATSAPP, foregroundPackage = WHATSAPP), WindowSpec.Gone),
+        Row("ringing call, the phone app in the foreground",
+            WindowInputs(messagesOn, notification = true, notificationPackage = DIALER, incomingCall = true, foregroundPackage = DIALER),
+            compact(260f)),
+        Row("progress, its app in the foreground", WindowInputs(d, progress = true, progressPackage = CHROME, foregroundPackage = CHROME), WindowSpec.Gone),
+
         // Known bugs, today's values
-        // BUG B2.1: the media app is in the foreground, so the island draws nothing, but the window
-        // still takes touches. The inputs don't know the foreground app yet; B2.1 adds it.
-        Row("media, its app in the foreground", WindowInputs(d, media = true), compact(260f)),
         // BUG B3.1: a running timer is a notification, so with fresh-install settings it is dropped
         Row("timer, defaults", WindowInputs(d, notification = true), WindowSpec.Gone),
         // BUG B3.1: a ringing CallStyle call is a notification too (not an ongoing call state)

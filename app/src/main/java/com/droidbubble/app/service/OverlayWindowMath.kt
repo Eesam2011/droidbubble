@@ -26,7 +26,25 @@ data class WindowInputs(
     val ringer: Boolean = false,
     val userHidden: Boolean = false,
     val userMinimized: Boolean = false,
-)
+    /**
+     * The app in front, and the app of each activity (B2.1). The island hides an app's own media,
+     * progress and notification while that app is in front (except a ringing call), so they don't
+     * hold the window either. A temporary copy of the view's rule (IslandView `isMedia` ...),
+     * until F1's single scene derivation replaces both.
+     */
+    val foregroundPackage: String? = null,
+    val mediaPackage: String? = null,
+    val notificationPackage: String? = null,
+    val progressPackage: String? = null,
+    val incomingCall: Boolean = false,
+) {
+    private fun notInFront(pkg: String?) = foregroundPackage == null || pkg != foregroundPackage
+
+    /** Media, notification and progress as the island draws them: not the foreground app's own. */
+    val mediaShown: Boolean get() = media && notInFront(mediaPackage)
+    val notificationShown: Boolean get() = notification && (incomingCall || notInFront(notificationPackage))
+    val progressShown: Boolean get() = progress && notInFront(progressPackage)
+}
 
 /** What the overlay window should be. The service turns it into pixels and window flags. */
 sealed interface WindowSpec {
@@ -78,9 +96,9 @@ fun windowOccupancy(i: WindowInputs): WindowOccupancy {
     val ringer = s.showRingerMode && i.ringer
     val flashlight = s.showFlashlight && i.flashlight
     val occupied = (s.showCalls && i.call) ||
-        (s.showMedia && i.media) ||
-        (s.showNotifications && i.notification) ||
-        (s.showLiveProgress && i.progress) ||
+        (s.showMedia && i.mediaShown) ||
+        (s.showNotifications && i.notificationShown) ||
+        (s.showLiveProgress && i.progressShown) ||
         (s.showScreenRecording && i.recording) ||
         flashlight || charging || unlock || connection || ringer
     return WindowOccupancy(
@@ -111,9 +129,9 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
     if (!shouldShowCompact) return WindowSpec.Gone
 
     val activeCount = (if (s.showScreenRecording && i.recording) 1 else 0) +
-        (if (s.showNotifications && i.notification) 1 else 0) +
-        (if (s.showMedia && i.media) 1 else 0) +
-        (if (s.showLiveProgress && i.progress) 1 else 0) +
+        (if (s.showNotifications && i.notificationShown) 1 else 0) +
+        (if (s.showMedia && i.mediaShown) 1 else 0) +
+        (if (s.showLiveProgress && i.progressShown) 1 else 0) +
         (if (flashlight) 1 else 0)
     val isDual = !charging && !unlock && !connection && !ringer && activeCount >= 2
 

@@ -628,8 +628,10 @@ class IslandOverlayService : Service() {
                 IslandStateManager.isDeviceLocked,
                 kotlinx.coroutines.flow.combine(
                     IslandStateManager.userHidden,
-                    IslandStateManager.userMinimized
-                ) { _, _ -> Unit }
+                    IslandStateManager.userMinimized,
+                    // B2.1: an app's own media / alert hides while it is in front, and so must the window
+                    IslandStateManager.foregroundPackage
+                ) { _, _, _ -> Unit }
             ) { expanded, _, _, _, _ -> expanded }.collectLatest { expanded ->
                 val shapeKey = listOf(
                     expanded,
@@ -639,7 +641,8 @@ class IslandOverlayService : Service() {
                     IslandStateManager.isMediaActive, IslandStateManager.isProgressActive,
                     IslandStateManager.isFlashlightActive,
                     IslandStateManager.isDeviceLocked.value,
-                    IslandStateManager.userHidden.value, IslandStateManager.userMinimized.value
+                    IslandStateManager.userHidden.value, IslandStateManager.userMinimized.value,
+                    windowInputs(expanded).let { listOf(it.mediaShown, it.notificationShown, it.progressShown) }
                 )
                 if (shapeKey != lastShapeKey) {
                     lastShapeKey = shapeKey
@@ -779,6 +782,11 @@ class IslandOverlayService : Service() {
         ringer = IslandStateManager.isRingerModeActive,
         userHidden = IslandStateManager.userHidden.value,
         userMinimized = IslandStateManager.userMinimized.value,
+        foregroundPackage = IslandStateManager.foregroundPackage.value,
+        mediaPackage = IslandStateManager.activeMedia.value?.packageName,
+        notificationPackage = IslandStateManager.activeNotification.value?.packageName,
+        progressPackage = IslandStateManager.activeProgress.value?.packageName,
+        incomingCall = IslandStateManager.activeNotification.value?.isIncomingCall == true,
     )
 
     private fun updateWindowState(expanded: Boolean) {
