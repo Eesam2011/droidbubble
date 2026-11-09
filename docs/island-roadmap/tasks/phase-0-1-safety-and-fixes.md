@@ -963,6 +963,7 @@
 - **Depends on:** S2.2. **Serialize with B5.2** (same lines).
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Polish (typography fix).
+- **Done (2026-11-09):** the four calls pass `fontSize`, `fontWeight` and `color` as `Text` parameters (literal colours kept for B5.2). `grep "style = TextStyle(" island/` is 0. `NetworkSpeedTnumTest` reads the laid-out style through `GetTextLayoutResult` and fails on the old code. Screenshots verified with no change.
 
 ### B9.2 — A readable bubble numeral (at least 11 sp)
 - **Goal:** The download percentage in the split bubble is 11 sp or larger, fits its ring at any supported font scale, and falls back to the ring alone when it can't fit.

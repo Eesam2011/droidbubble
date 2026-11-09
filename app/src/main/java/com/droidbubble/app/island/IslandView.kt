@@ -4359,13 +4359,13 @@ fun ExpandedNetworkSpeedView(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Download",
-                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA))
+                            fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA)
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = networkSpeedInfo.downloadSpeedFormatted,
-                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White
                     )
                 }
             }
@@ -4390,13 +4390,13 @@ fun ExpandedNetworkSpeedView(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Upload",
-                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA))
+                            fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFA1A1AA)
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = networkSpeedInfo.uploadSpeedFormatted,
-                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White
                     )
                 }
             }

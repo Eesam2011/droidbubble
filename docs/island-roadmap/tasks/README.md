@@ -101,7 +101,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B8.5 | Touches don't recompose the root | todo |
 | B8.6 | One settings mapper and distinctUntilChanged | todo |
 | B8.7 | Debounced slider writes | todo |
-| B9.1 | Restore tnum on network values | todo |
+| B9.1 | Restore tnum on network values | done |
 | B9.2 | Bubble numeral at least 11 sp, or the ring alone | todo |
 | B10.1 | Sampled off-main art decode | todo |
 | B10.2 | Debounced refreshMedia without activeNotifications | todo |
