@@ -43,12 +43,17 @@ class IslandTouchManager(private val overlayView: View) {
         }
     }
 
-    fun attach() {
-        if (isRegistered && overlayView.viewTreeObserver.isAlive) return
+    /** True if the hidden insets listener could be attached (B2.3 probe). */
+    fun attach(): Boolean {
+        if (isRegistered && overlayView.viewTreeObserver.isAlive) return true
         try {
             val vto = overlayView.viewTreeObserver
-            if (!vto.isAlive) return
+            if (!vto.isAlive) return false
 
+            // B2.3 spike (2026-11-09, OPPO CPH2631, Android 16, targetSdk 36): the listener and
+            // setTouchableInsets are allowed, but the touchableRegion field is denied (max-target-r).
+            // Check it first, so a blocked device reports false and keeps the window envelope.
+            Class.forName("android.view.ViewTreeObserver\$InternalInsetsInfo").getField("touchableRegion")
             val listenerClass = Class.forName("android.view.ViewTreeObserver\$OnComputeInternalInsetsListener")
             val addMethod = ViewTreeObserver::class.java.getMethod("addOnComputeInternalInsetsListener", listenerClass)
 
@@ -63,8 +68,10 @@ class IslandTouchManager(private val overlayView: View) {
             insetsListener = Proxy.newProxyInstance(listenerClass.classLoader, arrayOf(listenerClass), handler)
             addMethod.invoke(vto, insetsListener)
             isRegistered = true
-        } catch (e: Exception) {
-            e.printStackTrace()
+            return true
+        } catch (e: Throwable) {
+            android.util.Log.w("IslandTouchProbe", "attach failed", e)
+            return false
         }
     }
 
@@ -104,8 +111,8 @@ class IslandTouchManager(private val overlayView: View) {
                     region.setEmpty()
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (e: Throwable) {
+            android.util.Log.w("IslandTouchProbe", "applyInsets failed", e)
         }
     }
 }

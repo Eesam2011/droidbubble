@@ -475,6 +475,7 @@
 - **Depends on:** B2.2.
 - **Effort:** M   **Risk:** high — hidden API and OEM behaviour. Mitigation: the probe, the flag and the B2.2 fallback.
 - **Ships as:** Fix (device-verified).
+- **Spike result (2026-11-09, OPPO CPH2631, Android 16 / API 36, targetSdk 36):** `addOnComputeInternalInsetsListener` and `InternalInsetsInfo.setTouchableInsets` are allowed by hidden-API enforcement ("api=unsupported … allowed"), but `InternalInsetsInfo.touchableRegion` is **denied** ("api=max-target-r … denied", `NoSuchFieldException`). Without the field the region can't be set, so a pill-shaped hit area isn't possible for targetSdk 36 on this device. `IslandTouchManager.attach()` now returns a Boolean and checks the field first, so a blocked device reports `false` cleanly; the manager is still not wired into the service. Per step 3, B2.2's envelope is the fix. Other OEMs weren't tested; the field's `max-target-r` restriction is platform-wide, so they are expected to behave the same.
 
 ---
 

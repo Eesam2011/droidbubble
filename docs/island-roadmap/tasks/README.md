@@ -76,7 +76,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B1.2 | System receiver NOT_EXPORTED and exported-surface test | done |
 | B2.1 | Nothing touchable when the card is hidden for the foreground app | doing (code and tests done; device check pending) |
 | B2.2 | Trim the compact window envelope | todo |
-| B2.3 | Touchable region via `IslandTouchManager` (probe, flag, fallback) | todo |
+| B2.3 | Touchable region via `IslandTouchManager` (probe, flag, fallback) | blocked (spike: touchableRegion denied on API 36; B2.2 is the fix) |
 | B3.1 | Separate `showLiveActivities` gate, on by default | doing (code and tests done; device check pending) |
 | B3.2 | "Live Activities" toggle in settings | doing (code and test done; manual check pending) |
 | B4.1 | Strict score regex; TRACKING before SPORTS | done |
