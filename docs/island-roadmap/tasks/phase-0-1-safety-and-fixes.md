@@ -385,6 +385,7 @@
 - **Depends on:** none. Land it first in Phase 1.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix (security).
+- **Done (2026-11-09):** `DebugCommands` in `src/debug` (not exported, all API levels, no adb control per the owner), no-ops in `src/release` and `src/benchmark` (a build type's `matchingFallbacks` covers dependencies only, not sources). `register` takes a `Context`. AGP 9 makes unit tests for debug only, so `app/build.gradle.kts` enables release's for `src/testRelease`. Release and benchmark dex have no `com.droidbubble.app.ACTION_*` string; the debug dex does. Device check (another UID sends `ACTION_EXPAND` to a release build) still open.
 
 ### B1.2 — Runtime system receivers not exported, plus an exported-surface test
 - **Goal:** The service's system-event receiver is registered `RECEIVER_NOT_EXPORTED`. A test pins the list of exported components, so a new exported one can't slip in.

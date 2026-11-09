@@ -72,7 +72,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | S5.1 | Fixture JSON format and SBN builder | done |
 | S5.2 | Fixture corpus | done |
 | S5.3 | Fixture characterization through the real NRS | done |
-| B1.1 | Debug receiver only in debug builds | todo |
+| B1.1 | Debug receiver only in debug builds | done |
 | B1.2 | System receiver NOT_EXPORTED and exported-surface test | todo |
 | B2.1 | Nothing touchable when the card is hidden for the foreground app | todo |
 | B2.2 | Trim the compact window envelope | todo |

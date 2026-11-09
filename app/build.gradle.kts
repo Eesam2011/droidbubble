@@ -31,7 +31,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         // Release code for the macrobenchmark (S4.2): R8 on, debug signing, profileable
-        // (src/benchmark/AndroidManifest.xml). Uses the release source set's code via fallback.
+        // (src/benchmark/AndroidManifest.xml). matchingFallbacks covers dependencies only, so
+        // src/benchmark has its own copy of release-only sources (the no-op DebugCommands).
         create("benchmark") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
@@ -50,7 +51,7 @@ android {
     buildFeatures {
       compose = true
       aidl = false
-      buildConfig = false
+      buildConfig = true   // BuildConfig.DEBUG (B1.1, A1.3)
       shaders = false
     }
 
@@ -143,4 +144,17 @@ dependencies {
 // Screenshot tests (S2): images are recorded into and verified against the repo, not the build dir
 roborazzi {
   outputDir.set(file("src/test/screenshots"))
+}
+
+// AGP 9 creates unit tests for the tested build type (debug) only. B1.1 also has a release unit
+// test (src/testRelease: the release DebugCommands is a no-op), so enable release's as well, and
+// run only the release-specific classes there: the shared Compose tests need the debug-only
+// ui-test-manifest activity.
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+    }
+}
+tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEach {
+    filter.includeTestsMatching("*ReleaseTest")
 }
