@@ -935,6 +935,7 @@
 - **Depends on:** B3.1 and B7.3 (they add and remove keys; land them first, or rebase).
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Refactor.
+- **Done (2026-11-09):** `Preferences.toIslandSettings()` and `MutablePreferences.write(s)` at file level (keys moved to a private top-level object); `settingsFlow` is `map { it.toIslandSettings() }.distinctUntilChanged()`. `SettingsRepositoryRoundTripTest` runs on in-memory `mutablePreferencesOf()` rather than a DataStore file (the DataStore delegate is a process singleton, see B3.1), reflects over every field with a changed valid value, and also checks empty preferences read as the defaults.
 
 ### B8.7 — Debounced slider writes
 - **Goal:** Dragging a Dimensions or Appearance slider updates a preview state in memory, and writes DataStore once, when the drag ends.

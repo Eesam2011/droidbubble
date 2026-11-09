@@ -99,7 +99,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B8.3 | Lazy, non-blocking glass panes | doing (code and tests done; device z-order check pending) |
 | B8.4 | No `runBlocking` in onCreate | doing (code and tests done; device reboot check pending) |
 | B8.5 | Touches don't recompose the root | doing (code and tests done; device trace pending) |
-| B8.6 | One settings mapper and distinctUntilChanged | todo |
+| B8.6 | One settings mapper and distinctUntilChanged | done |
 | B8.7 | Debounced slider writes | todo |
 | B9.1 | Restore tnum on network values | done |
 | B9.2 | Bubble numeral at least 11 sp, or the ring alone | todo |
