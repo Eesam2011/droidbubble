@@ -692,6 +692,7 @@
 - **Depends on:** B5.1.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix (accessibility).
+- **Done in code (2026-11-09):** `util/HighTextContrast.kt`: `highTextContrastFlow(resolver)` (a `callbackFlow` with a `ContentObserver`, current value first, `distinctUntilChanged`) and `readHighTextContrast`; the service's `setContent` collects it with the current value as the initial state. `HighTextContrastTest` writes the secure setting, notifies and checks the emissions. Device check still open: toggle "High contrast text" while a pill shows; the outline switches within 1 s.
 
 ---
 

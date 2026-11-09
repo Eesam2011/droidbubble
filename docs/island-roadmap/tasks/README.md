@@ -86,7 +86,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B4.5 | Dismissed cards return only on a real state change | done |
 | B5.1 | High-contrast outline on all four edges | done |
 | B5.2 | Text tokens; placeholder at 4.9:1 | done |
-| B5.3 | React live to system high contrast | todo |
+| B5.3 | React live to system high contrast | doing (code and test done; device check pending) |
 | B6.1 | No invented reply chips | done |
 | B6.2 | Ringing calls and alarms tuck instead of dismiss | done |
 | B6.3 | Open targets: contentIntent first | doing (code and tests done; device check pending) |

@@ -563,11 +563,9 @@ class IslandOverlayService : Service() {
             setContent {
                 val storedSettings by settingsFlow.collectAsState(initial = currentSettings)
                 // High contrast: the app's own setting, or Android's "High contrast text"
-                val systemHighContrast = remember {
-                    runCatching {
-                        android.provider.Settings.Secure.getInt(contentResolver, "high_text_contrast_enabled", 0) == 1
-                    }.getOrDefault(false)
-                }
+                // B5.3: followed live, so switching it in Accessibility settings restyles the island at once
+                val systemHighContrast by remember { com.droidbubble.app.util.highTextContrastFlow(contentResolver) }
+                    .collectAsState(initial = com.droidbubble.app.util.readHighTextContrast(contentResolver))
                 val highContrast = storedSettings.highContrast || systemHighContrast
                 SideEffect { com.droidbubble.app.island.IslandTokens.highContrast = highContrast }
                 val liveSettings = if (highContrast) {
