@@ -146,7 +146,12 @@ fun compactWindowSpec(i: WindowInputs): WindowSpec {
         (if (s.showMedia && i.mediaShown) 1 else 0) +
         (if (s.showLiveProgress && i.progressShown) 1 else 0) +
         (if (flashlight) 1 else 0)
-    val isDual = !charging && !unlock && !connection && !ringer && activeCount >= 2
+    // The view's rule (IslandView isDual): two activities, or no activity and both persistent
+    // widgets (weather in the pill, network speed in the bubble). Missing the second case clipped
+    // the bubble once the settled window hugged the pill (B2.2).
+    val persistentCount = (if (s.showWeather) 1 else 0) + (if (s.showNetworkSpeed) 1 else 0)
+    val isDual = !charging && !unlock && !connection && !ringer &&
+        (activeCount >= 2 || (activeCount == 0 && persistentCount >= 2))
 
     val totalWidthDp = if (charging) {
         val chargingPillWidth = (s.widthDp + 20f).coerceAtLeast(140f)

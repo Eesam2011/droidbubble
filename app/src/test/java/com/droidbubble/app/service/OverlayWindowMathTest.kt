@@ -95,6 +95,9 @@ class OverlayWindowMathTest {
         Row("left cutout, settled", WindowInputs(d.copy(isLeftCutout = true), media = true, settled = true), compact(null, h = 54f)),
         Row("expanded ignores settled", WindowInputs(d, media = true, expanded = true, settled = true), WindowSpec.FullScreen),
         Row("idle, settled", WindowInputs(d, settled = true), WindowSpec.Gone),
+        // Weather in the pill and network speed in the bubble, with nothing else active: a dual pill
+        Row("weather + network, settled", WindowInputs(d.copy(showWeather = true, showNetworkSpeed = true), settled = true), compact(288f, h = 54f)),
+        Row("weather + network + media, settled: single", WindowInputs(d.copy(showWeather = true, showNetworkSpeed = true), media = true, settled = true), compact(204f, h = 54f)),
 
         // B3.1: each notification kind has its own toggle; "Incoming Notifications" is messages only
         Row("timer, defaults (showNotifications = false)", WindowInputs(d, notification = true, notificationGate = NotificationGateKind.LIVE), compact(260f)),
