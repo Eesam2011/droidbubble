@@ -815,7 +815,7 @@ class NotificationReceiverService : NotificationListenerService() {
         val actions = notification.actions
         actions?.forEach { action ->
             val aTitle = (action?.title?.toString() ?: "").lowercase(java.util.Locale.ROOT)
-            if (aTitle.contains("hang up") || aTitle.contains("hangup") || aTitle.contains("end") || aTitle.contains("leave") || aTitle.contains("disconnect")) {
+            if (aTitle.hasWord("hang up", "hangup", "end", "leave", "disconnect")) {
                 activeEndCallAction = action
             } else if (aTitle.contains("mute") || aTitle.contains("unmute") || aTitle.contains("speaker") || aTitle.contains("audio")) {
                 if (activeMuteOrSpeakerAction == null || aTitle.contains("mute")) {
@@ -993,7 +993,7 @@ class NotificationReceiverService : NotificationListenerService() {
         val actions = notification.actions
         actions?.forEach { action ->
             val aTitle = (action.title?.toString() ?: "").lowercase()
-            if (aTitle.contains("stop") || aTitle.contains("end") || aTitle.contains("finish")) {
+            if (aTitle.hasWord("stop", "end", "finish")) {
                 activeStopAction = action
             } else if (aTitle.contains("pause")) {
                 activePauseAction = action
@@ -1288,8 +1288,7 @@ class NotificationReceiverService : NotificationListenerService() {
                 extras.getParcelable(key) as? PendingIntent
             }
         fun actionIntent(vararg words: String): PendingIntent? = notification.actions?.firstOrNull { action ->
-            val t = action.title?.toString()?.lowercase() ?: ""
-            words.any { t.contains(it) }
+            (action.title?.toString() ?: "").hasWord(*words)
         }?.actionIntent
         val answerIntent = if (isCall) callIntent("android.answerIntent") ?: actionIntent("answer", "accept") else null
         val declineIntent = if (isCall) {

@@ -590,6 +590,7 @@
 - **Depends on:** S5.3.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Fix.
+- **Done (2026-11-09):** `service/ActionWords.kt` `hasWord` (Locale.ROOT, neither neighbour a letter or digit) replaces the ongoing-call end action, the recorder stop action and `actionIntent`. The `hasHangupAction` list (`== "end"`) was already safe and is unchanged. S5.3: only `message/send_action_en` changed, its decline intent is gone in both columns (it stays kind CALL: its category is `call`).
 
 ### B4.4 — Fewer screen-recording false positives
 - **Goal:** An idle "Screen recorder: tap to start" notification from a third-party app doesn't put the island into recording mode.

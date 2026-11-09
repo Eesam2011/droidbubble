@@ -56,9 +56,6 @@ class FixtureCharacterizationTest {
         put("screenrec/samsung_es|defaults", "A4")
         put("screenrec/xiaomi_id|messages_on", "A4")
         put("screenrec/xiaomi_id|defaults", "A4")
-        // B4.3: "Send" matches "end" and becomes a decline intent
-        put("message/send_action_en|messages_on", "B4.3")
-        put("message/send_action_en|defaults", "B4.3")
         // B4.4: an idle third-party recorder is taken as a recording
         put("screenrec/thirdparty_idle_en|messages_on", "B4.4")
         put("screenrec/thirdparty_idle_en|defaults", "B4.4")
