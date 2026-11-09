@@ -850,6 +850,7 @@
 - **Depends on:** S4.1, S2.2.
 - **Effort:** S   **Risk:** low — the equalizer looks slightly less fluid at 30 fps. That's intended (06 R5: ≤ 30 fps).
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** the equalizer steps after `delay(33)` (66 in Battery Saver) and skips a step when the real bands are unchanged; the dot reads its pulse in `graphicsLayer` and draws with `drawBehind`. The S4.1 "5 s playing media pill" root count was already 0 (the equalizer only invalidates its own Canvas), so the 50 % target doesn't apply to the root; the gain is frame requests, which only a device shows. S2: six media images re-recorded after review (only the equalizer bars differ at the frozen clock); the recording-dot image is unchanged. Device check still open: "Show refresh rate" drops below the top rate with music playing and the island at rest.
 
 ### B8.2 — Media slider driven by the playback clock, no 250 ms ticker
 - **Goal:** The expanded media card no longer recomposes on every frame while playing. The slider moves in the draw phase, and the time labels update once per second.

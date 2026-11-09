@@ -187,6 +187,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -4091,12 +4092,17 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
         label = "pulse_alpha"
     )
 
+    // B8.1: the pulse is read in the layer and draw phases only, so the dot never recomposes
     Box(
         modifier = modifier
             .size(11.dp)
-            .scale(1f + (alpha * 0.12f))
-            .clip(CircleShape)
-            .background(Color(0xFFFF3B30).copy(alpha = alpha))
+            .graphicsLayer {
+                val a = alpha
+                scaleX = 1f + a * 0.12f
+                scaleY = 1f + a * 0.12f
+                this.alpha = a
+            }
+            .drawBehind { drawCircle(Color(0xFFFF3B30)) }
     )
 }
 
@@ -4118,13 +4124,18 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = Color(0xFFE5E5EA))
             return@LaunchedEffect
         }
         val start = withInfiniteAnimationFrameMillis { it }
-        var tickCount = 0
+        // B8.1: at most ~30 steps a second (15 in Battery Saver) instead of one per vsync, so a
+        // playing pill no longer holds an adaptive display at its top refresh rate. The audio
+        // data itself arrives at 20 Hz or less (AudioLevels).
+        val lastBands = FloatArray(shown.size) { -1f }
         while (true) {
+            delay(if (AudioPowerPolicy.lowPower) EQ_STEP_LOW_POWER_MS else EQ_STEP_MS)
             withInfiniteAnimationFrameMillis { now ->
-                // Battery Saver: redraw every other frame
-                if (AudioPowerPolicy.lowPower && (tickCount++ and 1) == 1) return@withInfiniteAnimationFrameMillis
                 val t = (now - start) / 1000f
                 val real = OutputAudioBands.hasSignal
+                // A real signal that hasn't changed since the last step needs no redraw
+                if (real && shown.indices.all { OutputAudioBands.bands[it] == lastBands[it] }) return@withInfiniteAnimationFrameMillis
+                if (real) for (i in shown.indices) lastBands[i] = OutputAudioBands.bands[i]
                 for (i in shown.indices) {
                     val target = if (real) {
                         0.14f + 0.86f * OutputAudioBands.bands[i]
@@ -4157,6 +4168,8 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = Color(0xFFE5E5EA))
 }
 
 private val EQ_FAKE_SPEED = floatArrayOf(7.0f, 8.3f, 6.0f)
+private const val EQ_STEP_MS = 33L
+private const val EQ_STEP_LOW_POWER_MS = 66L
 
 private fun formatDuration(millis: Long): String {
     val totalSeconds = (millis / 1000).coerceAtLeast(0)
