@@ -64,6 +64,8 @@ private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
 class NotificationReceiverService : NotificationListenerService() {
 
     companion object {
+        /** B10.2: media refresh bursts are collected for this long. */
+        const val MEDIA_REFRESH_DEBOUNCE_MS = 100L
         var instance: NotificationReceiverService? = null
             private set
     }
@@ -367,8 +369,50 @@ class NotificationReceiverService : NotificationListenerService() {
         serviceScope.cancel()
     }
 
-    fun refreshMedia(candidateController: MediaController? = null) =
-        traced("db.refreshMedia") { guarded("refreshMedia") { refreshMediaTraced(candidateController) } }
+    /**
+     * B10.2: media callbacks, window events and posts arrive in bursts. They are collected into one
+     * run 100 ms after the first (the newest candidate controller wins). A call made while a run is
+     * pending is folded into it, and a call after the run schedules a new one, so the last event is
+     * always followed by a run.
+     */
+    fun refreshMedia(candidateController: MediaController? = null) {
+        if (candidateController != null) pendingCandidate = candidateController
+        if (refreshScheduled) return
+        refreshScheduled = true
+        mainHandler.postDelayed(runRefresh, MEDIA_REFRESH_DEBOUNCE_MS)
+    }
+
+    private val mainHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    private var refreshScheduled = false
+    private var pendingCandidate: MediaController? = null
+    private var lastMediaSignature: List<Any?>? = null
+
+    @androidx.annotation.VisibleForTesting
+    internal var mediaRefreshRunsForTest = 0
+
+    private val runRefresh = Runnable {
+        refreshScheduled = false
+        val candidate = pendingCandidate
+        pendingCandidate = null
+        mediaRefreshRunsForTest++
+        traced("db.refreshMedia") { guarded("refreshMedia") { refreshMediaTraced(candidate) } }
+    }
+
+    /**
+     * What a refresh depends on. Equal to the last applied one, with no new candidate, means the
+     * refresh would publish the same thing. A 30 s bucket lets a stale paused session still expire.
+     */
+    private fun mediaSignature(controllers: List<MediaController>): List<Any?> = listOf(
+        currentSettings.showMedia, currentSettings.dismissMediaOnPause,
+        System.currentTimeMillis() / 30_000L,
+    ) + controllers.map { c ->
+        val meta = c.metadata
+        listOf(
+            c.sessionToken, c.playbackState?.state, (c.playbackState?.position ?: 0L) / 1000L,
+            meta?.getString(MediaMetadata.METADATA_KEY_TITLE), meta?.getString(MediaMetadata.METADATA_KEY_ARTIST),
+            meta?.getString(MediaMetadata.METADATA_KEY_ALBUM),
+        )
+    }
 
     private fun refreshMediaTraced(candidateController: MediaController?) {
         CrashLog.breadcrumb("nrs", "refreshMedia candidate=${candidateController?.packageName ?: "-"}")
@@ -378,6 +422,9 @@ class NotificationReceiverService : NotificationListenerService() {
             if (candidateController != null && controllers.none { it.packageName == candidateController.packageName }) {
                 controllers.add(candidateController)
             }
+            val signature = mediaSignature(controllers)
+            if (candidateController == null && signature == lastMediaSignature) return
+            lastMediaSignature = signature
             syncControllers(controllers)
             updateActiveMediaController(controllers)
         } catch (_: Exception) {
@@ -437,7 +484,7 @@ class NotificationReceiverService : NotificationListenerService() {
             ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM)?.takeIf { it.isNotBlank() }
         if (!rawTitle.isNullOrBlank()) return rawTitle
 
-        val notif = activeNotifications?.firstOrNull { it.packageName == controller.packageName }
+        val notif = mediaNotificationOf(controller.packageName)
         val notifTitle = notif?.notification?.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }
             ?: notif?.notification?.extras?.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.takeIf { it.isNotBlank() }
         return notifTitle
@@ -511,6 +558,16 @@ class NotificationReceiverService : NotificationListenerService() {
         activeMediaController = best
         updateMediaInfo()
     }
+
+    /**
+     * B10.2: the media apps' own notifications, by key, kept from onNotificationPosted and
+     * onNotificationRemoved. The media path used to call activeNotifications, a binder call that
+     * unparcels every notification (bitmaps included), several times per refresh.
+     */
+    private val mediaNotifications = HashMap<String, StatusBarNotification>()
+
+    private fun mediaNotificationOf(packageName: String): StatusBarNotification? =
+        mediaNotifications.values.lastOrNull { it.packageName == packageName }
 
     private val artRequests = ArtRequests()
     private var cachedArtSourceSize: Pair<Int, Int>? = null
@@ -597,7 +654,7 @@ class NotificationReceiverService : NotificationListenerService() {
             ?: metadata?.getString(MediaMetadata.METADATA_KEY_COMPOSER)?.takeIf { it.isNotBlank() }
             ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)?.takeIf { it.isNotBlank() }
 
-        val notif = activeNotifications?.firstOrNull { it.packageName == controller.packageName }
+        val notif = mediaNotificationOf(controller.packageName)
         val notifArtist = notif?.notification?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }
             ?: notif?.notification?.extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
             ?: notif?.notification?.extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.takeIf { it.isNotBlank() }
@@ -1178,6 +1235,7 @@ class NotificationReceiverService : NotificationListenerService() {
 
         // 2. Skip media notifications (Media controls are handled exclusively via MediaSessionManager with slider & controls)
         if (isMediaNotification(sbn, notification)) {
+            mediaNotifications[sbn.key] = sbn
             val token: android.media.session.MediaSession.Token? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 extras.getParcelable(Notification.EXTRA_MEDIA_SESSION, android.media.session.MediaSession.Token::class.java)
             } else {
@@ -1435,6 +1493,7 @@ class NotificationReceiverService : NotificationListenerService() {
             activeMuteOrSpeakerAction = null
             IslandStateManager.updateCallState(ActiveCallState(isActive = false))
         }
+        mediaNotifications.remove(sbn.key)
         val notifObj = sbn.notification
         if (notifObj != null && (isMediaNotification(sbn, notifObj) || sbn.packageName == activeMediaController?.packageName)) {
             refreshMedia()

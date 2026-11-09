@@ -1032,6 +1032,7 @@
 - **Depends on:** B10.1 (same function, so serialize).
 - **Effort:** M   **Risk:** med — a missed final state after a burst. Mitigation: trailing-edge debounce, so the last event always runs.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** `refreshMedia` posts one run 100 ms after the first call of a burst (the newest candidate wins); calls during the wait fold into it, a call after it schedules another. The run skips when `(settings, 30 s bucket, each session's token, state, position second, title, artist, album)` is unchanged and there is no candidate. `mediaNotifications` (by key, kept in posted/removed) replaces `activeNotifications` in `getControllerTitle` and `updateMediaInfo`; the like toggle (a user tap) and the listener-connected replay still use it. The accessibility service refreshes only when the foreground package changes. `MediaRefreshDebounceTest`: 20 calls in 50 ms make 1 run, a later call another. Device check still open: the pill reacts to play and pause within 150 ms.
 
 ### B10.3 — Notification parsing on a parser dispatcher, applied in post order
 - **Goal:** The heavy part of `onNotificationPosted` runs on a single background thread, and the results reach `IslandStateManager` on main in post order. A late result for a removed notification is dropped.

@@ -29,6 +29,8 @@ class IslandAccessibilityService : AccessibilityService() {
         IslandOverlayService.onAccessibilityServiceChanged(this)
     }
 
+    private var lastRefreshPackage: String? = null
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
@@ -44,7 +46,11 @@ class IslandAccessibilityService : AccessibilityService() {
             if (pkg == IslandStateManager.dismissedMediaPackage) {
                 IslandStateManager.unDismissMedia(pkg)
             }
-            NotificationReceiverService.instance?.refreshMedia()
+            // B10.2: only when the foreground app changes, not on every window event
+            if (pkg != lastRefreshPackage) {
+                lastRefreshPackage = pkg
+                NotificationReceiverService.instance?.refreshMedia()
+            }
         }
     }
 
