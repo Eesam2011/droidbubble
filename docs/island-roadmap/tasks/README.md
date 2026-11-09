@@ -84,8 +84,8 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B4.3 | Whole-word "end" matching | done |
 | B4.4 | Fewer screen-recording false positives | done |
 | B4.5 | Dismissed cards return only on a real state change | done |
-| B5.1 | High-contrast outline on all four edges | todo |
-| B5.2 | Text tokens; placeholder at 4.9:1 | todo |
+| B5.1 | High-contrast outline on all four edges | done |
+| B5.2 | Text tokens; placeholder at 4.9:1 | done |
 | B5.3 | React live to system high contrast | todo |
 | B6.1 | No invented reply chips | done |
 | B6.2 | Ringing calls and alarms tuck instead of dismiss | done |
@@ -102,7 +102,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B8.6 | One settings mapper and distinctUntilChanged | done |
 | B8.7 | Debounced slider writes | done |
 | B9.1 | Restore tnum on network values | done |
-| B9.2 | Bubble numeral at least 11 sp, or the ring alone | todo |
+| B9.2 | Bubble numeral at least 11 sp, or the ring alone | done |
 | B10.1 | Sampled off-main art decode | doing (code and tests done; device track-skip check pending) |
 | B10.2 | Debounced refreshMedia without activeNotifications | doing (code and tests done; device latency check pending) |
 | B10.3 | Parser dispatcher and per-key sequence numbers | doing (code and tests done; device trace pending) |

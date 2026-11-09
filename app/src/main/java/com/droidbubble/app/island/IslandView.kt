@@ -527,7 +527,7 @@ fun IslandOverlayRoot(
     val flashlightOutline = Color.White.copy(alpha = 0.25f)
 
     // Card 1 (Main Island):
-    val primaryOutlineColor = when {
+    val primaryTaskOutline = when {
         isCharging -> Color(0xFF30D158).copy(alpha = 0.30f)
         primaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
         primaryPriority == IslandPriority.MEDIA -> mediaOutline
@@ -537,12 +537,16 @@ fun IslandOverlayRoot(
 
     // Card 2 / Auxiliary Bubble (Secondary Island):
     // Secondary islands have the color of their respective task (15% opacity white usually, or red for recording) instead of the media color
-    val secondaryOutlineColor = when {
+    val secondaryTaskOutline = when {
         secondaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
         secondaryPriority == IslandPriority.MEDIA -> mediaOutline
         secondaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
         else -> defaultTaskOutline
     }
+    // B5.1: high contrast draws every island edge (pill, bubble, both cards) with the 55 % white
+    // outline instead of the tasks' 15 % tints
+    val primaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else primaryTaskOutline
+    val secondaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else secondaryTaskOutline
 
     val speed = settings.animationSpeed.coerceIn(0.5f, 2.0f)
     val speedSq = speed * speed
@@ -1836,6 +1840,7 @@ fun IslandOverlayRoot(
                         .clip(compactPillShape)
                         .background(if (animatedCompactWidth > 2.dp) Color.Black else Color.Transparent)
                         .then(
+                            // Deliberately no pill outline in notch style: the notch is fused to the screen edge
                             if (settings.showOutline && !settings.isNotch && animatedCompactWidth > 8.dp) {
                                 Modifier.border(
                                     width = settings.outlineThicknessDp.dp,
@@ -2471,19 +2476,30 @@ fun AuxiliaryBubbleContent(
                         trackColor = Color(0xFF2C2C2E)
                     )
                 } else {
-                    CircularProgressIndicator(
-                        progress = { pct },
-                        modifier = Modifier.size(17.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFFE5E5EA),
-                        trackColor = Color(0xFF2C2C2E)
-                    )
-                    Text(
-                        text = "${(pct * 100).roundToInt()}",
-                        color = Color.White,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    // B9.2: a readable numeral (11 sp bold, never smaller) in a ring sized by the
+                    // bubble; when the number doesn't fit at this font scale, the ring shows alone
+                    BoxWithConstraints(contentAlignment = Alignment.Center) {
+                        val ring = bubbleRingDiameter(minOf(maxWidth, maxHeight))
+                        val label = "${(pct * 100).roundToInt()}"
+                        val numeralStyle = LocalTextStyle.current.merge(
+                            TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        )
+                        val measurer = rememberTextMeasurer()
+                        val density = LocalDensity.current
+                        val labelWidth = with(density) { measurer.measure(label, numeralStyle).size.width.toDp() }
+                        // Digits are about 0.72 em tall: the box that must sit inside the circle
+                        val digitHeight = with(density) { 11.sp.toDp() } * 0.72f
+                        CircularProgressIndicator(
+                            progress = { pct },
+                            modifier = Modifier.size(ring),
+                            strokeWidth = BUBBLE_RING_STROKE,
+                            color = Color(0xFFE5E5EA),
+                            trackColor = Color(0xFF2C2C2E)
+                        )
+                        if (bubbleNumeralFits(labelWidth, digitHeight, ring)) {
+                            Text(text = label, style = numeralStyle, maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
         }
@@ -2704,7 +2720,7 @@ fun CompactContent(
                             Icon(
                                 imageVector = Icons.Default.MusicNote,
                                 contentDescription = null,
-                                tint = Color(0xFFA1A1AA),
+                                tint = IslandTokens.TextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -3207,9 +3223,9 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     }
 
     val durationTextTint = if (mediaAccentColor != Color.Transparent) {
-        lerp(Color(0xFF8E8E93), mediaAccentColor, 0.35f)
+        lerp(IslandTokens.TextTertiary, mediaAccentColor, 0.35f)
     } else {
-        Color(0xFF8E8E93)
+        IslandTokens.TextTertiary
     }
 
     // Time labels use tabular digits and a fixed width sized for the longest possible value,
@@ -3698,7 +3714,8 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                             if (replyText.isEmpty()) {
                                 Text(
                                     text = replyAction?.remoteInputLabel ?: "Type a reply...",
-                                    color = Color(0xFF71717A),
+                                    // B5.2: TextTertiary on the input reaches 4.5:1 (#71717A was about 3.3:1)
+                                    color = IslandTokens.TextTertiary,
                                     fontSize = 14.sp
                                 )
                             }
@@ -3714,6 +3731,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         Icon(
                             imageVector = Icons.Default.Send,
                             contentDescription = "Send Reply",
+                            // Disabled Send keeps its dimmer grey: disabled controls are exempt from contrast
                             tint = if (replyText.isNotBlank()) Color.White else Color(0xFF52525B),
                             modifier = Modifier.size(18.dp)
                         )
@@ -3729,7 +3747,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Cancel",
-                            tint = Color(0xFF71717A),
+                            tint = IslandTokens.TextTertiary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -3929,7 +3947,7 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "Ready for Media, Notifications & Recording",
-            color = Color(0xFFA1A1AA),
+            color = IslandTokens.TextSecondary,
             fontSize = 12.sp
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -4115,4 +4133,20 @@ private fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, glas
                 )
         )
     }
+}
+
+/** B9.2: the bubble's progress ring stroke. */
+val BUBBLE_RING_STROKE = 2.dp
+
+/** B9.2: the progress ring in a bubble of [bubble] size: 5 dp in from each side, 22 to 28 dp. */
+fun bubbleRingDiameter(bubble: Dp): Dp = (bubble - 10.dp).coerceIn(22.dp, 28.dp)
+
+/**
+ * B9.2: the numeral's box ([labelWidth] by [digitHeight]) fits inside the ring's opening (its
+ * diagonal no longer than the inner diameter, with 0.5 dp to spare per side). Comparing the width
+ * alone let the corners of a wide number touch the ring at large font scales.
+ */
+fun bubbleNumeralFits(labelWidth: Dp, digitHeight: Dp, ring: Dp): Boolean {
+    val inner = (ring - BUBBLE_RING_STROKE * 2 - 1.dp).value
+    return kotlin.math.hypot(labelWidth.value, digitHeight.value) <= inner
 }

@@ -572,8 +572,8 @@ class IslandOverlayService : Service() {
                 SideEffect { com.droidbubble.app.island.IslandTokens.highContrast = highContrast }
                 val liveSettings = if (highContrast) {
                     storedSettings.copy(
+                        // The colour comes from IslandTokens.HighContrastOutline in the view (B5.1)
                         showOutline = true,
-                        outlineColorArgb = 0x8CFFFFFF,
                         outlineThicknessDp = storedSettings.outlineThicknessDp.coerceAtLeast(1.5f)
                     )
                 } else {

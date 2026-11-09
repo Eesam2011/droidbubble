@@ -658,6 +658,7 @@
 - **Depends on:** S2.2.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Polish (accessibility fix).
+- **Done (2026-11-09), approved by the owner from screenshots:** `primaryOutlineColor` / `secondaryOutlineColor` use `IslandTokens.HighContrastOutline` when high contrast is on (the tasks' tints otherwise). The service's unused `outlineColorArgb = 0x8CFFFFFF` override is removed; the thickness floor stays. Notch keeps no pill outline, with a comment. S2 `expanded_message__hc` re-recorded; defaults unchanged.
 
 ### B5.2 — Text tokens instead of literal greys, and a readable placeholder
 - **Goal:** All secondary and tertiary island text reacts to high contrast, and the reply placeholder reaches at least 4.5:1.
@@ -677,6 +678,7 @@
 - **Depends on:** S2.2. **Serialize with B9.1**, which edits `:4579` and `:4610` too.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Polish (accessibility fix).
+- **Done (2026-11-09), approved by the owner:** the remaining literals (several went with the weather and network cards) now use `TextSecondary` / `TextTertiary`; disabled Send keeps `#52525B` with a comment. `IslandLegibilityTest` checks `TextTertiary` on `SurfaceMuted` ≥ 4.5:1 (and that `#71717A` wasn't). S2 reply states re-recorded (placeholder and Cancel).
 
 ### B5.3 — High contrast reacts live to the system setting
 - **Goal:** Turning Android's "High contrast text" on or off restyles the island at once, with no restart.
@@ -995,6 +997,7 @@
 - **Depends on:** S2.2.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Polish (typography fix).
+- **Done (2026-11-09), approved by the owner:** ring `bubbleRingDiameter(bubble)` = bubble − 10 dp in 22–28 dp, 11 sp bold numeral. Deviation: the fit rule checks the digit box (`hypot(width, 0.72 em)`) against the ring opening with 0.5 dp spare, because a width-only check let "42" touch the ring at font 1.5; "100" still fits at 1.0 in a 26 dp ring. New S2 states `dual_media_download` at font 1.0 and 1.5; `IslandLegibilityTest` covers the ring and fit rules.
 
 ---
 

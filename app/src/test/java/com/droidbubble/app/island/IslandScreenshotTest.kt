@@ -2,6 +2,7 @@ package com.droidbubble.app.island
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -45,13 +46,14 @@ class IslandScreenshotTest {
     val rule = createAndroidComposeRule<ComponentActivity>()
     private val h = IslandHarness(rule)
     private val settings = mutableStateOf(BASE)
+    private val fontScale = mutableFloatStateOf(1f)
 
     @Before
     fun setUp() {
         IslandStateManager.resetForTest()
         IslandTokens.highContrast = false
         h.freezeClock()
-        h.setContent(settings)
+        h.setContent(settings, fontScale)
     }
 
     @After
@@ -135,6 +137,18 @@ class IslandScreenshotTest {
         IslandStateManager.expand(null)
     }
 
+    // B9.2: media in the pill and a download in the bubble, whose ring shows the percentage at 11 sp
+    // when it fits (font 1.0) and alone when it doesn't (font 1.5)
+    @Test fun dualMediaDownloadBubble() = shot("dual_media_download") {
+        IslandStateManager.updateMedia(IslandFixtures.song)
+        IslandStateManager.updateProgress(IslandFixtures.progress(42))
+    }
+
+    @Test fun dualMediaDownloadBubbleLargeFont() = shot("dual_media_download", variant = "font_1_5", font = 1.5f) {
+        IslandStateManager.updateMedia(IslandFixtures.song)
+        IslandStateManager.updateProgress(IslandFixtures.progress(42))
+    }
+
     // ---- helpers ----
 
     private fun openReply() {
@@ -149,12 +163,14 @@ class IslandScreenshotTest {
         s: IslandSettings = BASE,
         variant: String = "default",
         highContrast: Boolean = false,
+        font: Float = 1f,
         after: () -> Unit = {},
         setUp: () -> Unit,
     ) {
         rule.runOnIdle {
             IslandTokens.highContrast = highContrast
             settings.value = s
+            fontScale.floatValue = font
         }
         h.advanceFrozen(100)
         rule.runOnIdle(setUp)
