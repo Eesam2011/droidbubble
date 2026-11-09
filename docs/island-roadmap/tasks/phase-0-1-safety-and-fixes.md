@@ -541,6 +541,7 @@
 
 ## B4 — Heuristic hardening
 
+- **Owner change (2026-11-09):** at the owner's request the Live Activities row is the last row of the Island Activities group (`GroupPosition.BOTTOM`; the last reorderable row is now `MIDDLE`), not a separate card. Still not a `featurePriorities` key and not draggable; a blank handle slot keeps its icon in line.
 ### B4.1 — Strict score regex, TRACKING before SPORTS, no Google app in sports hints
 - **Goal:** Times such as "Arrive at 10:45 PM" or "Boarding at 10:30 Gate B" are never parsed as scores, and ride or flight updates get the tracking design.
 - **Why:** 04 P1-4: `SCORE_REGEX` accepts `:`, and SPORTS is checked before TRACKING. 04 R6. 04 P1-5: `googlequicksearchbox` in the sports hints pops every Google app notification.
