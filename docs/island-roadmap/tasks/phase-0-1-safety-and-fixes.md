@@ -915,6 +915,7 @@
 - **Depends on:** S4.1.
 - **Effort:** S   **Risk:** low.
 - **Ships as:** Perf.
+- **Done in code (2026-11-09):** a conflated `Channel<Boolean>` carries pressed/released changes; one `LaunchedEffect(isExpanded, isKeyboardFocused, isCallRinging)` waits for the release, then `withTimeoutOrNull(3000)`. New S4.1 scenario `FLASHLIGHT_DRAG_1S` records 1 (baseline set to the spec's 2). **Limit:** on Robolectric `SystemClock.uptimeMillis()` doesn't advance during injected touches, so the old code also measures 1 there: the S4.1 scenario guards against a regression but can't show the old cost. Device check still open: a Perfetto trace of a slider drag (`db.root.compositions` counter, S4.3). Crash test `heldPress_blocksAutoCollapse_releaseCollapsesAfter3s` added.
 
 ### B8.6 — One settings mapper, distinct emissions
 - **Goal:** Preferences map to `IslandSettings` in exactly one function, and the settings flow emits only real changes.

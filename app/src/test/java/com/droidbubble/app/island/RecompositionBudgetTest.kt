@@ -8,6 +8,10 @@ import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.NetworkSpeedInfo
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.performTouchInput
+import com.droidbubble.app.model.IslandPriority
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -106,6 +110,25 @@ class RecompositionBudgetTest {
         frames(2000)
         val n = measure { frames(5000) }
         check("MEDIA_PILL_REST_5S", n, PerfBaseline.MEDIA_PILL_REST_5S)
+    }
+
+    @Test
+    fun flashlightCardDrag_1s() {
+        // B8.5: a finger dragging on the expanded card for 1 s at 120 Hz input
+        rule.runOnIdle {
+            IslandStateManager.updateFlashlightState(true, 2, 4)
+            IslandStateManager.expand(IslandPriority.FLASHLIGHT)
+        }
+        frames(1500)
+        val n = measure {
+            rule.onAllNodesWithTag(IslandTestTags.CARD)[0].performTouchInput {
+                down(center)
+                repeat(120) { moveBy(Offset(0.5f, 0f), delayMillis = 8) }
+                up()
+            }
+            frames(100)
+        }
+        check("FLASHLIGHT_DRAG_1S", n, PerfBaseline.FLASHLIGHT_DRAG_1S)
     }
 
     @Test

@@ -13,5 +13,6 @@ object PerfBaseline {
     const val MEDIA_COLLAPSE_600MS = 37
     const val MEDIA_PILL_REST_5S = 0
     const val TIMER_PILL_5S = 0
+    const val FLASHLIGHT_DRAG_1S = 2
     const val NETWORK_SPEED_1HZ_3S = 81
 }

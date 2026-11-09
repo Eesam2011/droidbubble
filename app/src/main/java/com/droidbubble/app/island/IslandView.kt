@@ -179,6 +179,8 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.channels.Channel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -1217,14 +1219,25 @@ fun IslandOverlayRoot(
     }
 
     // Auto-collapse: an expanded island folds back after 3s without any touch on it
-    // (never while a finger is down or while typing a reply)
-    var lastTouchAt by remember { mutableLongStateOf(0L) }
-    var isTouching by remember { mutableStateOf(false) }
+    // (never while a finger is down or while typing a reply).
+    // B8.5: touches reach this loop through a channel (pressed / released, sent only when that
+    // changes), so composition never reads touch state and a slider drag doesn't recompose the root.
+    val touchPresses = remember { Channel<Boolean>(Channel.CONFLATED) }
     val isCallRinging = currentNotif?.isIncomingCall == true
-    LaunchedEffect(isExpanded, lastTouchAt, isTouching, isKeyboardFocused, isCallRinging) {
-        if (isExpanded && !isTouching && !isKeyboardFocused && !isCallRinging) {
-            delay(3000)
-            IslandStateManager.collapse()
+    LaunchedEffect(isExpanded, isKeyboardFocused, isCallRinging) {
+        if (!isExpanded || isKeyboardFocused || isCallRinging) return@LaunchedEffect
+        var pressed = false
+        while (true) {
+            if (pressed) {
+                pressed = touchPresses.receive()
+            } else {
+                val next = withTimeoutOrNull(3000) { touchPresses.receive() }
+                if (next == null) {
+                    IslandStateManager.collapse()
+                    return@LaunchedEffect
+                }
+                pressed = next
+            }
         }
     }
 
@@ -1237,13 +1250,18 @@ fun IslandOverlayRoot(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Observe (never consume) every touch so the auto-collapse timer restarts
+            // Observe (never consume) every touch: a press holds off the auto-collapse and a
+            // release restarts its 3s. Only changes of the pressed state are sent (B8.5).
             .pointerInput(Unit) {
                 awaitPointerEventScope {
+                    var wasPressed = false
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
-                        isTouching = event.changes.any { it.pressed }
-                        lastTouchAt = android.os.SystemClock.uptimeMillis()
+                        val pressed = event.changes.any { it.pressed }
+                        if (pressed != wasPressed) {
+                            wasPressed = pressed
+                            touchPresses.trySend(pressed)
+                        }
                     }
                 }
             },

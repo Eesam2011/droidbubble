@@ -9,6 +9,8 @@ import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.ScreenRecordingState
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.performTouchInput
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -130,6 +132,24 @@ class IslandOverlayCrashTest {
         assertFalse(IslandStateManager.isExpanded.value)
         assertNull("the shade notification is untouched", cancelled)
         IslandStateManager.onCancelSystemNotification = null
+    }
+
+    @Test
+    fun heldPress_blocksAutoCollapse_releaseCollapsesAfter3s() {
+        // B8.5: never collapse while a finger is down; collapse 3 s after it lifts
+        onState {
+            IslandStateManager.updateMedia(song)
+            IslandStateManager.expand(null)
+        }
+        settle()
+        rule.onAllNodesWithTag(IslandTestTags.CARD)[0].performTouchInput { down(center) }
+        settle(5000)
+        assertTrue("still expanded while held", IslandStateManager.isExpanded.value)
+        rule.onAllNodesWithTag(IslandTestTags.CARD)[0].performTouchInput { up() }
+        settle(1500)
+        assertTrue("not yet 3 s after release", IslandStateManager.isExpanded.value)
+        settle(2000)
+        assertFalse("collapsed 3 s after release", IslandStateManager.isExpanded.value)
     }
 
     @Test

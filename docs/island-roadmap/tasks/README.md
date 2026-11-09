@@ -98,7 +98,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B8.2 | Media slider without the 250 ms ticker | todo |
 | B8.3 | Lazy, non-blocking glass panes | todo |
 | B8.4 | No `runBlocking` in onCreate | todo |
-| B8.5 | Touches don't recompose the root | todo |
+| B8.5 | Touches don't recompose the root | doing (code and tests done; device trace pending) |
 | B8.6 | One settings mapper and distinctUntilChanged | todo |
 | B8.7 | Debounced slider writes | todo |
 | B9.1 | Restore tnum on network values | done |
