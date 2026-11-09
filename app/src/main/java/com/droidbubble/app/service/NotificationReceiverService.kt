@@ -926,7 +926,10 @@ class NotificationReceiverService : NotificationListenerService() {
                 combined.contains("tap to share") ||
                 combined.contains("share") ||
                 combined.contains("deleted") ||
-                combined.contains("ready")
+                combined.contains("ready") ||
+                // B4.4: an idle recorder waiting to be started isn't recording
+                combined.contains("tap to start") ||
+                combined.contains("ready to record")
     }
 
     private fun isScreenRecordingNotification(sbn: StatusBarNotification, notification: Notification): Boolean {
@@ -971,14 +974,13 @@ class NotificationReceiverService : NotificationListenerService() {
                 channelId.contains("screenrecord") ||
                 channelId.contains("screen_capture")
 
+        // B4.4: recording text alone isn't enough (a third-party recorder's idle "Screen recorder"
+        // notification says it too). It also needs a recording channel, a recorder or system-UI
+        // package (isRecordingPkg covers both), or a running chronometer.
+        val showsChronometer = extras?.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) == true
         return (isRecordingChannel && (isRecordingText || isRecordingPkg)) ||
                 (isRecordingPkg && isRecordingText) ||
-                title.contains("recording screen") ||
-                title.contains("screen recording") ||
-                title.contains("screen recorder") ||
-                text.contains("recording screen") ||
-                text.contains("screen recording") ||
-                text.contains("screen recorder")
+                (showsChronometer && isRecordingText)
     }
 
     private fun handleScreenRecordingNotification(sbn: StatusBarNotification) {

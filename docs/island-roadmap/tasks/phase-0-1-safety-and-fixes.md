@@ -605,6 +605,7 @@
 - **Depends on:** S5.3.
 - **Effort:** S   **Risk:** low — a third-party recorder that names its channel oddly may now be missed. A7.9 (the API 35 callback) is the real fix.
 - **Ships as:** Fix.
+- **Done (2026-11-09):** the bare title/text clauses are gone; a chronometer plus recording text counts; "tap to start" and "ready to record" are idle. `isRecordingPkg` already includes the system-UI packages, so that clause needed no separate line. S5.3: only `thirdparty_idle_en` changed (to none); Pixel, Samsung and Xiaomi unchanged. `ScreenRecordingDetectionTest` covers the chronometer rule and the idle text.
 
 ### B4.5 — Dismissed cards return only on a real state change
 - **Goal:** A ride or delivery card the user swiped away stays away while only its ETA or clock ticks. It comes back when the state changes, for example "Driver arriving" to "Driver has arrived".
