@@ -797,6 +797,7 @@ object IslandStateManager {
         torchToggleTimes.clear()
         stashedLiveNotification = null
         dismissedSignatures.clear()
+        CountdownTotals.resetForTest()
         dismissedProgressKeys.clear()
         dismissedMediaPackage = null
         lastTrackKey = null

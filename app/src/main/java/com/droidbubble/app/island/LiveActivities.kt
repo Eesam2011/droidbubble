@@ -294,6 +294,11 @@ object CountdownTotals {
         totals[key] = total
         return total.coerceAtLeast(1L)
     }
+
+    /** Tests only: a process singleton, so one test's timer total would leak into the next. */
+    @Synchronized
+    @androidx.annotation.VisibleForTesting
+    fun resetForTest() = totals.clear()
 }
 
 /** The notification's own buttons mapped onto the live-activity controls. */
