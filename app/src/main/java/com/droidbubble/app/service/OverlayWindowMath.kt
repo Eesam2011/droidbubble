@@ -2,6 +2,7 @@ package com.droidbubble.app.service
 
 import android.view.WindowManager
 import androidx.compose.ui.unit.dp
+import com.droidbubble.app.island.IslandTokens
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandMode
 import com.droidbubble.app.island.scene.IslandScene
@@ -85,7 +86,7 @@ fun compactWindowSpec(scene: IslandScene, targets: IslandTargets, settings: Isla
     return WindowSpec.Compact(
         widthDp = if (settings.isLeftCutout) null else totalWidthDp + 2f * abs(settings.horizontalOffsetDp),
         // Settled: the tap bounce moves the pill down about 4 dp
-        heightDp = (settings.topOffsetDp + settings.heightDp + if (settled) SETTLED_BOTTOM_DP else 12).toFloat(),
+        heightDp = (settings.topOffsetDp + settings.heightDp + if (settled) SETTLED_BOTTOM_DP else IslandTokens.Shell.WindowBottomMargin.value.toInt()).toFloat(),
         touchable = scene.wantsTouch,
     )
 }
@@ -93,7 +94,7 @@ fun compactWindowSpec(scene: IslandScene, targets: IslandTargets, settings: Isla
 /** B2.2: the settled window's room beside and below the drawn pill. */
 const val SETTLED_MARGIN_DP = 12f
 const val SETTLED_BOTTOM_DP = 6
-private const val MORPH_MARGIN_DP = 40f
+private val MORPH_MARGIN_DP = IslandTokens.Shell.WindowSideMargin.value
 
 /**
  * B2.2: how long a shape change keeps the wide envelope: long enough for the split spring at the

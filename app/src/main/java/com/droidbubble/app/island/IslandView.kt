@@ -889,7 +889,7 @@ private fun IslandOverlayContent(
 
     val showSecondaryCard = scene.showSecondaryCard
     val targetCard2Alpha = if (card2Expanded && showSecondaryCard) 1f else 0f
-    val targetCard2OffsetY = if (card2Expanded && showSecondaryCard) 0.dp else (-14).dp
+    val targetCard2OffsetY = if (card2Expanded && showSecondaryCard) 0.dp else -IslandTokens.Shell.Card2Rise
 
     val bubbleSize = settings.heightDp.dp
     val compactMainHalf = settings.widthDp.dp / 2f
@@ -1186,7 +1186,7 @@ private fun IslandOverlayContent(
                         // (where the pill morphed from), never from card content such as the
                         // media slider, buttons or the second card
                         Modifier.pointerInput(settings.heightDp) {
-                            val pillZonePx = (settings.heightDp + 20).dp.toPx()
+                            val pillZonePx = (settings.heightDp.dp + IslandTokens.Shell.PillZoneExtra).toPx()
                             var fromPillZone = false
                             var collapsed = false
                             detectVerticalDragGestures(
@@ -1195,7 +1195,7 @@ private fun IslandOverlayContent(
                                     collapsed = false
                                 },
                                 onVerticalDrag = { change, dragAmount ->
-                                    if (fromPillZone && !collapsed && dragAmount < -15f) {
+                                    if (fromPillZone && !collapsed && dragAmount < -IslandTokens.Gesture.LegacySwipeUpPx) {
                                         change.consume()
                                         collapsed = true
                                         haptics.perform(IslandHapticEvent.COLLAPSE)
@@ -1244,7 +1244,7 @@ private fun IslandOverlayContent(
                                         Modifier.pointerInput(primaryPriority) {
                                             detectHorizontalDragGestures(
                                                 onDragEnd = {
-                                                    val threshold = 160f
+                                                    val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
                                                     when (primaryPriority) {
                                                         IslandPriority.MEDIA -> {
                                                             if (abs(card1OffsetX) > threshold) {
@@ -1423,7 +1423,7 @@ private fun IslandOverlayContent(
                                         Modifier.pointerInput(secondaryPriority) {
                                             detectHorizontalDragGestures(
                                                 onDragEnd = {
-                                                    val threshold = 160f
+                                                    val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
                                                     when (secondaryPriority) {
                                                         IslandPriority.MEDIA -> {
                                                             if (abs(card2OffsetX) > threshold) {
@@ -1669,7 +1669,7 @@ private fun IslandOverlayContent(
                 val pillH = settings.heightDp.dp
                 val pillRight = animatedCompactWidth / 2f
                 val gap = (animatedBubbleOffsetX - bubbleSize / 2f) - pillRight
-                val snapGap = 5.dp
+                val snapGap = IslandTokens.Shell.NeckSnapGap
                 // 1 while the shapes overlap, 0 once the gap reaches snapGap
                 val neck = (1f - gap / snapGap).coerceIn(0f, 1f)
                 // Both ends tuck inside the round caps so only the concave waist is visible
@@ -1766,7 +1766,7 @@ private fun IslandOverlayContent(
                                     dragTotal += amount
                                 },
                                 onDragEnd = {
-                                    val threshold = 32.dp.toPx()
+                                    val threshold = IslandTokens.Gesture.LegacyPillSwipe.toPx()
                                     when {
                                         isExpanded -> Unit
                                         userMinimized && dragTotal > threshold -> {
@@ -1916,7 +1916,7 @@ private fun IslandOverlayContent(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(36.dp))
+                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
 
                             // Right: Current battery percentage in green
                             Box(
@@ -1954,7 +1954,7 @@ private fun IslandOverlayContent(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(36.dp))
+                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
 
                             // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
                             Box(
@@ -1999,7 +1999,7 @@ private fun IslandOverlayContent(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(36.dp))
+                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
 
                             // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
                             Box(
@@ -2067,7 +2067,7 @@ private fun IslandOverlayContent(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(36.dp))
+                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
 
                             // Right: Text label (Silent, Vibrate, Ring) with smooth bounce scaling & alpha
                             Box(
@@ -2633,7 +2633,7 @@ fun CompactContent(
 
         // Camera punch-hole deadzone: STRICTLY 36dp EMPTY SPACE IN THE MIDDLE!
         // No UI elements will EVER enter or overlap the camera cutout area
-        Spacer(modifier = Modifier.width(36.dp))
+        Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
 
         // Trailing content: Pinned strictly to the right of the camera punch hole
         Box(

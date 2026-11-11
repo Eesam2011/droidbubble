@@ -33,13 +33,13 @@ data class IslandTargets(
     val alertWidth: Dp?,
 )
 
-/** Width of an expanded card: 340 dp × scale, kept 8 dp inside each screen edge. */
+/** Width of an expanded card: the token width × scale, kept inside the screen gutter. */
 fun expandedCardWidth(settings: IslandSettings, env: IslandEnv): Dp =
-    (340.dp * settings.expandedScale).coerceAtMost(env.screenWidthDp.dp - 16.dp)
+    (IslandTokens.Shell.ExpandedCardWidth * settings.expandedScale).coerceAtMost(env.screenWidthDp.dp - IslandTokens.Shell.ScreenGutter)
 
 /** Centre of the settled secondary bubble, measured from the pill's centre. */
 fun bubbleRestCenterX(settings: IslandSettings): Dp =
-    settings.widthDp.dp / 2f + 6.dp + (settings.heightDp.dp / 2f)
+    settings.widthDp.dp / 2f + IslandTokens.Shell.BubbleGap + (settings.heightDp.dp / 2f)
 
 /**
  * The target sizes for a scene (F1.3). [card2Expanded] and [bubbleEmerged] are the view's short
@@ -57,9 +57,9 @@ fun deriveIslandTargets(
     val isExpanded = scene.isExpanded
     val hasAlert = scene.hasAlert
 
-    val chargingIslandWidth = (settings.widthDp + 20).dp.coerceAtLeast(140.dp)
-    val unlockIslandWidth = (settings.widthDp * 0.82f).dp.coerceAtLeast(108.dp)
-    val ringerIslandWidth = (settings.widthDp * 0.95f).dp.coerceAtLeast(130.dp)
+    val chargingIslandWidth = (settings.widthDp + IslandTokens.Shell.ChargingExtraWidthDp).dp.coerceAtLeast(IslandTokens.Shell.ChargingMinWidth)
+    val unlockIslandWidth = (settings.widthDp * IslandTokens.Shell.UnlockWidthFactor).dp.coerceAtLeast(IslandTokens.Shell.UnlockMinWidth)
+    val ringerIslandWidth = (settings.widthDp * IslandTokens.Shell.RingerWidthFactor).dp.coerceAtLeast(IslandTokens.Shell.RingerMinWidth)
     val alertWidth = when {
         v.isCharging -> chargingIslandWidth
         v.isRingerMode -> ringerIslandWidth
@@ -87,7 +87,7 @@ fun deriveIslandTargets(
     // activity cards (see LiveLayout). The squircle caps it at half the height.
     val corner = if (cardOpen) liveActivityCornerRadius(settings.expandedScale, env.fontScale) else IslandTokens.CompactCornerRadius
     // Open, the card sits below the status bar; closed, it docks over the camera
-    val top = if (cardOpen) (settings.topOffsetDp + 52).dp else settings.topOffsetDp.dp
+    val top = if (cardOpen) settings.topOffsetDp.dp + IslandTokens.Shell.ExpandedDrop else settings.topOffsetDp.dp
 
     val card2Height = if (card2Expanded && scene.showSecondaryCard) {
         cardHeightFor(scene.secondary, settings.expandedScale, measured.notification, measured.progress, env.fontScale)
@@ -100,7 +100,7 @@ fun deriveIslandTargets(
         card2Height = card2Height,
         bubbleRestX = if (bubbleEmerged && scene.emergesBubble) bubbleRestCenterX(settings) else 0.dp,
         horizontalOffset = if (!isExpanded && !hasAlert) settings.horizontalOffsetDp.dp else 0.dp,
-        cardSpacing = if (isExpanded && scene.showSecondaryCard) 10.dp else 0.dp,
+        cardSpacing = if (isExpanded && scene.showSecondaryCard) IslandTokens.Shell.CardSpacing else 0.dp,
         alertWidth = alertWidth,
     )
 }
