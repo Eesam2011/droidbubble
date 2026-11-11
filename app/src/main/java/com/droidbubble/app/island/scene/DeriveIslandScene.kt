@@ -130,5 +130,8 @@ fun deriveIslandScene(inputs: IslandInputs, settings: IslandSettings, env: Islan
         isOccupied = isOccupied,
         showSecondaryCard = showSecondaryCard,
         wantsTouch = inputs.isExpanded || (isOccupied && !inputs.userHidden),
+        isExpanded = inputs.isExpanded,
+        userHidden = inputs.userHidden,
+        userMinimized = inputs.userMinimized,
     )
 }

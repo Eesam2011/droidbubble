@@ -92,7 +92,18 @@ data class IslandScene(
     val showSecondaryCard: Boolean,
     /** True when something touchable is on screen: an open card, or a pill that shows something. */
     val wantsTouch: Boolean,
+    /** Passed through from the inputs: the target geometry depends on them. */
+    val isExpanded: Boolean = false,
+    val userHidden: Boolean = false,
+    val userMinimized: Boolean = false,
 ) {
+    /** True while a glance (charging, unlock, connection, ringer) covers the activities. */
+    val hasAlert: Boolean get() = alert != null
+
+    /** The secondary bubble sits beside the pill: dual, compact, and not swiped away or minimized. */
+    val emergesBubble: Boolean
+        get() = !hasAlert && isDual && !isExpanded && isOccupied && !userHidden && !userMinimized
+
     companion object {
         val Off = IslandScene(
             mode = IslandMode.OFF,

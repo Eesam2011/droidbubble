@@ -205,6 +205,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandInputs
+import com.droidbubble.app.island.scene.MeasuredHeights
+import com.droidbubble.app.island.scene.deriveIslandTargets
 import com.droidbubble.app.island.scene.deriveIslandScene
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
@@ -597,21 +599,21 @@ fun IslandOverlayRoot(
 
     // One spring drives the card's width, height, corner radius and drop position together,
     // so the pill-to-card morph moves as a single shape instead of four separate animations.
-    val cardMorphAnimSpec: AnimationSpec<CardMorph> = when {
+    val cardMorphAnimSpec: AnimationSpec<IslandGeometry> = when {
         isCharging || isUnlock || isBluetooth || isRingerMode -> spring(
             dampingRatio = settings.appearDamping,
             stiffness = settings.appearStiffness * speedSq,
-            visibilityThreshold = CardMorph.VisibilityThreshold
+            visibilityThreshold = IslandGeometry.VisibilityThreshold
         )
         isExpanded -> spring(
             dampingRatio = settings.expandDamping,
             stiffness = settings.expandStiffness * speedSq,
-            visibilityThreshold = CardMorph.VisibilityThreshold
+            visibilityThreshold = IslandGeometry.VisibilityThreshold
         )
         else -> spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = collapseStiffness,
-            visibilityThreshold = CardMorph.VisibilityThreshold
+            visibilityThreshold = IslandGeometry.VisibilityThreshold
         )
     }
 
@@ -849,36 +851,7 @@ fun IslandOverlayRoot(
         label = "chargingProgress"
     )
 
-    val chargingIslandWidth = (settings.widthDp + 20).dp.coerceAtLeast(140.dp)
-    val unlockIslandWidth = (settings.widthDp * 0.82f).dp.coerceAtLeast(108.dp)
-    val ringerIslandWidth = (settings.widthDp * 0.95f).dp.coerceAtLeast(130.dp)
-
-    // Minimised Island Pill: sits docked at settings.topOffsetDp.dp.
-    // When expanding, it animates from its compact width down to 0.dp.
-    // When minimising, it animates from 0.dp back to its compact width.
-    val targetCompactWidth = when {
-        !isOccupied && !settings.alwaysShowPill -> 0.dp
-        isExpanded -> 0.dp // Shrinks horizontally into 0 width while card expands!
-        isCharging -> chargingIslandWidth
-        isRingerMode -> ringerIslandWidth
-        isUnlock || isBluetooth -> unlockIslandWidth
-        // Swiped right: gone. Swiped left: shrunk into a circle around the camera.
-        userHidden -> 0.dp
-        userMinimized -> settings.heightDp.dp
-        // Dual mode keeps the main pill at full size; the secondary bubble sits beside it
-        else -> settings.widthDp.dp
-    }
-
-    // Expanded Cards: Card 1 (and Card 2 if dual mode).
-    // When expanded, Card 1 slides down to (settings.topOffsetDp + 52).dp, widening to 340.dp * scale.
-    // When minimising, Card 1 shrinks back to 0.dp width (transitioning into the small circle at the punch hole) as it slides back up.
-    val screenWidth = configuration.screenWidthDp.dp
-    val expandedCardWidth = (340.dp * settings.expandedScale).coerceAtMost(screenWidth - 16.dp)
-    val targetCard1Width = if (isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
-        expandedCardWidth
-    } else {
-        0.dp
-    }
+    val expandedCardWidth = com.droidbubble.app.island.scene.expandedCardWidth(settings, sceneEnv)
 
     // Notification card height is measured from its real content (title, wrapped body, actions)
     val notifTextMeasurer = rememberTextMeasurer()
@@ -903,22 +876,6 @@ fun IslandOverlayRoot(
     val progressBaseHeight = remember(currentProgress, settings.expandedScale, notifBaseTextStyle, notifDensity) {
         measureProgressCardHeight(currentProgress, settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
     }
-    val card1ContentHeight = cardHeightFor(primaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
-    val targetCard1Height = if (isExpanded) {
-        card1ContentHeight
-    } else {
-        settings.heightDp.dp
-    }
-
-    // One corner radius for every expanded card, concentric with the round controls of the live
-    // activity cards (see LiveLayout), so corners don't change from card to card. The squircle
-    // caps it at half the height, so a one-row card is a capsule.
-    val targetCornerRadius = when {
-        isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode ->
-            liveActivityCornerRadius(settings.expandedScale, notifDensity.fontScale)
-        else -> IslandTokens.CompactCornerRadius
-    }
-
     // Card 2 delayed appearance: starts a split frame after Card 1 when expanding
     var card2Expanded by remember { mutableStateOf(false) }
     LaunchedEffect(isExpanded) {
@@ -931,19 +888,13 @@ fun IslandOverlayRoot(
     }
 
     val showSecondaryCard = scene.showSecondaryCard
-    val targetCard2Height = if (card2Expanded && showSecondaryCard) {
-        cardHeightFor(secondaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
-    } else 0.dp
     val targetCard2Alpha = if (card2Expanded && showSecondaryCard) 1f else 0f
     val targetCard2OffsetY = if (card2Expanded && showSecondaryCard) 0.dp else (-14).dp
 
     val bubbleSize = settings.heightDp.dp
     val compactMainHalf = settings.widthDp.dp / 2f
-    val bubbleGap = 6.dp
-    val restingBubbleCenterX = compactMainHalf + bubbleGap + (bubbleSize / 2f)
 
-    val shouldEmergeSecondary = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && isDual && !isExpanded && isOccupied &&
-        !userHidden && !userMinimized
+    val shouldEmergeSecondary = scene.emergesBubble
     var secondaryBubbleEmerged by remember { mutableStateOf(false) }
     LaunchedEffect(shouldEmergeSecondary) {
         if (shouldEmergeSecondary) {
@@ -953,11 +904,6 @@ fun IslandOverlayRoot(
         } else {
             secondaryBubbleEmerged = false
         }
-    }
-
-    val targetBubbleOffsetX = when {
-        secondaryBubbleEmerged && shouldEmergeSecondary -> restingBubbleCenterX
-        else -> 0.dp
     }
 
     val bubbleOffsetAnimSpec = if (secondaryBubbleEmerged && shouldEmergeSecondary) {
@@ -972,29 +918,31 @@ fun IslandOverlayRoot(
         )
     }
 
-    val targetHorizontalOffset = if (isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
-        0.dp
-    } else if (!isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
-        settings.horizontalOffsetDp.dp
-    } else {
-        0.dp
-    }
-
-    val targetTopOffset = if (isExpanded && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) {
-        (settings.topOffsetDp + 52).dp // Sits way below initial position (comfortably below status bar) when expanded!
-    } else {
-        settings.topOffsetDp.dp // Docks right over the punch hole when minimised or charging/unlock/bluetooth/ringer
-    }
-
-    val targetCardSpacing = if (isExpanded && showSecondaryCard) 10.dp else 0.dp
+    // F1.3: every target size comes from one pure function, shared with the window (F1.4)
+    val targets = deriveIslandTargets(
+        scene = scene,
+        settings = settings,
+        env = sceneEnv,
+        measured = MeasuredHeights(notifBaseHeight, progressBaseHeight),
+        card2Expanded = card2Expanded,
+        bubbleEmerged = secondaryBubbleEmerged,
+    )
+    val targetCompactWidth = targets.compactWidth
+    val targetCard1Width = targets.card1.width
+    val targetCard1Height = targets.card1.height
+    val card1ContentHeight = targets.card1ContentHeight
+    val targetCard2Height = targets.card2Height
+    val targetBubbleOffsetX = targets.bubbleRestX
+    val targetHorizontalOffset = targets.horizontalOffset
+    val targetCardSpacing = targets.cardSpacing
 
     val animatedCompactWidthRaw by animateDpAsState(targetValue = targetCompactWidth, animationSpec = compactPillWidthAnimSpec, label = "compactWidth")
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
     // pill retracting); a negative width throws in layout and crashed the island
     val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
     val animatedCardMorph by animateValueAsState(
-        targetValue = CardMorph(targetCard1Width, targetCard1Height, targetCornerRadius, targetTopOffset),
-        typeConverter = CardMorph.VectorConverter,
+        targetValue = targets.card1,
+        typeConverter = IslandGeometry.VectorConverter,
         animationSpec = cardMorphAnimSpec,
         label = "cardMorph"
     )

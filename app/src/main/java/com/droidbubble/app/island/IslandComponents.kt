@@ -6,8 +6,6 @@ import android.app.PendingIntent
 import android.app.ActivityOptions
 import android.os.Build
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector4D
-import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -48,7 +46,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import kotlin.math.roundToInt
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -567,19 +564,8 @@ fun FlippingCoverArt(
     }
 }
 
-/** Geometry of the expanded card, animated as one 4D spring (see cardMorphAnimSpec). */
-@Immutable
-data class CardMorph(val width: Dp, val height: Dp, val corner: Dp, val top: Dp) {
-    companion object {
-        val VectorConverter = TwoWayConverter<CardMorph, AnimationVector4D>(
-            convertToVector = { AnimationVector4D(it.width.value, it.height.value, it.corner.value, it.top.value) },
-            convertFromVector = { CardMorph(it.v1.dp, it.v2.dp, it.v3.dp, it.v4.dp) }
-        )
-
-        // Stop the spring once it's within 0.1dp (same as Dp's default) instead of running extra frames
-        val VisibilityThreshold = CardMorph(0.1.dp, 0.1.dp, 0.1.dp, 0.1.dp)
-    }
-}
+/** The old name of [IslandGeometry]; kept for one release (F1.3). */
+typealias CardMorph = IslandGeometry
 
 /** Blur radii come in steps this size, so a morph reuses a few effects instead of one per frame. */
 private const val BLUR_STEP_PX = 0.5f
