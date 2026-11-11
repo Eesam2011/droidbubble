@@ -1,5 +1,6 @@
 package com.droidbubble.app.island
 
+import com.droidbubble.app.island.motion.MotionTween
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
@@ -10,24 +11,17 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateValueAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -556,11 +550,9 @@ private fun IslandOverlayContent(
     val primaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else primaryTaskOutline
     val secondaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else secondaryTaskOutline
 
-    val speed = settings.animationSpeed.coerceIn(0.5f, 2.0f)
-    val speedSq = speed * speed
-    // Collapse uses a critically damped spring (no overshoot) instead of a fixed tween, so an
-    // interrupted expand keeps its velocity and the card lands softly like iOS.
-    val collapseStiffness = settings.expandStiffness * 1.4f * speedSq
+    // F3.2: every animation spec comes from IslandMotion (the user's curves and speed included)
+    val motion = LocalIslandMotion.current
+    val speed = motion.speed
 
     // Squash & stretch when the pill switches to a different activity (the iOS "breath")
     // The leaving content's blur rides this squash (see the compact content swap), so it follows
@@ -573,8 +565,8 @@ private fun IslandOverlayContent(
         if (primaryPriority == lastCompactPriority) return@LaunchedEffect
         lastCompactPriority = primaryPriority
         if (isExpanded) return@LaunchedEffect
-        swapSquash.animateTo(0.06f, tween(110, easing = FastOutSlowInEasing))
-        swapSquash.animateTo(0f, spring(dampingRatio = 0.5f, stiffness = 380f * speedSq))
+        swapSquash.animateTo(0.06f, motion.tween(MotionTween.SWAP_SQUASH_IN))
+        swapSquash.animateTo(0f, motion.spring(motion.swapSquashOut))
     }
 
     // Press feedback: the pill and bubble sink slightly under the finger and spring back
@@ -582,96 +574,46 @@ private fun IslandOverlayContent(
     val pillPressed by pillInteraction.collectIsPressedAsState()
     val pillPressScale by animateFloatAsState(
         targetValue = if (pillPressed) 0.95f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 700f),
+        animationSpec = motion.spring(motion.press),
         label = "pillPress"
     )
     val bubbleInteraction = remember { MutableInteractionSource() }
     val bubblePressed by bubbleInteraction.collectIsPressedAsState()
     val bubblePressScale by animateFloatAsState(
         targetValue = if (bubblePressed) 0.9f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 700f),
+        animationSpec = motion.spring(motion.press),
         label = "bubblePress"
     )
 
-    // Animation Specs (dynamically scaled by settings.animationSpeed):
-    val sizeAnimSpecDp = when {
-        isCharging || isUnlock || isBluetooth || isRingerMode -> spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = settings.appearDamping,
-            stiffness = settings.appearStiffness * speedSq
-        )
-        isExpanded -> spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = settings.expandDamping,
-            stiffness = settings.expandStiffness * speedSq
-        )
-        else -> spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = collapseStiffness,
-            visibilityThreshold = Dp.VisibilityThreshold
-        )
+    // Shell specs. A glance (charging, unlock, connection, ringer) moves on the user's Appear
+    // curve, the card opening on Expand, and everything closing on the critically damped
+    // collapse, so an interrupted expand keeps its velocity and lands without overshoot.
+    val glanceShowing = isCharging || isUnlock || isBluetooth || isRingerMode
+    val shellToken = when {
+        glanceShowing -> motion.appear
+        isExpanded -> motion.expand
+        else -> motion.collapse
     }
-
-    val sizeAnimSpecFloat = when {
-        isCharging || isUnlock || isBluetooth || isRingerMode -> spring<Float>(
-            dampingRatio = settings.appearDamping,
-            stiffness = settings.appearStiffness * speedSq
-        )
-        isExpanded -> spring<Float>(
-            dampingRatio = settings.expandDamping,
-            stiffness = settings.expandStiffness * speedSq
-        )
-        else -> spring<Float>(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = collapseStiffness,
-            visibilityThreshold = 0.002f
-        )
-    }
+    val shellClosing = !glanceShowing && !isExpanded
+    val sizeAnimSpecDp = motion.spring<Dp>(shellToken, if (shellClosing) Dp.VisibilityThreshold else null)
+    val sizeAnimSpecFloat = motion.spring<Float>(shellToken, if (shellClosing) 0.002f else null)
 
     // One spring drives the card's width, height, corner radius and drop position together,
     // so the pill-to-card morph moves as a single shape instead of four separate animations.
-    val cardMorphAnimSpec: AnimationSpec<IslandGeometry> = when {
-        isCharging || isUnlock || isBluetooth || isRingerMode -> spring(
-            dampingRatio = settings.appearDamping,
-            stiffness = settings.appearStiffness * speedSq,
-            visibilityThreshold = IslandGeometry.VisibilityThreshold
-        )
-        isExpanded -> spring(
-            dampingRatio = settings.expandDamping,
-            stiffness = settings.expandStiffness * speedSq,
-            visibilityThreshold = IslandGeometry.VisibilityThreshold
-        )
-        else -> spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = collapseStiffness,
-            visibilityThreshold = IslandGeometry.VisibilityThreshold
-        )
-    }
+    val cardMorphAnimSpec: AnimationSpec<IslandGeometry> = motion.spring(shellToken, IslandGeometry.VisibilityThreshold)
 
     val positionAnimSpecDp = if (isExpanded) {
-        spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = settings.expandDamping,
-            stiffness = settings.expandStiffness * speedSq
-        )
+        motion.spring<Dp>(motion.expand)
     } else {
-        spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = collapseStiffness,
-            visibilityThreshold = Dp.VisibilityThreshold
-        )
+        motion.spring<Dp>(motion.collapse, Dp.VisibilityThreshold)
     }
 
-    // Dedicated spec for compact pill width:
-    // When expanding: crisp spring shrinking into 0 width without overshoot
-    // When emerging back: subtle horizontal bounce of a few pixels (dampingRatio = 0.63f)!
+    // The pill: shrinks away without overshoot while the card opens, and comes back (or appears,
+    // hides, minimises) on the user's Split curve, with its small bounce
     val compactPillWidthAnimSpec = if (isExpanded) {
-        spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = 0.82f,
-            stiffness = 380f * speedSq
-        )
+        motion.spring<Dp>(motion.pillShrinkOnExpand)
     } else {
-        spring<androidx.compose.ui.unit.Dp>(
-            dampingRatio = settings.splitDamping,
-            stiffness = settings.splitStiffness * speedSq
-        )
+        motion.spring<Dp>(motion.split)
     }
 
     val expandProgress by animateFloatAsState(
@@ -682,13 +624,13 @@ private fun IslandOverlayContent(
 
     val chargingContentAlpha by animateFloatAsState(
         targetValue = if (isCharging) 1f else 0f,
-        animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.effects(),
         label = "chargingContentAlpha"
     )
 
     val unlockContentAlpha by animateFloatAsState(
         targetValue = if (isUnlock) 1f else 0f,
-        animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.effects(),
         label = "unlockContentAlpha"
     )
 
@@ -705,22 +647,20 @@ private fun IslandOverlayContent(
 
     val unlockCheckmarkAlpha by animateFloatAsState(
         targetValue = if (unlockCheckmarkVisible && isUnlock) 1f else 0f,
-        animationSpec = tween(durationMillis = (150 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.tween(MotionTween.CHECKMARK_FADE),
         label = "unlockCheckmarkAlpha"
     )
 
     val unlockCheckmarkScale by animateFloatAsState(
         targetValue = if (unlockCheckmarkVisible && isUnlock) 1f else 0.4f,
-        animationSpec = spring(
-            dampingRatio = 0.52f, // Gentle bounce: overshoots slightly by ~3-4px, then settles
-            stiffness = 320f * speedSq
-        ),
+        // Gentle bounce: overshoots slightly by ~3-4px, then settles
+        animationSpec = motion.spring(motion.checkmarkPop),
         label = "unlockCheckmarkScale"
     )
 
     val bluetoothContentAlpha by animateFloatAsState(
         targetValue = if (isBluetooth) 1f else 0f,
-        animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.effects(),
         label = "bluetoothContentAlpha"
     )
 
@@ -737,23 +677,21 @@ private fun IslandOverlayContent(
 
     val bluetoothCheckmarkAlpha by animateFloatAsState(
         targetValue = if (bluetoothCheckmarkVisible && isBluetooth) 1f else 0f,
-        animationSpec = tween(durationMillis = (150 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.tween(MotionTween.CHECKMARK_FADE),
         label = "bluetoothCheckmarkAlpha"
     )
 
     val bluetoothCheckmarkScale by animateFloatAsState(
         targetValue = if (bluetoothCheckmarkVisible && isBluetooth) 1f else 0.4f,
-        animationSpec = spring(
-            dampingRatio = 0.52f, // Gentle bounce: overshoots slightly by ~3-4px, then settles
-            stiffness = 320f * speedSq
-        ),
+        // Gentle bounce: overshoots slightly by ~3-4px, then settles
+        animationSpec = motion.spring(motion.checkmarkPop),
         label = "bluetoothCheckmarkScale"
     )
 
     // Ringer Mode (Silent, Vibrate, Ring) animations:
     val ringerContentAlpha by animateFloatAsState(
         targetValue = if (isRingerMode) 1f else 0f,
-        animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.effects(),
         label = "ringerContentAlpha"
     )
 
@@ -770,16 +708,13 @@ private fun IslandOverlayContent(
 
     val ringerSecondaryAlpha by animateFloatAsState(
         targetValue = if (ringerSecondaryVisible && isRingerMode) 1f else 0f,
-        animationSpec = tween(durationMillis = (150 / speed).roundToInt(), easing = FastOutSlowInEasing),
+        animationSpec = motion.tween(MotionTween.CHECKMARK_FADE),
         label = "ringerSecondaryAlpha"
     )
 
     val ringerSecondaryScale by animateFloatAsState(
         targetValue = if (ringerSecondaryVisible && isRingerMode) 1f else 0.4f,
-        animationSpec = spring(
-            dampingRatio = 0.52f,
-            stiffness = 320f * speedSq
-        ),
+        animationSpec = motion.spring(motion.checkmarkPop),
         label = "ringerSecondaryScale"
     )
 
@@ -789,8 +724,8 @@ private fun IslandOverlayContent(
         if (isRingerMode && activeRingerMode == RingerMode.RING) {
             haptics.perform(IslandHapticEvent.SYSTEM_ALERT_RINGER)
             bellShakeRotation.snapTo(0f)
-            val animDuration = (1000 / speed).roundToInt()
-            val rotSpec = keyframes<Float> {
+            val animDuration = motion.scaled(1000)
+            val rotSpec = motion.keyframes<Float> {
                 durationMillis = animDuration
                 0f at 0 using FastOutSlowInEasing
                 -24f at (animDuration * 0.06f).roundToInt() using FastOutSlowInEasing
@@ -813,8 +748,8 @@ private fun IslandOverlayContent(
     LaunchedEffect(isRingerMode, activeRingerMode) {
         if (isRingerMode && activeRingerMode == RingerMode.VIBRATE) {
             vibrateShakeOffset.snapTo(0f)
-            val vibDuration = (600 / speed).roundToInt()
-            val vibSpec = keyframes<Float> {
+            val vibDuration = motion.scaled(600)
+            val vibSpec = motion.keyframes<Float> {
                 durationMillis = vibDuration
                 0f at 0 using FastOutSlowInEasing
                 -3f at (vibDuration * 0.08f).roundToInt() using FastOutSlowInEasing
@@ -836,18 +771,7 @@ private fun IslandOverlayContent(
     val targetChargingFraction = if (isCharging) (chargingPct.toFloat() / 100f).coerceIn(0f, 1f) else 0f
     val animatedChargingProgress by animateFloatAsState(
         targetValue = targetChargingFraction,
-        animationSpec = if (isCharging) {
-            tween(
-                durationMillis = (750 / speed).roundToInt(),
-                delayMillis = (60 / speed).roundToInt(),
-                easing = FastOutSlowInEasing
-            )
-        } else {
-            tween(
-                durationMillis = (150 / speed).roundToInt(),
-                easing = FastOutLinearInEasing
-            )
-        },
+        animationSpec = motion.tween(if (isCharging) MotionTween.CHARGING_FILL else MotionTween.CHARGING_DRAIN),
         label = "chargingProgress"
     )
 
@@ -906,16 +830,11 @@ private fun IslandOverlayContent(
         }
     }
 
+    // Out on the user's Split curve (a slight overshoot); back into the punch hole smoothly
     val bubbleOffsetAnimSpec = if (secondaryBubbleEmerged && shouldEmergeSecondary) {
-        spring<Dp>(
-            dampingRatio = settings.splitDamping, // Slight bounce! Gently overshoots by ~3-4dp and bounces back
-            stiffness = settings.splitStiffness * speedSq
-        )
+        motion.spring<Dp>(motion.split)
     } else {
-        spring<Dp>(
-            dampingRatio = 0.85f, // Smooth retraction back inside the punch hole
-            stiffness = 380f * speedSq
-        )
+        motion.spring<Dp>(motion.bubbleRetract)
     }
 
     // F1.3: every target size comes from one pure function, shared with the window (F1.4)
@@ -995,12 +914,12 @@ private fun IslandOverlayContent(
 
     val animatedCard1OffsetX by animateFloatAsState(
         targetValue = card1OffsetX,
-        animationSpec = spring(dampingRatio = 0.76f, stiffness = 420f * speedSq),
+        animationSpec = motion.spring(motion.cardDrag),
         label = "card1OffsetX"
     )
     val animatedCard2OffsetX by animateFloatAsState(
         targetValue = card2OffsetX,
-        animationSpec = spring(dampingRatio = 0.76f, stiffness = 420f * speedSq),
+        animationSpec = motion.spring(motion.cardDrag),
         label = "card2OffsetX"
     )
 
@@ -1077,10 +996,7 @@ private fun IslandOverlayContent(
             parenthesisExtraShoot.animateTo(
                 targetValue = 0f,
                 initialVelocity = 240f * speed,
-                animationSpec = spring(
-                    dampingRatio = 0.65f,
-                    stiffness = 260f * speedSq
-                )
+                animationSpec = motion.spring(motion.parenthesisShoot)
             )
         } else {
             parenthesisExtraShoot.snapTo(0f)
@@ -1798,36 +1714,30 @@ private fun IslandOverlayContent(
                                             idleBounceY.snapTo(0f)
                                             idleBounceY.animateTo(
                                                 targetValue = 3.5f,
-                                                animationSpec = tween(70, easing = FastOutSlowInEasing)
+                                                animationSpec = motion.tween(MotionTween.IDLE_TAP_DOWN)
                                             )
                                             idleBounceY.animateTo(
                                                 targetValue = -1.5f,
-                                                animationSpec = tween(90, easing = FastOutSlowInEasing)
+                                                animationSpec = motion.tween(MotionTween.IDLE_TAP_UP)
                                             )
                                             idleBounceY.animateTo(
                                                 targetValue = 0f,
-                                                animationSpec = spring(
-                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                    stiffness = Spring.StiffnessLow
-                                                )
+                                                animationSpec = motion.spring(motion.idleTapSettle)
                                             )
                                         }
                                         launch {
                                             idleBounceScale.snapTo(1f)
                                             idleBounceScale.animateTo(
                                                 targetValue = 0.95f,
-                                                animationSpec = tween(70, easing = FastOutSlowInEasing)
+                                                animationSpec = motion.tween(MotionTween.IDLE_TAP_DOWN)
                                             )
                                             idleBounceScale.animateTo(
                                                 targetValue = 1.04f,
-                                                animationSpec = tween(90, easing = FastOutSlowInEasing)
+                                                animationSpec = motion.tween(MotionTween.IDLE_TAP_UP)
                                             )
                                             idleBounceScale.animateTo(
                                                 targetValue = 1.0f,
-                                                animationSpec = spring(
-                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                    stiffness = Spring.StiffnessLow
-                                                )
+                                                animationSpec = motion.spring(motion.idleTapSettle)
                                             )
                                         }
                                     }
@@ -2123,9 +2033,10 @@ private fun IslandOverlayContent(
                             AnimatedContent(
                                 targetState = primaryPriority,
                                 transitionSpec = {
-                                    (fadeIn(tween(200, delayMillis = 50)) +
-                                        scaleIn(initialScale = 0.85f, animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f))) togetherWith
-                                        (fadeOut(tween(120)) + scaleOut(targetScale = 0.85f, animationSpec = tween(120))) using
+                                    (fadeIn(motion.tween(MotionTween.COMPACT_SWAP_FADE_IN)) +
+                                        scaleIn(initialScale = 0.85f, animationSpec = motion.spring(motion.compactSwapScale))) togetherWith
+                                        (fadeOut(motion.tween(MotionTween.COMPACT_SWAP_OUT)) +
+                                            scaleOut(targetScale = 0.85f, animationSpec = motion.tween(MotionTween.COMPACT_SWAP_OUT))) using
                                         SizeTransform(clip = false)
                                 },
                                 contentAlignment = Alignment.Center,
@@ -2168,7 +2079,7 @@ private fun IslandOverlayContent(
             val targetParenthesisAlpha = if (!isOccupied || isDual || userHidden || userMinimized || settings.isNotch) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
             val parenthesisAlphaAnim by animateFloatAsState(
                 targetValue = targetParenthesisAlpha,
-                animationSpec = tween(durationMillis = (130 / speed).roundToInt(), easing = FastOutSlowInEasing),
+                animationSpec = motion.effects(),
                 label = "parenthesisAlpha"
             )
 
@@ -2796,14 +2707,12 @@ fun ExpandedFlashlightView(
     val currentLevelState = rememberUpdatedState(currentLevel)
     val onSetLevelState = rememberUpdatedState(onSetLevel)
 
+    val motion = LocalIslandMotion.current
     // Animated fraction for the light beam height (1 -> 0.25f, 4 -> 1.0f)
     val targetFraction = (currentLevel / 4f)
     val animatedFraction by animateFloatAsState(
         targetValue = targetFraction,
-        animationSpec = spring(
-            dampingRatio = 0.8f,
-            stiffness = 450f
-        ),
+        animationSpec = motion.spring(motion.flashlightBeam),
         label = "flashlightBeamFraction"
     )
 
@@ -3135,14 +3044,15 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     val timeLabelTemplate = formatDuration(duration)
     val timeLabelAlsoFits = remember { listOf("--:--") }
 
+    val motion = LocalIslandMotion.current
     val thumbWidth by animateDpAsState(
         targetValue = if (isSeeking) 5.dp else 3.dp,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        animationSpec = motion.spring(motion.seekThumb),
         label = "seekThumbWidth"
     )
     val thumbHeight by animateDpAsState(
         targetValue = if (isSeeking) 18.dp else 14.dp,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        animationSpec = motion.spring(motion.seekThumb),
         label = "seekThumbHeight"
     )
 
@@ -3351,8 +3261,10 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     AnimatedContent(
                         targetState = media?.isPlaying == true,
                         transitionSpec = {
-                            (fadeIn(tween(140)) + scaleIn(initialScale = 0.6f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f))) togetherWith
-                                (fadeOut(tween(100)) + scaleOut(targetScale = 0.6f, animationSpec = tween(100)))
+                            (fadeIn(motion.tween(MotionTween.PLAY_PAUSE_IN)) +
+                                scaleIn(initialScale = 0.6f, animationSpec = motion.spring(motion.playPauseScale))) togetherWith
+                                (fadeOut(motion.tween(MotionTween.PLAY_PAUSE_OUT)) +
+                                    scaleOut(targetScale = 0.6f, animationSpec = motion.tween(MotionTween.PLAY_PAUSE_OUT)))
                         },
                         label = "playPauseIcon"
                     ) { playing ->
@@ -3690,9 +3602,10 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
     val progressFraction = notification?.progressFraction ?: 0f
     val isIndet = notification?.isIndeterminate == true
     val m = remember(scale) { ProgressCardMetrics(scale) }
+    val motion = LocalIslandMotion.current
     val animatedProgress by animateFloatAsState(
         targetValue = progressFraction,
-        animationSpec = spring(dampingRatio = 0.9f, stiffness = 140f),
+        animationSpec = motion.spring(motion.downloadProgress),
         label = "download_progress"
     )
 
@@ -3857,12 +3770,13 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
 
 @Composable
 fun PulsingRecordingDot(modifier: Modifier = Modifier) {
+    val motion = LocalIslandMotion.current
     val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
     val alpha by infiniteTransition.animateFloat(
         initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(650, easing = FastOutSlowInEasing),
+            animation = motion.tween(MotionTween.RECORDING_PULSE),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_alpha"

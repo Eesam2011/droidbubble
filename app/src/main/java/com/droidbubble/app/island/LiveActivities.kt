@@ -1,5 +1,7 @@
 package com.droidbubble.app.island
 
+import com.droidbubble.app.island.motion.LocalIslandMotion
+import com.droidbubble.app.island.motion.MotionTween
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
@@ -15,7 +17,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.em
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
@@ -67,13 +68,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.LocalShipping
@@ -404,10 +402,6 @@ private fun Modifier.liveCardPadding(layout: LiveLayout): Modifier = padding(lay
 /** Digits that all take the same width, so a ticking time doesn't wobble. */
 private const val TABULAR_NUMBERS = "tnum"
 
-/** One digit roll: short enough to always finish before the next second ticks. */
-private const val ROLL_MS = 380
-private val ROLL_EASING = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-
 /** Time printed in the notification itself ("12:04"), shown while a recorder / timer is paused. */
 fun staticLiveTimeText(n: NotificationInfo): String? =
     (parseTimerTextMillis(n.title) ?: parseTimerTextMillis(n.text))?.let { formatTimerText(it) }
@@ -457,6 +451,7 @@ fun RollingNumberText(
     // The value we're rolling away from, while a roll is running
     var shown by remember { mutableStateOf(text) }
     var previous by remember { mutableStateOf<String?>(null) }
+    val motion = LocalIslandMotion.current
     val progress = remember { Animatable(1f) }
     LaunchedEffect(text) {
         if (text == shown) return@LaunchedEffect
@@ -464,7 +459,7 @@ fun RollingNumberText(
         shown = text
         progress.snapTo(0f)
         // Fixed length, always well inside one tick, so a ticking clock never queues rolls up
-        progress.animateTo(1f, tween(durationMillis = ROLL_MS, easing = ROLL_EASING))
+        progress.animateTo(1f, motion.tween(MotionTween.ROLL))
         previous = null
     }
     // Until the effect above runs, the new value must start from the old one, not snap in
@@ -1062,10 +1057,11 @@ private fun AlertPillButton(
 /** Alert icon in a tinted circle that gently pulses while ringing. */
 @Composable
 private fun PulsingAlertIcon(icon: ImageVector, color: Color, size: Dp) {
+    val motion = LocalIslandMotion.current
     val pulse by rememberInfiniteTransition(label = "alert_pulse").animateFloat(
         initialValue = 0.85f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(520), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(motion.tween(MotionTween.ALERT_PULSE), RepeatMode.Reverse),
         label = "alert_scale"
     )
     Box(
@@ -1094,9 +1090,10 @@ fun LiveTrackingRow(notification: NotificationInfo, scale: Float, onOpen: () -> 
     val accent = LiveActivityColors.TrackingGreen
     val chip = trackingChipText(notification)
     val hasBar = notification.maxProgress > 0 && notification.progress >= 0
+    val motion = LocalIslandMotion.current
     val progress by animateFloatAsState(
         targetValue = notification.progressFraction,
-        animationSpec = spring(dampingRatio = 0.9f, stiffness = 120f),
+        animationSpec = motion.spring(motion.trackingProgress),
         label = "tracking_progress"
     )
     Row(
@@ -1265,13 +1262,14 @@ fun TimerRingIcon(notification: NotificationInfo, size: Dp, color: Color) {
     }
     fun remainingNow(): Long = if (base > 0L) (base - IslandClock.wallMs()).coerceAtLeast(0L) else pausedRemaining ?: 0L
     val fraction = remember { Animatable(1f) }
+    val motion = LocalIslandMotion.current
     LaunchedEffect(notification.key, base, pausedRemaining) {
         val total = CountdownTotals.totalFor(notification.key, remainingNow())
         fraction.snapTo((remainingNow().toFloat() / total).coerceIn(0f, 1f))
         if (base <= 0L) return@LaunchedEffect
         while (fraction.value > 0f) {
             val next = ((remainingNow() - 1000L).coerceAtLeast(0L).toFloat() / total).coerceIn(0f, 1f)
-            fraction.animateTo(next, tween(durationMillis = 1000, easing = LinearEasing))
+            fraction.animateTo(next, motion.tween(MotionTween.COUNTDOWN_TICK))
         }
     }
     Canvas(modifier = Modifier.size(size)) {

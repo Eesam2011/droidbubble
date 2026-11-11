@@ -1,15 +1,13 @@
 package com.droidbubble.app.island
 
+import com.droidbubble.app.island.motion.LocalIslandMotion
+import com.droidbubble.app.island.motion.MotionTween
 import android.graphics.Bitmap
 import android.content.Context
 import android.app.PendingIntent
 import android.app.ActivityOptions
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
@@ -523,17 +521,18 @@ fun FlippingCoverArt(
     val latestArt by rememberUpdatedState(art)
     val scope = rememberCoroutineScope()
 
+    val motion = LocalIslandMotion.current
     LaunchedEffect(trackKey) {
         if (trackKey == shownKey) return@LaunchedEffect
         shownKey = trackKey
         // Separate scope so a late art update can't cancel the flip halfway through
         scope.launch {
             isTurningAway = true
-            rotation.animateTo(90f, tween(durationMillis = 150, easing = FastOutLinearInEasing))
+            rotation.animateTo(90f, motion.tween(MotionTween.ART_FLIP_OUT))
             shownArt = latestArt
             isTurningAway = false
             rotation.snapTo(-90f)
-            rotation.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 380f))
+            rotation.animateTo(0f, motion.spring(motion.artFlipIn))
         }
     }
     LaunchedEffect(art) {
@@ -721,6 +720,7 @@ fun sendIslandPendingIntent(context: Context, intent: PendingIntent?): Boolean {
 @Composable
 fun TimerClockIcon(baseMs: Long, countDown: Boolean, size: Dp, color: Color, modifier: Modifier = Modifier) {
     val angle = remember { Animatable(0f) }
+    val motion = LocalIslandMotion.current
     LaunchedEffect(baseMs, countDown) {
         while (true) {
             val now = IslandClock.wallMs()
@@ -730,7 +730,7 @@ fun TimerClockIcon(baseMs: Long, countDown: Boolean, size: Dp, color: Color, mod
             val current = angle.value
             while (target - current > 180f) target -= 360f
             while (current - target > 180f) target += 360f
-            angle.animateTo(target, tween(durationMillis = 280, easing = FastOutSlowInEasing))
+            angle.animateTo(target, motion.tween(MotionTween.CLOCK_HAND))
             delay(1000L - Math.floorMod(IslandClock.wallMs() - baseMs, 1000L))
         }
     }

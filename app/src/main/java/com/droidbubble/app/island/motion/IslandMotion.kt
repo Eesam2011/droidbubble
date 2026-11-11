@@ -3,7 +3,9 @@ package com.droidbubble.app.island.motion
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.KeyframesSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
@@ -38,6 +40,51 @@ fun MotionToken.Perceptual.toPhysical(): MotionToken.Physical {
 /** The inverse, for springs with ζ ≤ 1: d = 2π / √k, b = 1 − ζ. */
 fun MotionToken.Physical.toPerceptual() =
     MotionToken.Perceptual(2f * PI.toFloat() / sqrt(stiffness), 1f - dampingRatio)
+
+/**
+ * A fixed-length animation (fades, one-shot steps). [speedScaled]: the length and delay are
+ * divided by the island's animation speed, like the springs.
+ */
+@Immutable
+data class TweenToken(
+    val millis: Int,
+    val easing: Easing = FastOutSlowInEasing,
+    val delayMillis: Int = 0,
+    val speedScaled: Boolean = true,
+)
+
+/** The island's named tweens (Legacy values, F3.2). */
+object MotionTween {
+    /** A glance's checkmark or secondary icon fading in. */
+    val CHECKMARK_FADE = TweenToken(150)
+    /** The charging pill filling to the battery level. */
+    val CHARGING_FILL = TweenToken(750, delayMillis = 60)
+    /** The charging fill emptying when the glance ends. */
+    val CHARGING_DRAIN = TweenToken(150, FastOutLinearInEasing)
+    /** The pill's quick squash when it switches activity. */
+    val SWAP_SQUASH_IN = TweenToken(110, speedScaled = false)
+    /** Tapping the empty pill: it dips, then lifts, then settles on [IslandMotion.idleTapSettle]. */
+    val IDLE_TAP_DOWN = TweenToken(70, speedScaled = false)
+    val IDLE_TAP_UP = TweenToken(90, speedScaled = false)
+    /** New compact content fading in, and the old content leaving. */
+    val COMPACT_SWAP_FADE_IN = TweenToken(200, delayMillis = 50, speedScaled = false)
+    val COMPACT_SWAP_OUT = TweenToken(120, speedScaled = false)
+    /** The media card's play / pause icon swap. */
+    val PLAY_PAUSE_IN = TweenToken(140, speedScaled = false)
+    val PLAY_PAUSE_OUT = TweenToken(100, speedScaled = false)
+    /** One half of the recording dot's pulse. */
+    val RECORDING_PULSE = TweenToken(650, speedScaled = false)
+    /** One half of a ringing alarm icon's pulse. */
+    val ALERT_PULSE = TweenToken(520, speedScaled = false)
+    /** The album cover turning away before the new one turns in. */
+    val ART_FLIP_OUT = TweenToken(150, FastOutLinearInEasing, speedScaled = false)
+    /** The timer clock icon's hand stepping one second. */
+    val CLOCK_HAND = TweenToken(280, speedScaled = false)
+    /** A countdown ring draining one second. */
+    val COUNTDOWN_TICK = TweenToken(1000, LinearEasing, speedScaled = false)
+    /** One digit roll: short enough to always finish before the next second ticks. */
+    val ROLL = TweenToken(IslandMotion.ROLL_MS, IslandMotion.ROLL_EASING, speedScaled = false)
+}
 
 /** A velocity kick on a spring that rests at its target: a bounce, a wiggle, an alert bump. */
 @Immutable
@@ -94,6 +141,23 @@ data class IslandMotion(
     /** New compact content scaling in. Not speed-scaled. */
     val compactSwapScale = MotionToken.Physical(0.75f, 400f, speedScaled = false)
 
+    /** A glance's checkmark or secondary icon popping in with a small overshoot. */
+    val checkmarkPop = MotionToken.Physical(0.52f, 320f)
+    /** The empty pill settling after a tap. Not speed-scaled. */
+    val idleTapSettle = MotionToken.Physical(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow, speedScaled = false)
+    /** The flashlight card's beam following the level. Not speed-scaled. */
+    val flashlightBeam = MotionToken.Physical(0.8f, 450f, speedScaled = false)
+    /** The media seek thumb growing under a finger. Not speed-scaled. */
+    val seekThumb = MotionToken.Physical(0.6f, 600f, speedScaled = false)
+    /** The play / pause icon scaling in. Not speed-scaled. */
+    val playPauseScale = MotionToken.Physical(0.6f, 500f, speedScaled = false)
+    /** A download bar following its progress. Not speed-scaled. */
+    val downloadProgress = MotionToken.Physical(0.9f, 140f, speedScaled = false)
+    /** A ride or delivery bar following its progress. Not speed-scaled. */
+    val trackingProgress = MotionToken.Physical(0.9f, 120f, speedScaled = false)
+    /** The new album cover turning in. Not speed-scaled. */
+    val artFlipIn = MotionToken.Physical(0.7f, 380f, speedScaled = false)
+
     // ---- Tokens the Droid profile adds. In Legacy each stands in for today's value. ----
     val dismiss: MotionToken.Physical get() = if (droid) DROID_DISMISS else collapse
     val merge: MotionToken.Physical get() = if (droid) DROID_MERGE else bubbleRetract
@@ -129,6 +193,24 @@ data class IslandMotion(
         if (tier == MotionTier.REDUCED) return TweenSpec(REDUCED_FADE_MS, 0, LinearEasing)
         return TweenSpec(scaled(millis), scaled(delayMillis), easing)
     }
+
+    /** A named tween. In [MotionTier.REDUCED] it becomes a [REDUCED_FADE_MS] fade with no delay. */
+    fun <T> tween(token: TweenToken): TweenSpec<T> {
+        if (tier == MotionTier.REDUCED) return TweenSpec(REDUCED_FADE_MS, 0, LinearEasing)
+        return if (token.speedScaled) {
+            TweenSpec(scaled(token.millis), scaled(token.delayMillis), token.easing)
+        } else {
+            TweenSpec(token.millis, token.delayMillis, token.easing)
+        }
+    }
+
+    /**
+     * A one-shot keyframe effect (the bell and vibrate shakes). Keyframes can't be interrupted
+     * gracefully, so they are only for effects like these. In [MotionTier.REDUCED] it snaps to
+     * the end instead.
+     */
+    fun <T> keyframes(init: KeyframesSpec.KeyframesSpecConfig<T>.() -> Unit): FiniteAnimationSpec<T> =
+        if (tier == MotionTier.REDUCED) androidx.compose.animation.core.snap() else androidx.compose.animation.core.keyframes(init)
 
     /** Alpha, blur and colour changes: a 130 ms fade today, a quick critically damped spring in Droid. */
     fun <T> effects(): FiniteAnimationSpec<T> =

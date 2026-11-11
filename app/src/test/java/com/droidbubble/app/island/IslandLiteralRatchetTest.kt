@@ -86,6 +86,7 @@ class IslandLiteralRatchetTest {
             val spec = 4.5.sp
             val notALiteral = fontSize.sp
             val springy = springBack()
+            val routed = motion.spring(motion.press) + motion.tween(MotionTween.ROLL)
             """.trimIndent()
         )
         // Token files may hold literals: that is where they belong
@@ -108,8 +109,9 @@ object LiteralRatchet {
     private val rules = linkedMapOf(
         "hex" to Regex("""Color\(0x"""),
         "sp" to Regex("""\b\d+(\.\d+)?\.sp\b|\(\s*\d+(\.\d+)?f?\s*\*\s*scale\s*\)[^\n]*\.sp"""),
-        "spring" to Regex("""\bspring\s*(<[^>]*>)?\("""),
-        "tween" to Regex("""\btween\s*(<[^>]*>)?\("""),
+        // Calls on the motion object (`motion.spring(motion.press)`) are the token route: not counted
+        "spring" to Regex("""(?<![.\w])spring(<[^>]*>)?\("""),
+        "tween" to Regex("""(?<![.\w])tween(<[^>]*>)?\("""),
         "haptic" to Regex("""performHapticFeedback|VibrationEffect|Vibrator"""),
     )
 
