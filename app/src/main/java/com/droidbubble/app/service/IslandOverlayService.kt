@@ -57,6 +57,7 @@ import com.droidbubble.app.R
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandOverlayRoot
 import com.droidbubble.app.service.window.OverlayWindowController
+import com.droidbubble.app.service.window.ShrinkOnSettle
 import com.droidbubble.app.service.window.WindowState
 import com.droidbubble.app.island.IslandStateManager
 import com.droidbubble.app.island.scene.IslandEnv
@@ -864,6 +865,9 @@ class IslandOverlayService : Service() {
 
     private var lastLoggedSpec: WindowSpec? = null
 
+    private fun WindowSpec.toWindowState(density: Float): WindowState =
+        toWindowPx(density).let { WindowState(it.width, it.height, it.touchable) }
+
     private fun updateWindowState(expanded: Boolean) {
         if (composeView == null || layoutParams == null) return
         val density = resources.displayMetrics.density
@@ -897,11 +901,22 @@ class IslandOverlayService : Service() {
 
             fun applyCompactBounds() {
                 collapseJob?.cancel()
-                if (spec is WindowSpec.Compact) {
-                    val px = spec.toWindowPx(density)
-                    setWindowSize(px.width, px.height, px.touchable)
-                } else {
-                    setWindowSize(1, 1, touchable = false)
+                val target = spec.toWindowState(density)
+                if (!ShrinkOnSettle.isShrink(windowSize, target)) {
+                    setWindowSize(target.width, target.height, target.touchable)
+                    return
+                }
+                // F5.3: a smaller window waits until the shape has settled (hide, minimise, idle,
+                // a glance ending), so the shrink is drawn in full. Touchability changes at once:
+                // nothing hidden may keep catching taps (B2).
+                setWindowSize(windowSize.width, windowSize.height, target.touchable)
+                val expect = ws.scene.mode
+                collapseJob = serviceScope.launch {
+                    ShrinkOnSettle.awaitSettled(IslandStateManager.settledShape, expect)
+                    // Recompute from the state now: something may have arrived while it settled
+                    if (IslandStateManager.isExpanded.value) return@launch
+                    val now = windowSpec(windowScene(expanded = false)).toWindowState(density)
+                    setWindowSize(now.width, now.height, now.touchable)
                 }
             }
 
@@ -911,8 +926,6 @@ class IslandOverlayService : Service() {
             } else if (isCollapsing) {
                 return
             }
-
-            val speedFactor = currentSettings.animationSpeed.coerceIn(0.4f, 2.5f)
 
             if (wasExpanded) {
                 wasExpanded = false
@@ -926,15 +939,6 @@ class IslandOverlayService : Service() {
                     // during the collapse), not from what was captured when the collapse began
                     if (!IslandStateManager.isExpanded.value) {
                         updateWindowState(false)
-                    }
-                }
-            } else if (!isOccupied && !currentSettings.alwaysShowPill) {
-                // When unoccupied and not always showing pill and no persistent widgets, keep bounds briefly for the smooth shrink-to-middle animation, then collapse
-                collapseJob?.cancel()
-                collapseJob = serviceScope.launch {
-                    kotlinx.coroutines.delay((420f / speedFactor).toLong().coerceIn(320L, 750L))
-                    if (!isOccupied && !IslandStateManager.isExpanded.value && !currentSettings.alwaysShowPill) {
-                        setWindowSize(1, 1, touchable = false)
                     }
                 }
             } else {

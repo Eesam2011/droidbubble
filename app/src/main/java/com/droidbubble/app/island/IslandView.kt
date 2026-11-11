@@ -380,6 +380,9 @@ object IslandTestTags {
     fun content(slot: String, priority: IslandPriority?) = "island_${slot}_${priority?.name ?: "NONE"}"
 }
 
+/** What the island's shapes are heading to, for the settled signal (F5.3). */
+private data class SettleTargets(val mode: IslandMode, val compactWidth: Dp, val bubbleX: Dp, val card2Height: Dp)
+
 /**
  * The island. Provides what every part of it shares (haptics, motion), then draws it.
  */
@@ -912,6 +915,20 @@ private fun IslandOverlayContent(
     val animatedHorizontalOffset = shell.xDp
     val animatedTopOffset = animatedCardMorph.top
     val animatedCardSpacing by animateDpAsState(targetValue = targetCardSpacing, animationSpec = sizeAnimSpecDp, label = "cardSpacing")
+
+    // F5.3: tell the window when every shape animation (card, pill, bubble, card 2) has come to
+    // rest, and in which shape, so it shrinks only then and never clips a shape still drawn
+    val settleTargets by rememberUpdatedState(SettleTargets(scene.mode, targetCompactWidth, targetBubbleOffsetX, targetCard2Height))
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            val t = settleTargets
+            val atRest = shell.isSettled &&
+                abs((animatedCompactWidthRaw - t.compactWidth).value) < 0.5f &&
+                abs((animatedBubbleOffsetX - t.bubbleX).value) < 0.5f &&
+                abs((animatedCard2Height - t.card2Height).value) < 0.5f
+            if (atRest) SettledShape(t.mode) else null
+        }.collect { IslandStateManager.publishSettledShape(it) }
+    }
 
     // How fast the card and the pill are changing size right now. Leaving content blurs with
     // these and the card stretches with them, so both peak mid-morph and vanish as it settles.

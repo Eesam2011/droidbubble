@@ -145,6 +145,15 @@ object IslandStateManager {
         _collapseSettled.value = true
     }
 
+    // F5.3: the shape the island has come to rest in, or null while any shape animation runs.
+    // The window waits for it before it shrinks.
+    private val _settledShape = MutableStateFlow<SettledShape?>(null)
+    val settledShape: StateFlow<SettledShape?> = _settledShape.asStateFlow()
+
+    fun publishSettledShape(shape: SettledShape?) {
+        _settledShape.value = shape
+    }
+
     private val _expandedPriority = MutableStateFlow<IslandPriority?>(null)
     val expandedPriority: StateFlow<IslandPriority?> = _expandedPriority.asStateFlow()
 
@@ -801,6 +810,7 @@ object IslandStateManager {
         _isExpanded.value = false
         _expandedPriority.value = null
         _collapseSettled.value = true
+        _settledShape.value = null
         _isPopInActive.value = false
         _isKeyboardFocused.value = false
         _isFlashlightOn.value = false
