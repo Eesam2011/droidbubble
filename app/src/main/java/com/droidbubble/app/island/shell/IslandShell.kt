@@ -1015,7 +1015,11 @@ internal fun IslandShell(
                                         scaleY = 1f - 0.02f * cardSpeed.speed
                                     }
                                 }
-                                .clip(islandShape(animatedCornerRadius))
+                                // M2.3: the corner is read in the draw phase; same as clip(islandShape(corner))
+                                .graphicsLayer {
+                                    shape = IslandShapeCache.get(shell.geometry.corner.coerceAtLeast(0.dp))
+                                    clip = true
+                                }
                                 .background(if (card1Filled) cardBackgroundBrush else SolidColor(Color.Transparent))
                                 .then(
                                     if (settings.showOutline && card1Outlined) {
@@ -1194,7 +1198,11 @@ internal fun IslandShell(
                                     scaleX = 0.92f + (0.08f * animatedCard2Alpha.coerceIn(0f, 1f))
                                     scaleY = 0.92f + (0.08f * animatedCard2Alpha.coerceIn(0f, 1f))
                                 }
-                                .clip(islandShape(animatedCornerRadius))
+                                // M2.3: the corner is read in the draw phase; same as clip(islandShape(corner))
+                                .graphicsLayer {
+                                    shape = IslandShapeCache.get(shell.geometry.corner.coerceAtLeast(0.dp))
+                                    clip = true
+                                }
                                 .background(cardBackgroundBrush)
                                 .then(
                                     if (settings.showOutline) {

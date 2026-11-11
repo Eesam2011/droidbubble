@@ -111,6 +111,20 @@ fun islandShape(radius: Dp): Shape =
     if (IslandApi.hasSmoothPathClip) SquircleShape(radius) else RoundedCornerShape(radius)
 
 /**
+ * [islandShape] instances by exact corner radius (M2.3), so a surface that is redrawn at the same
+ * corner reuses one shape instead of allocating per frame. Keys are exact (no rounding), so the
+ * drawn edge is the same as [islandShape]'s to the pixel. Main thread only.
+ */
+object IslandShapeCache {
+    private const val MAX = 64
+    private val shapes = object : LinkedHashMap<Float, Shape>(MAX, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Float, Shape>?) = size > MAX
+    }
+
+    fun get(radius: Dp): Shape = shapes.getOrPut(radius.value) { islandShape(radius) }
+}
+
+/**
  * Black bridge that joins a notch-style island to the top edge of the screen: a bar as wide as
  * the pill plus an inward-curving "ear" on each side, like a phone notch. [ear] is the radius
  * of those concave corners.
