@@ -29,21 +29,20 @@ class GlassPaneLifecycleTest {
         IslandStateManager.resetForTest()
         IslandOverlayService.settingsFlowForTest = settings
         ShadowSettings.setCanDrawOverlays(true)
+        // Every window change on the test thread: pane threads racing it corrupt Robolectric's window list
+        GlassPaneWindows.runOnMainLooperForTest = true
     }
 
     @After
     fun tearDown() {
+        GlassPaneWindows.runOnMainLooperForTest = false
         IslandOverlayService.settingsFlowForTest = null
         IslandStateManager.resetForTest()
     }
 
-    /** The panes add and remove their windows on their own threads: let those finish too. */
     private fun destroyAndDrain(controller: org.robolectric.android.controller.ServiceController<IslandOverlayService>) {
         controller.destroy()
-        repeat(10) {
-            shadowOf(Looper.getMainLooper()).idle()
-            Thread.sleep(50)
-        }
+        shadowOf(Looper.getMainLooper()).idle()
     }
 
     private fun idle() {

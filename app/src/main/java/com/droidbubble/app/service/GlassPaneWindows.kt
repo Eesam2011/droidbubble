@@ -60,8 +60,9 @@ class GlassPaneWindows(private val context: Context, private val windowType: Int
 
     /** One blur window and the thread that owns it. */
     private inner class PaneWorker(index: Int) {
-        val thread = HandlerThread("GlassPane$index", Process.THREAD_PRIORITY_URGENT_DISPLAY).apply { start() }
-        val handler = Handler(thread.looper)
+        val thread: HandlerThread? = if (runOnMainLooperForTest) null
+        else HandlerThread("GlassPane$index", Process.THREAD_PRIORITY_URGENT_DISPLAY).apply { start() }
+        val handler = Handler(thread?.looper ?: Looper.getMainLooper())
 
         // Pane-thread state
         var dialog: Dialog? = null
@@ -161,7 +162,7 @@ class GlassPaneWindows(private val context: Context, private val windowType: Int
             handler.post {
                 runCatching { dialog?.dismiss() }
                 dialog = null
-                thread.quitSafely()
+                thread?.quitSafely()
             }
         }
     }
@@ -240,7 +241,16 @@ class GlassPaneWindows(private val context: Context, private val windowType: Int
         old.forEach { it.dismiss() }
     }
 
-    private companion object {
-        const val TAG = "GlassPaneWindows"
+    companion object {
+        private const val TAG = "GlassPaneWindows"
+
+        /**
+         * Tests only: run the panes on the main looper instead of their own threads. Robolectric's
+         * window list is not thread-safe: pane threads adding windows while the test thread does
+         * corrupt it, and then every Robolectric test after that one fails during reset.
+         */
+        @androidx.annotation.VisibleForTesting
+        @Volatile
+        var runOnMainLooperForTest = false
     }
 }
