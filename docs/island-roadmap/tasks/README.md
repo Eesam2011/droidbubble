@@ -139,7 +139,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F5.3 | Shrink on settle everywhere, including hide | todo |
 | F5.4 | Envelope window trial behind a flag | todo |
 | F6.1 | Apply Decision D1 (minSdk or guards) | done (D1 = no: API gates in `IslandApi`) |
-| F6.2 | Compose compiler reports and stability config | todo |
+| F6.2 | Compose compiler reports and stability config | done |
 | F6.3 | Baseline profile | todo |
 | F6.4 | Release signing | todo |
 | M1.1 | IslandShellState (Animatable geometry + x) | todo |

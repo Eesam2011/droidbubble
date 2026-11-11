@@ -83,6 +83,18 @@ kotlin {
     jvmToolchain(17)
 }
 
+// F6.2: which model classes Compose may treat as stable, and optional compiler reports.
+// Reports (restartable / skippable per composable, stability per class):
+//   ./gradlew :app:compileReleaseKotlin -PcomposeReports
+// They land in ~/.droidbubble-build/app/compose_reports and compose_metrics.
+composeCompiler {
+    if (providers.gradleProperty("composeReports").isPresent) {
+        reportsDestination = layout.buildDirectory.dir("compose_reports")
+        metricsDestination = layout.buildDirectory.dir("compose_metrics")
+    }
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
+}
+
 dependencies {
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
