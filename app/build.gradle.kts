@@ -9,6 +9,29 @@ plugins {
 // slowed it down a lot. APKs end up in ~/.droidbubble-build/app/outputs/apk/
 layout.buildDirectory.set(File(System.getProperty("user.home"), ".droidbubble-build/app"))
 
+// F6.4: release signing. The key is never in the repo. Put these four values in
+// ~/.gradle/gradle.properties (or set them as environment variables):
+//   DROIDBUBBLE_KEYSTORE=C:/keys/droidbubble-release.jks
+//   DROIDBUBBLE_KEYSTORE_PASSWORD=...
+//   DROIDBUBBLE_KEY_ALIAS=...
+//   DROIDBUBBLE_KEY_PASSWORD=...
+// Without them the release build falls back to the debug key and says so.
+fun signingValue(name: String): String? =
+    providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
+
+val releaseKeystore = signingValue("DROIDBUBBLE_KEYSTORE")
+val releaseKeystorePassword = signingValue("DROIDBUBBLE_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("DROIDBUBBLE_KEY_ALIAS")
+val releaseKeyPassword = signingValue("DROIDBUBBLE_KEY_PASSWORD")
+val hasReleaseKey = releaseKeystore != null && releaseKeystorePassword != null &&
+    releaseKeyAlias != null && releaseKeyPassword != null
+if (!hasReleaseKey && gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }) {
+    logger.warn(
+        "WARNING: no release key configured (DROIDBUBBLE_KEYSTORE...). The release build is signed with the " +
+            "DEBUG key: fine for testing, not for distribution. See app/build.gradle.kts."
+    )
+}
+
 android {
     namespace = "com.droidbubble.app"
     compileSdk = 36
@@ -20,6 +43,17 @@ android {
         versionName = "2.0"
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = File(releaseKeystore!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Releasable debug apk
@@ -27,7 +61,7 @@ android {
         release {
             // R8 optimizes Compose code paths, which noticeably reduces animation jank in release builds
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         // Release code for the macrobenchmark (S4.2): R8 on, debug signing, profileable

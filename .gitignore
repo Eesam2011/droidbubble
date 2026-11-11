@@ -16,3 +16,7 @@ local.properties
 *.apk
 /release
 .kotlin/
+# Signing keys never go in the repo (F6.4)
+*.jks
+*.keystore
+keystore.properties
