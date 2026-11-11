@@ -525,18 +525,18 @@ private fun IslandOverlayContent(
     val secondaryPriority: IslandPriority? = scene.secondary
 
     // Dynamic non-customizable outline colors (around 15% opacity):
-    val redRecordingOutline = Color(0xFFFF3B30).copy(alpha = 0.15f)
-    val defaultTaskOutline = Color.White.copy(alpha = 0.15f)
+    val redRecordingOutline = IslandTokens.RecordingRedSystem.copy(alpha = IslandTokens.OutlineAlphaTask)
+    val defaultTaskOutline = Color.White.copy(alpha = IslandTokens.OutlineAlphaTask)
     val mediaOutline = if (mediaAccentColor != Color.Transparent) {
-        mediaAccentColor.copy(alpha = 0.15f)
+        mediaAccentColor.copy(alpha = IslandTokens.OutlineAlphaTask)
     } else {
         defaultTaskOutline
     }
-    val flashlightOutline = Color.White.copy(alpha = 0.25f)
+    val flashlightOutline = Color.White.copy(alpha = IslandTokens.OutlineAlphaFlashlight)
 
     // Card 1 (Main Island):
     val primaryTaskOutline = when {
-        isCharging -> Color(0xFF30D158).copy(alpha = 0.30f)
+        isCharging -> IslandTokens.ChargingGreen.copy(alpha = IslandTokens.OutlineAlphaCharging)
         primaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
         primaryPriority == IslandPriority.MEDIA -> mediaOutline
         primaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
@@ -1316,7 +1316,7 @@ private fun IslandOverlayContent(
                                             )
                                         }
                                         primaryPriority == IslandPriority.FLASHLIGHT -> {
-                                            val blurpleTint = Color(0xFFD2D6FF)
+                                            val blurpleTint = IslandTokens.FlashlightTint
                                             Brush.verticalGradient(
                                                 colors = listOf(
                                                     Color.Transparent,
@@ -1326,7 +1326,7 @@ private fun IslandOverlayContent(
                                             )
                                         }
                                         primaryPriority == IslandPriority.SCREEN_RECORDING -> {
-                                            val redTint = Color(0xFFFF453A)
+                                            val redTint = IslandTokens.RecordingRed
                                             Brush.verticalGradient(
                                                 colors = listOf(
                                                     redTint.copy(alpha = 0.16f * expandProgress),
@@ -1495,7 +1495,7 @@ private fun IslandOverlayContent(
                                             )
                                         }
                                         secondaryPriority == IslandPriority.FLASHLIGHT -> {
-                                            val blurpleTint = Color(0xFFD2D6FF)
+                                            val blurpleTint = IslandTokens.FlashlightTint
                                             Brush.verticalGradient(
                                                 colors = listOf(
                                                     Color.Transparent,
@@ -1505,7 +1505,7 @@ private fun IslandOverlayContent(
                                             )
                                         }
                                         secondaryPriority == IslandPriority.SCREEN_RECORDING -> {
-                                            val redTint = Color(0xFFFF453A)
+                                            val redTint = IslandTokens.RecordingRed
                                             Brush.verticalGradient(
                                                 colors = listOf(
                                                     redTint.copy(alpha = 0.16f * animatedCard2Alpha),
@@ -1860,7 +1860,7 @@ private fun IslandOverlayContent(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer { alpha = chargingContentAlpha }
-                                .background(Color(0xFF04190B))
+                                .background(IslandTokens.ChargingFillDark)
                         )
 
                         Box(
@@ -1872,8 +1872,8 @@ private fun IslandOverlayContent(
                                 .background(
                                     Brush.horizontalGradient(
                                         colors = listOf(
-                                            Color(0xFF062B12),
-                                            Color(0xFF0D3D1B)
+                                            IslandTokens.ChargingFillFrom,
+                                            IslandTokens.ChargingFillTo
                                         )
                                     )
                                 )
@@ -1907,7 +1907,7 @@ private fun IslandOverlayContent(
                             ) {
                                 Text(
                                     text = chargingLabel,
-                                    color = Color(0xFF30D158),
+                                    color = IslandTokens.ChargingGreen,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
@@ -1925,7 +1925,7 @@ private fun IslandOverlayContent(
                             ) {
                                 Text(
                                     text = "${charging?.percentage ?: 100}%",
-                                    color = Color(0xFF30D158),
+                                    color = IslandTokens.ChargingGreen,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1
@@ -2041,7 +2041,7 @@ private fun IslandOverlayContent(
                                     RingerMode.RING -> Icons.Default.Notifications
                                 }
                                 val iconTint = if (displayRingerMode == RingerMode.SILENT) {
-                                    Color(0xFFFF3B30) // Red icon for silent
+                                    IslandTokens.RingerSilentRed // Red icon for silent
                                 } else {
                                     Color.White
                                 }
@@ -2081,7 +2081,7 @@ private fun IslandOverlayContent(
                                         RingerMode.RING -> "Ring"
                                     }
                                     val labelColor = if (displayRingerMode == RingerMode.SILENT) {
-                                        Color(0xFFFF3B30) // Red text for silent
+                                        IslandTokens.RingerSilentRed // Red text for silent
                                     } else {
                                         Color.White
                                     }
@@ -2370,8 +2370,8 @@ fun AuxiliaryBubbleContent(
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = Color(0xFFE5E5EA),
-                        trackColor = Color(0xFF2C2C2E)
+                        color = IslandTokens.ControlLight,
+                        trackColor = IslandTokens.ControlTrack
                     )
                 } else {
                     // B9.2: a readable numeral (11 sp bold, never smaller) in a ring sized by the
@@ -2391,8 +2391,8 @@ fun AuxiliaryBubbleContent(
                             progress = { pct },
                             modifier = Modifier.size(ring),
                             strokeWidth = BUBBLE_RING_STROKE,
-                            color = Color(0xFFE5E5EA),
-                            trackColor = Color(0xFF2C2C2E)
+                            color = IslandTokens.ControlLight,
+                            trackColor = IslandTokens.ControlTrack
                         )
                         if (bubbleNumeralFits(labelWidth, digitHeight, ring)) {
                             Text(text = label, style = numeralStyle, maxLines = 1, softWrap = false)
@@ -2568,7 +2568,7 @@ fun CompactContent(
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = null,
-                            tint = Color(0xFFE5E5EA),
+                            tint = IslandTokens.ControlLight,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -2588,7 +2588,7 @@ fun CompactContent(
                             Icon(
                                 imageVector = Icons.Default.Download,
                                 contentDescription = null,
-                                tint = Color(0xFFE5E5EA),
+                                tint = IslandTokens.ControlLight,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -2596,7 +2596,7 @@ fun CompactContent(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = notification?.appName ?: "Download",
-                                color = Color(0xFFE5E5EA),
+                                color = IslandTokens.ControlLight,
                                 fontSize = IslandTokens.TypeCaption,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
@@ -2674,7 +2674,7 @@ fun CompactContent(
                     // Live values roll digit by digit with steady-width numbers.
                     RollingNumberText(
                         text = liveTimer ?: notification?.title ?: "Notification",
-                        color = if (liveKind != LiveActivityKind.NONE && liveTimer != null) LiveActivityColors.accentFor(liveKind) else Color(0xFFE5E5EA),
+                        color = if (liveKind != LiveActivityKind.NONE && liveTimer != null) LiveActivityColors.accentFor(liveKind) else IslandTokens.ControlLight,
                         fontSize = IslandTokens.TypeCaption,
                         fontWeight = FontWeight.SemiBold,
                         countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
@@ -2688,13 +2688,13 @@ fun CompactContent(
                         CircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
                             strokeWidth = 2.dp,
-                            color = Color(0xFFE5E5EA),
-                            trackColor = Color(0xFF2C2C2E)
+                            color = IslandTokens.ControlLight,
+                            trackColor = IslandTokens.ControlTrack
                         )
                     } else {
                         Text(
                             text = "${(pct * 100).roundToInt()}%",
-                            color = Color(0xFFE5E5EA),
+                            color = IslandTokens.ControlLight,
                             fontSize = IslandTokens.TypeCaption,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -2707,9 +2707,9 @@ fun CompactContent(
                     val displayArt = media?.albumArt ?: media?.appIcon
                     val compactAccent = remember(displayArt) { extractMediaAccentColor(displayArt) }
                     val compactEqTint = if (compactAccent != Color.Transparent) {
-                        lerp(Color(0xFFE5E5EA), compactAccent, 0.50f)
+                        lerp(IslandTokens.ControlLight, compactAccent, 0.50f)
                     } else {
-                        Color(0xFFE5E5EA)
+                        IslandTokens.ControlLight
                     }
                     EqualizerVisualizer(isPlaying = media?.isPlaying == true, barColor = compactEqTint)
                 }
@@ -2862,7 +2862,7 @@ fun ExpandedFlashlightView(
                 val h = size.height
                 val centerX = w / 2f
 
-                val blurpleTint = Color(0xFFD2D6FF)
+                val blurpleTint = IslandTokens.FlashlightTint
 
                 // Geometry:
                 // Maximum widths at full brightness (level 4):
@@ -3085,9 +3085,9 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     val mediaAccentColor = remember(displayArt) { extractMediaAccentColor(displayArt) }
 
     val controlsTint = if (mediaAccentColor != Color.Transparent) {
-        lerp(Color(0xFFE5E5EA), mediaAccentColor, 0.40f)
+        lerp(IslandTokens.ControlLight, mediaAccentColor, 0.40f)
     } else {
-        Color(0xFFE5E5EA)
+        IslandTokens.ControlLight
     }
 
     val playButtonBg = if (mediaAccentColor != Color.Transparent) {
@@ -3103,21 +3103,21 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     }
 
     val eqTint = if (mediaAccentColor != Color.Transparent) {
-        lerp(Color(0xFFE5E5EA), mediaAccentColor, 0.50f)
+        lerp(IslandTokens.ControlLight, mediaAccentColor, 0.50f)
     } else {
-        Color(0xFFE5E5EA)
+        IslandTokens.ControlLight
     }
 
     val sliderActiveTint = if (mediaAccentColor != Color.Transparent) {
-        lerp(Color(0xFFE5E5EA), mediaAccentColor, 0.55f)
+        lerp(IslandTokens.ControlLight, mediaAccentColor, 0.55f)
     } else {
-        Color(0xFFE5E5EA)
+        IslandTokens.ControlLight
     }
 
     val sliderInactiveTint = if (mediaAccentColor != Color.Transparent) {
-        lerp(Color(0xFF2C2C2E), mediaAccentColor, 0.22f)
+        lerp(IslandTokens.ControlTrack, mediaAccentColor, 0.22f)
     } else {
-        Color(0xFF2C2C2E)
+        IslandTokens.ControlTrack
     }
 
     val durationTextTint = if (mediaAccentColor != Color.Transparent) {
@@ -3554,13 +3554,13 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF2C2C2E))
+                                .background(IslandTokens.SurfaceRaised)
                                 .clickable { sendReply(choice) }
                                 .padding(horizontal = 10.dp, vertical = metrics.replyChipVerticalPadding)
                         ) {
                             Text(
                                 text = choice,
-                                color = Color(0xFFE5E5EA),
+                                color = IslandTokens.ControlLight,
                                 fontSize = metrics.replyChipFontSize,
                                 fontWeight = FontWeight.Medium
                             )
@@ -3574,7 +3574,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         .fillMaxWidth()
                         .height(metrics.replyInputHeight)
                         .clip(RoundedCornerShape(metrics.replyInputHeight / 2))
-                        .background(Color(0xFF212121))
+                        .background(IslandTokens.SurfaceMuted)
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -3598,7 +3598,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                             fontSize = 14.sp
                         ),
                         singleLine = true,
-                        cursorBrush = SolidColor(Color(0xFFE5E5EA)),
+                        cursorBrush = SolidColor(IslandTokens.ControlLight),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { sendReply(replyText) }),
                         decorationBox = { innerTextField ->
@@ -3623,7 +3623,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                             imageVector = Icons.Default.Send,
                             contentDescription = "Send Reply",
                             // Disabled Send keeps its dimmer grey: disabled controls are exempt from contrast
-                            tint = if (replyText.isNotBlank()) Color.White else Color(0xFF52525B),
+                            tint = if (replyText.isNotBlank()) Color.White else IslandTokens.IconDisabled,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -3770,8 +3770,8 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
                     .fillMaxWidth()
                     .height(m.barHeight)
                     .clip(CircleShape),
-                color = Color(0xFFE5E5EA),
-                trackColor = Color(0xFF2C2C2E)
+                color = IslandTokens.ControlLight,
+                trackColor = IslandTokens.ControlTrack
             )
         } else {
             LinearProgressIndicator(
@@ -3780,8 +3780,8 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
                     .fillMaxWidth()
                     .height(m.barHeight)
                     .clip(CircleShape),
-                color = Color(0xFFE5E5EA),
-                trackColor = Color(0xFF2C2C2E),
+                color = IslandTokens.ControlLight,
+                trackColor = IslandTokens.ControlTrack,
                 gapSize = 0.dp,
                 drawStopIndicator = {}
             )
@@ -3878,7 +3878,7 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
                 scaleY = 1f + a * 0.12f
                 this.alpha = a
             }
-            .drawBehind { drawCircle(Color(0xFFFF3B30)) }
+            .drawBehind { drawCircle(IslandTokens.RecordingRedSystem) }
     )
 }
 
@@ -3888,7 +3888,7 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
  * the device blocks it). Frames only run while playing.
  */
 @Composable
-fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = Color(0xFFE5E5EA)) {
+fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.ControlLight) {
     OutputAudioBandsEffect(active = isPlaying)
     val idle = remember { floatArrayOf(0.3f, 0.5f, 0.2f) }
     val shown = remember { idle.copyOf() }

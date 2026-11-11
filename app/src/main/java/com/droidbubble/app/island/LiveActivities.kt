@@ -317,16 +317,16 @@ fun liveActivityControls(n: NotificationInfo): LiveActivityControls {
 }
 
 object LiveActivityColors {
-    val RecordingRed = Color(0xFFFF5A47)
-    val TimerBlue = Color(0xFF5B9BFF)
-    val StopwatchOrange = Color(0xFFFF9F0A)
-    val CallGreen = Color(0xFF34C759)
-    val CallRed = Color(0xFFFF453A)
-    val AvatarPlaceholder = Color(0xFF3A3A3C)
+    val RecordingRed = IslandTokens.LiveRecordingRed
+    val TimerBlue = IslandTokens.LiveTimerBlue
+    val StopwatchOrange = IslandTokens.AccentOrange
+    val CallGreen = IslandTokens.LiveCallGreen
+    val CallRed = IslandTokens.AccentRed
+    val AvatarPlaceholder = IslandTokens.SurfaceDivider
 
-    val AlarmYellow = Color(0xFFFFCC00)
-    val TrackingGreen = Color(0xFF30D158)
-    val SportsWhite = Color(0xFFF2F2F7)
+    val AlarmYellow = IslandTokens.LiveAlarmYellow
+    val TrackingGreen = IslandTokens.AccentGreen
+    val SportsWhite = IslandTokens.LiveSportsWhite
 
     /** Secondary ("glass") controls: a faint white tint that sits on the black island. */
     val Glass: Color get() = Color.White.copy(alpha = if (IslandTokens.highContrast) 0.28f else 0.14f)
