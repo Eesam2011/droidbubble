@@ -56,6 +56,8 @@ import com.droidbubble.app.MainActivity
 import com.droidbubble.app.R
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandOverlayRoot
+import com.droidbubble.app.service.window.OverlayWindowController
+import com.droidbubble.app.service.window.WindowState
 import com.droidbubble.app.island.IslandStateManager
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandMode
@@ -487,14 +489,27 @@ class IslandOverlayService : Service() {
         }
     }
 
-    private var touchManager: IslandTouchManager? = null
+    // F5.1: the window is changed only through the controller, one update per change
+    private var windowController: OverlayWindowController? = null
 
-    private fun disableMoveAnimation(params: WindowManager.LayoutParams) {
-        try {
-            val field = WindowManager.LayoutParams::class.java.getField("privateFlags")
-            val current = field.getInt(params)
-            field.setInt(params, current or 0x00000040)
-        } catch (_: Exception) {}
+    // The three wishes the window state is built from
+    private var windowSize: WindowState = WindowState.Gone
+    private var keyboardFocused = false
+    private var boosting = false
+
+    /** Sends the window what the size, the keyboard and the refresh boost ask for, in one update. */
+    private fun pushWindow() = traced("db.pushWindow") {
+        windowController?.apply(
+            windowSize.copy(
+                focusable = keyboardFocused,
+                preferredRefreshRate = if (boosting && maxRefreshRate > 60f) maxRefreshRate else 0f,
+            )
+        )
+    }
+
+    private fun setWindowSize(width: Int, height: Int, touchable: Boolean) {
+        windowSize = WindowState(width, height, touchable)
+        pushWindow()
     }
 
 
@@ -563,7 +578,10 @@ class IslandOverlayService : Service() {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
-        disableMoveAnimation(layoutParams!!)
+        windowSize = WindowState(initialWidth, initialHeight, initialWindow.touchable)
+        windowController = OverlayWindowController(layoutParams!!, update = { params ->
+            composeView?.let { view -> if (view.parent != null) windowManager?.updateViewLayout(view, params) }
+        })
 
         val view = ComposeView(aService ?: this).apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
@@ -687,21 +705,16 @@ class IslandOverlayService : Service() {
                     startMorphHold()
                 }
                 updateWindowState(expanded)
+                // The boost rides on the resize above; if the size didn't change it goes alone
+                pushWindow()
             }
         }
 
         // Listen for keyboard focus state to enable soft keyboard for inline replies
         overlayJobs += serviceScope.launch {
             IslandStateManager.isKeyboardFocused.collectLatest { focused ->
-                val view = composeView ?: return@collectLatest
-                val params = layoutParams ?: return@collectLatest
-                if (focused) {
-                    params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                } else {
-                    params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                }
-                disableMoveAnimation(params)
-                runCatching { windowManager?.updateViewLayout(view, params) }
+                keyboardFocused = focused
+                pushWindow()
             }
         }
 
@@ -799,60 +812,22 @@ class IslandOverlayService : Service() {
         }.getOrDefault(0f)
     }
 
-    private fun boostRefreshRate() = traced("db.boostRefreshRate") { boostRefreshRateTraced() }
-
-    private fun boostRefreshRateTraced() {
-        val view = composeView ?: return
-        val params = layoutParams ?: return
-        val rate = maxRefreshRate
-        if (rate <= 60f) return
-        if (params.preferredRefreshRate != rate) {
-            params.preferredRefreshRate = rate
-            disableMoveAnimation(params)
-            runCatching { windowManager?.updateViewLayout(view, params) }
-        }
+    /**
+     * Asks for the display's top refresh rate while the island animates. It only marks the wish:
+     * the window update that follows (the resize) carries it, so a shape change is one update.
+     */
+    private fun boostRefreshRate() {
+        if (maxRefreshRate <= 60f) return
+        boosting = true
         refreshBoostJob?.cancel()
         refreshBoostJob = serviceScope.launch {
             // Long enough for the slowest spring at the lowest animation-speed setting
             delay((1200L / currentSettings.animationSpeed.coerceIn(0.5f, 2f)).toLong())
-            val v = composeView ?: return@launch
-            val p = layoutParams ?: return@launch
-            if (p.preferredRefreshRate == 0f) return@launch
-            p.preferredRefreshRate = 0f
-            disableMoveAnimation(p)
-            runCatching { windowManager?.updateViewLayout(v, p) }
+            boosting = false
+            pushWindow()
         }
     }
     private var wasExpanded = false
-
-    private fun applyLayoutParams(
-        view: View,
-        params: WindowManager.LayoutParams,
-        width: Int,
-        height: Int,
-        x: Int,
-        y: Int,
-        gravity: Int,
-        flags: Int
-    ): Unit = traced("db.applyLayoutParams") {
-        if (params.width == width &&
-            params.height == height &&
-            params.x == x &&
-            params.y == y &&
-            params.gravity == gravity &&
-            params.flags == flags
-        ) {
-            return@traced
-        }
-        params.width = width
-        params.height = height
-        params.x = x
-        params.y = y
-        params.gravity = gravity
-        params.flags = flags
-        disableMoveAnimation(params)
-        runCatching { windowManager?.updateViewLayout(view, params) }
-    }
 
     private class WindowScene(val scene: IslandScene, val targets: IslandTargets)
 
@@ -890,8 +865,7 @@ class IslandOverlayService : Service() {
     private var lastLoggedSpec: WindowSpec? = null
 
     private fun updateWindowState(expanded: Boolean) {
-        val view = composeView ?: return
-        val params = layoutParams ?: return
+        if (composeView == null || layoutParams == null) return
         val density = resources.displayMetrics.density
 
         val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
@@ -908,16 +882,7 @@ class IslandOverlayService : Service() {
         if (ws.scene.mode == IslandMode.OFF) {
             collapseJob?.cancel()
             isCollapsing = false
-            applyLayoutParams(
-                view = view,
-                params = params,
-                width = 1,
-                height = 1,
-                x = 0,
-                y = 0,
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            )
+            setWindowSize(1, 1, touchable = false)
             return
         }
 
@@ -926,16 +891,7 @@ class IslandOverlayService : Service() {
             isCollapsing = false
             wasExpanded = true
             // Full screen touch area to allow tapping outside to dismiss
-            applyLayoutParams(
-                view = view,
-                params = params,
-                width = WindowManager.LayoutParams.MATCH_PARENT,
-                height = WindowManager.LayoutParams.MATCH_PARENT,
-                x = 0,
-                y = 0,
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            )
+            setWindowSize(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, touchable = true)
         } else {
             val isOccupied = ws.scene.isOccupied
 
@@ -943,32 +899,9 @@ class IslandOverlayService : Service() {
                 collapseJob?.cancel()
                 if (spec is WindowSpec.Compact) {
                     val px = spec.toWindowPx(density)
-                    val targetFlags = if (px.touchable) {
-                        params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                    } else {
-                        params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                    }
-                    applyLayoutParams(
-                        view = view,
-                        params = params,
-                        width = px.width,
-                        height = px.height,
-                        x = 0,
-                        y = 0,
-                        gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                        flags = targetFlags
-                    )
+                    setWindowSize(px.width, px.height, px.touchable)
                 } else {
-                    applyLayoutParams(
-                        view = view,
-                        params = params,
-                        width = 1,
-                        height = 1,
-                        x = 0,
-                        y = 0,
-                        gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                        flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                    )
+                    setWindowSize(1, 1, touchable = false)
                 }
             }
 
@@ -1001,16 +934,7 @@ class IslandOverlayService : Service() {
                 collapseJob = serviceScope.launch {
                     kotlinx.coroutines.delay((420f / speedFactor).toLong().coerceIn(320L, 750L))
                     if (!isOccupied && !IslandStateManager.isExpanded.value && !currentSettings.alwaysShowPill) {
-                        applyLayoutParams(
-                            view = view,
-                            params = params,
-                            width = 1,
-                            height = 1,
-                            x = 0,
-                            y = 0,
-                            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                            flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        )
+                        setWindowSize(1, 1, touchable = false)
                     }
                 }
             } else {
@@ -1024,6 +948,8 @@ class IslandOverlayService : Service() {
         overlayJobs.clear()
         collapseJob?.cancel()
         refreshBoostJob?.cancel()
+        boosting = false
+        windowController = null
         isCollapsing = false
         wasExpanded = false
         lastShapeKey = null

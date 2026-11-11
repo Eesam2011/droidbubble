@@ -134,7 +134,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F4.2 | Explicit line heights and Trim | todo |
 | F4.3 | Harmonize the scales | todo |
 | F4.4 | NumericSlot | done |
-| F5.1 | WindowSpec and OverlayWindowController | todo |
+| F5.1 | WindowSpec and OverlayWindowController | doing (code and tests done; device check pending: one relayout at expand start in a Perfetto trace) |
 | F5.2 | Grow the window before animating | todo |
 | F5.3 | Shrink on settle everywhere, including hide | todo |
 | F5.4 | Envelope window trial behind a flag | todo |
