@@ -114,7 +114,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 ### Phase 2–3: Foundations and one living shape ([file](phase-2-3-foundations-and-shape.md))
 | ID | Title | Status |
 |---|---|---|
-| F1.1 | Lift arbitration into a pure `deriveIslandScene` | todo |
+| F1.1 | Lift arbitration into a pure `deriveIslandScene` | done |
 | F1.2 | Composable consumes the scene | todo |
 | F1.3 | Target geometry as a pure function (`IslandGeometry`) | todo |
 | F1.4 | Window consumes the scene | todo |
