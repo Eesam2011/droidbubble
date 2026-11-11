@@ -4,10 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -152,6 +148,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -203,6 +200,8 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.droidbubble.app.island.motion.IslandMotion
+import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandInputs
 import com.droidbubble.app.island.scene.IslandMode
@@ -384,9 +383,33 @@ object IslandTestTags {
     fun content(slot: String, priority: IslandPriority?) = "island_${slot}_${priority?.name ?: "NONE"}"
 }
 
-@OptIn(ExperimentalAnimationApi::class)
+/**
+ * The island. Provides what every part of it shares (haptics, motion), then draws it.
+ */
 @Composable
 fun IslandOverlayRoot(
+    settings: IslandSettings
+) {
+    val view = LocalView.current
+    // F3.3: every island haptic goes through here, and none fires with the haptics switch off
+    val hapticsEnabled = rememberUpdatedState(settings.hapticsEnabled)
+    val haptics = remember(view) { IslandHaptics(view, enabled = { hapticsEnabled.value }) }
+    // F3.1: one motion object, rebuilt only when the speed or a curve changes
+    val motion = remember(
+        settings.animationSpeed, settings.expandDamping, settings.expandStiffness,
+        settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness,
+    ) { IslandMotion.from(settings) }
+    CompositionLocalProvider(
+        LocalIslandHaptics provides haptics,
+        LocalIslandMotion provides motion,
+    ) {
+        IslandOverlayContent(settings)
+    }
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+private fun IslandOverlayContent(
     settings: IslandSettings
 ) {
     com.droidbubble.app.util.IslandTraceCounters.rootComposed()
@@ -423,6 +446,7 @@ fun IslandOverlayRoot(
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val haptics = LocalIslandHaptics.current
     var lastRingerMode by remember { mutableStateOf(RingerMode.RING) }
     LaunchedEffect(activeRingerMode) {
         if (activeRingerMode != null) {
@@ -763,36 +787,7 @@ fun IslandOverlayRoot(
 
     LaunchedEffect(isRingerMode, activeRingerMode) {
         if (isRingerMode && activeRingerMode == RingerMode.RING) {
-            launch {
-                if (settings.hapticsEnabled) {
-                    try {
-                        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-                            vm?.defaultVibrator
-                        } else {
-                            @Suppress("DEPRECATION")
-                            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                        }
-                        if (vibrator != null && vibrator.hasVibrator()) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                val timings = longArrayOf(0, 25, 100, 25, 100, 25)
-                                val amplitudes = intArrayOf(0, 180, 0, 200, 0, 220)
-                                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
-                            } else {
-                                @Suppress("DEPRECATION")
-                                vibrator.vibrate(longArrayOf(0, 25, 100, 25, 100, 25), -1)
-                            }
-                        } else {
-                            for (i in 0 until 3) {
-                                if (i > 0) delay(100)
-                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                            }
-                        }
-                    } catch (_: Throwable) {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    }
-                }
-            }
+            haptics.perform(IslandHapticEvent.SYSTEM_ALERT_RINGER)
             bellShakeRotation.snapTo(0f)
             val animDuration = (1000 / speed).roundToInt()
             val rotSpec = keyframes<Float> {
@@ -1093,9 +1088,7 @@ fun IslandOverlayRoot(
     }
 
     LaunchedEffect(charging?.timestamp) {
-        if (charging != null && settings.hapticsEnabled) {
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        }
+        if (charging != null) haptics.perform(IslandHapticEvent.SYSTEM_ALERT_CHARGING)
     }
 
     LaunchedEffect(isExpanded, isOccupied, primaryPriority) {
@@ -1103,25 +1096,6 @@ fun IslandOverlayRoot(
             if (!isOccupied || primaryPriority == IslandPriority.IDLE) {
                 IslandStateManager.collapse()
             }
-        }
-    }
-
-    // Light tap for expand / taps, a barely-there tick for collapse, a firm press only for long-press
-    fun triggerHaptic() {
-        if (settings.hapticsEnabled) {
-            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-        }
-    }
-
-    fun triggerCollapseHaptic() {
-        if (settings.hapticsEnabled) {
-            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-        }
-    }
-
-    fun triggerLongPressHaptic() {
-        if (settings.hapticsEnabled) {
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         }
     }
 
@@ -1183,7 +1157,7 @@ fun IslandOverlayRoot(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
-                        triggerCollapseHaptic()
+                        haptics.perform(IslandHapticEvent.COLLAPSE)
                         IslandStateManager.collapse()
                     }
             )
@@ -1224,7 +1198,7 @@ fun IslandOverlayRoot(
                                     if (fromPillZone && !collapsed && dragAmount < -15f) {
                                         change.consume()
                                         collapsed = true
-                                        triggerCollapseHaptic()
+                                        haptics.perform(IslandHapticEvent.COLLAPSE)
                                         IslandStateManager.collapse()
                                     }
                                 }
@@ -1274,7 +1248,7 @@ fun IslandOverlayRoot(
                                                     when (primaryPriority) {
                                                         IslandPriority.MEDIA -> {
                                                             if (abs(card1OffsetX) > threshold) {
-                                                                triggerHaptic()
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
                                                                 IslandStateManager.dismissMedia()
                                                             }
                                                         }
@@ -1283,17 +1257,17 @@ fun IslandOverlayRoot(
                                                                 if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
                                                                     // B6.2: a ringing call or alarm tucks back to the pill instead
                                                                     // of losing its Answer / Stop buttons. Decline and Stop end it.
-                                                                    triggerCollapseHaptic()
+                                                                    haptics.perform(IslandHapticEvent.COLLAPSE)
                                                                     IslandStateManager.collapse()
                                                                 } else {
-                                                                    triggerHaptic()
+                                                                    haptics.perform(IslandHapticEvent.DISMISS)
                                                                     IslandStateManager.clearCurrentNotification()
                                                                 }
                                                             }
                                                         }
                                                         IslandPriority.PROGRESS -> {
                                                             if (abs(card1OffsetX) > threshold) {
-                                                                triggerHaptic()
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
                                                                 IslandStateManager.dismissProgress()
                                                             }
                                                         }
@@ -1411,7 +1385,7 @@ fun IslandOverlayRoot(
                                         maxFlashlightLevel = maxFlashlightLevel,
                                         scale = settings.expandedScale,
                                         onCollapse = {
-                                            triggerCollapseHaptic()
+                                            haptics.perform(IslandHapticEvent.COLLAPSE)
                                             IslandStateManager.collapse()
                                         }
                                     )
@@ -1453,7 +1427,7 @@ fun IslandOverlayRoot(
                                                     when (secondaryPriority) {
                                                         IslandPriority.MEDIA -> {
                                                             if (abs(card2OffsetX) > threshold) {
-                                                                triggerHaptic()
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
                                                                 IslandStateManager.dismissMedia()
                                                             }
                                                         }
@@ -1462,17 +1436,17 @@ fun IslandOverlayRoot(
                                                                 if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
                                                                     // B6.2: a ringing call or alarm tucks back to the pill instead
                                                                     // of losing its Answer / Stop buttons. Decline and Stop end it.
-                                                                    triggerCollapseHaptic()
+                                                                    haptics.perform(IslandHapticEvent.COLLAPSE)
                                                                     IslandStateManager.collapse()
                                                                 } else {
-                                                                    triggerHaptic()
+                                                                    haptics.perform(IslandHapticEvent.DISMISS)
                                                                     IslandStateManager.clearCurrentNotification()
                                                                 }
                                                             }
                                                         }
                                                         IslandPriority.PROGRESS -> {
                                                             if (abs(card2OffsetX) > threshold) {
-                                                                triggerHaptic()
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
                                                                 IslandStateManager.dismissProgress()
                                                             }
                                                         }
@@ -1577,7 +1551,7 @@ fun IslandOverlayRoot(
                                         maxFlashlightLevel = maxFlashlightLevel,
                                         scale = settings.expandedScale,
                                         onCollapse = {
-                                            triggerCollapseHaptic()
+                                            haptics.perform(IslandHapticEvent.COLLAPSE)
                                             IslandStateManager.collapse()
                                         }
                                     )
@@ -1652,11 +1626,11 @@ fun IslandOverlayRoot(
                                 interactionSource = bubbleInteraction,
                                 indication = null,
                                 onClick = {
-                                    triggerHaptic()
+                                    haptics.perform(IslandHapticEvent.TAP_EXPAND)
                                     IslandStateManager.expand(secondaryPriority)
                                 },
                                 onLongClick = {
-                                    triggerLongPressHaptic()
+                                    haptics.perform(IslandHapticEvent.LONG_PRESS)
                                     openAppForPriority(
                                         context = context,
                                         priority = secondaryPriority,
@@ -1796,11 +1770,11 @@ fun IslandOverlayRoot(
                                     when {
                                         isExpanded -> Unit
                                         userMinimized && dragTotal > threshold -> {
-                                            triggerHaptic()
+                                            haptics.perform(IslandHapticEvent.RESTORE)
                                             IslandStateManager.restoreIsland()
                                         }
                                         dragTotal < -threshold && !userMinimized -> {
-                                            triggerHaptic()
+                                            haptics.perform(IslandHapticEvent.MINIMISE)
                                             IslandStateManager.minimizeIsland()
                                         }
                                     }
@@ -1812,19 +1786,13 @@ fun IslandOverlayRoot(
                             indication = null,
                             onClick = {
                                 if (userMinimized) {
-                                    triggerHaptic()
+                                    haptics.perform(IslandHapticEvent.RESTORE)
                                     IslandStateManager.restoreIsland()
                                 } else if (!isExpanded && isOccupied && !isUnlock && !isBluetooth && !isRingerMode) {
-                                    triggerHaptic()
+                                    haptics.perform(IslandHapticEvent.TAP_EXPAND)
                                     IslandStateManager.expand(primaryPriority)
                                 } else if (!isExpanded && !isOccupied && settings.alwaysShowPill) {
-                                    if (settings.hapticsEnabled) {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                        } else {
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        }
-                                    }
+                                    haptics.perform(IslandHapticEvent.IDLE_TAP)
                                     coroutineScope.launch {
                                         launch {
                                             idleBounceY.snapTo(0f)
@@ -1867,7 +1835,7 @@ fun IslandOverlayRoot(
                             },
                             onLongClick = {
                                 if (!isExpanded && !isUnlock && !isBluetooth && !isRingerMode) {
-                                    triggerLongPressHaptic()
+                                    haptics.perform(IslandHapticEvent.LONG_PRESS)
                                     openAppForPriority(
                                         context = context,
                                         priority = primaryPriority,
@@ -2817,7 +2785,7 @@ fun ExpandedFlashlightView(
     onCollapse: () -> Unit,
     scale: Float = 1.0f
 ) {
-    val view = LocalView.current
+    val haptics = LocalIslandHaptics.current
 
     // Current brightness level 1..4
     var currentLevel by remember(level) { mutableIntStateOf(level.coerceIn(1, 4)) }
@@ -2860,7 +2828,7 @@ fun ExpandedFlashlightView(
                             val newLevel = (((1f - relY) * 3.999f).toInt() + 1).coerceIn(1, 4)
                             if (newLevel != currentLevelState.value) {
                                 currentLevel = newLevel
-                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                haptics.perform(IslandHapticEvent.SEGMENT_TICK)
                                 onSetLevelState.value(newLevel)
                             }
                         }
@@ -2875,7 +2843,7 @@ fun ExpandedFlashlightView(
                                 val newLevel = (((1f - relY) * 3.999f).toInt() + 1).coerceIn(1, 4)
                                 if (newLevel != currentLevelState.value) {
                                     currentLevel = newLevel
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                    haptics.perform(IslandHapticEvent.SEGMENT_TICK)
                                     onSetLevelState.value(newLevel)
                                 }
                             }
@@ -3044,7 +3012,7 @@ fun ExpandedFlashlightView(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
-                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                    haptics.perform(IslandHapticEvent.TOGGLE_OFF)
                     onTurnOff()
                 },
             contentAlignment = Alignment.Center
