@@ -19,7 +19,6 @@ import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateValueAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.fadeIn
@@ -196,6 +195,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
+import com.droidbubble.app.island.shell.Follow
+import com.droidbubble.app.island.shell.rememberIslandShellState
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandInputs
 import com.droidbubble.app.island.scene.IslandMode
@@ -606,10 +607,11 @@ private fun IslandOverlayContent(
     // so the pill-to-card morph moves as a single shape instead of four separate animations.
     val cardMorphAnimSpec: AnimationSpec<IslandGeometry> = motion.spring(shellToken, IslandGeometry.VisibilityThreshold)
 
-    val positionAnimSpecDp = if (isExpanded) {
-        motion.spring<Dp>(motion.expand)
+    // The island's horizontal position (dp as Float, with Dp's 0.1 visibility threshold)
+    val positionAnimSpec = if (isExpanded) {
+        motion.spring<Float>(motion.expand)
     } else {
-        motion.spring<Dp>(motion.collapse, Dp.VisibilityThreshold)
+        motion.spring<Float>(motion.collapse, Dp.VisibilityThreshold.value)
     }
 
     // The pill: shrinks away without overshoot while the card opens, and comes back (or appears,
@@ -863,12 +865,11 @@ private fun IslandOverlayContent(
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
     // pill retracting); a negative width throws in layout and crashed the island
     val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
-    val animatedCardMorph by animateValueAsState(
-        targetValue = targets.card1,
-        typeConverter = IslandGeometry.VectorConverter,
-        animationSpec = cardMorphAnimSpec,
-        label = "cardMorph"
-    )
+    // M1.1: the body's shape and position live in one state holder (Animatables), so later
+    // tasks can retarget with a velocity, snap, and read the velocity
+    val shell = rememberIslandShellState(targets.card1, targetHorizontalOffset)
+    shell.Follow(targets.card1, targetHorizontalOffset, cardMorphAnimSpec, positionAnimSpec)
+    val animatedCardMorph = shell.geometry
     val animatedCard1Width = animatedCardMorph.width.coerceAtLeast(0.dp)
     val animatedCard1Height = animatedCardMorph.height.coerceAtLeast(0.dp)
     val animatedCornerRadius = animatedCardMorph.corner.coerceAtLeast(0.dp)
@@ -876,7 +877,7 @@ private fun IslandOverlayContent(
     val animatedCard2Alpha by animateFloatAsState(targetValue = targetCard2Alpha, animationSpec = sizeAnimSpecFloat, label = "card2Alpha")
     val animatedCard2OffsetY by animateDpAsState(targetValue = targetCard2OffsetY, animationSpec = sizeAnimSpecDp, label = "card2OffsetY")
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
-    val animatedHorizontalOffset by animateDpAsState(targetValue = targetHorizontalOffset, animationSpec = positionAnimSpecDp, label = "horizontalOffset")
+    val animatedHorizontalOffset = shell.xDp
     val animatedTopOffset = animatedCardMorph.top
     val animatedCardSpacing by animateDpAsState(targetValue = targetCardSpacing, animationSpec = sizeAnimSpecDp, label = "cardSpacing")
 
@@ -890,7 +891,7 @@ private fun IslandOverlayContent(
 
     LaunchedEffect(isExpanded) {
         if (!isExpanded) {
-            snapshotFlow { animatedCardMorph.width <= 0.5.dp && animatedCard2Height <= 0.5.dp }.first { it }
+            snapshotFlow { shell.geometry.width <= 0.5.dp && animatedCard2Height <= 0.5.dp }.first { it }
             glassCardBounds[0] = null
             glassCardBounds[1] = null
             IslandStateManager.setGlassPanes(emptyList())
