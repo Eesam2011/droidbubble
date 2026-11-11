@@ -89,8 +89,8 @@ fun IslandHeader(
     subtitle: String,
     icon: @Composable () -> Unit,
     modifier: Modifier = Modifier,
-    titleSize: TextUnit = IslandTokens.TypeTitle,
-    subtitleSize: TextUnit = IslandTokens.TypeSubtitle,
+    titleSize: TextUnit = IslandType.HeaderTitle,
+    subtitleSize: TextUnit = IslandType.HeaderSubtitle,
     subtitleSpacing: Dp = IslandTokens.SpaceXxs,
     iconSpacing: Dp = IslandTokens.SpaceMd,
     titleMarquee: Boolean = false,
@@ -140,7 +140,7 @@ fun InfoChip(
     containerColor: Color = IslandTokens.SurfaceRaised,
     contentColor: Color = IslandTokens.TextPrimary,
     dotColor: Color? = null,
-    fontSize: TextUnit = IslandTokens.TypeCaption
+    fontSize: TextUnit = IslandType.CompactLabel
 ) {
     Surface(
         shape = RoundedCornerShape(IslandTokens.RadiusChip),
@@ -243,43 +243,44 @@ fun islandCardVerticalPadding(priority: IslandPriority, scale: Float): Dp =
  * Sizes of the expanded notification card. Shared by [ExpandedNotificationView] and
  * [measureNotificationCardHeight] so the card is always exactly as tall as its content.
  */
-class NotificationCardMetrics(scale: Float) {
+class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
     val horizontalPadding = islandCardHorizontalPadding(IslandPriority.POP_NOTIFICATION, scale)
     val verticalPadding = islandCardVerticalPadding(IslandPriority.POP_NOTIFICATION, scale)
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
     val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
-    val titleSize = (17 * scale).coerceIn(14f, 19f).sp
-    val appNameSize = (13 * scale).coerceIn(11.5f, 15f).sp
+    val titleSize = type.title(IslandType.Card.NOTIFICATION)
+    val appNameSize = type.secondary
     val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
-    val bodySize = (15 * scale).coerceIn(13f, 17f).sp
-    val bodyLineHeight = (20 * scale).coerceIn(17f, 22f).sp
+    val bodySize = type.body
+    val bodyLineHeight = type.bodyLineHeight
     val bodyMaxLines = if (scale < 0.88f) 2 else 3
     val headerBodyGap = (IslandTokens.SpaceSm * scale).coerceIn(6.dp, 10.dp)
     val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
     val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp) // 44dp+ visual, inside a 48dp touch row
-    val buttonFontSize = (13.5f * scale).coerceIn(12f, 15f).sp
-    val replyChipFontSize = 12.sp
+    val buttonFontSize = type.button
+    val replyChipFontSize = type.replyChip
+    val replyInputSize = type.replyInput
     val replyChipVerticalPadding = 5.dp
     val replyRowSpacing = 6.dp
     val replyInputHeight = 42.dp
 }
 
 /** Sizes of the expanded download / progress card, shared by the view and its height measurement. */
-class ProgressCardMetrics(scale: Float) {
+class ProgressCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
     val verticalPadding = islandCardVerticalPadding(IslandPriority.PROGRESS, scale)
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
     val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
-    val titleSize = (17 * scale).coerceIn(14f, 19f).sp
-    val appNameSize = (13 * scale).coerceIn(11.5f, 15f).sp
+    val titleSize = type.title(IslandType.Card.PROGRESS)
+    val appNameSize = type.secondary
     val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
     val gap = (IslandTokens.SpaceMd * scale).coerceIn(9.dp, 14.dp)
-    val bodySize = (15 * scale).coerceIn(13f, 17f).sp
-    val bodyLineHeight = (20 * scale).coerceIn(17f, 22f).sp
+    val bodySize = type.body
+    val bodyLineHeight = type.bodyLineHeight
     val barGap = (IslandTokens.SpaceSm * scale).coerceIn(6.dp, 10.dp)
     val barHeight = 6.dp
     val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
     val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp)
-    val buttonFontSize = (13.5f * scale).coerceIn(12f, 15f).sp
+    val buttonFontSize = type.button
 }
 
 /** Detail line of a download ("12 MB of 40 MB"), without stray leading / trailing bullets. */
@@ -444,7 +445,7 @@ fun IslandActionButtonRow(
     items: List<IslandActionItem>,
     modifier: Modifier = Modifier,
     height: Dp = 42.dp,
-    fontSize: TextUnit = IslandTokens.TypeCaption
+    fontSize: TextUnit = IslandType.CompactLabel
 ) {
     if (items.isEmpty()) return
     val total = items.size

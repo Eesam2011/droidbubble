@@ -130,7 +130,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F3.4 | Retune haptic meanings | todo |
 | F3.5 | IslandTimings with recommended timeout | doing (code and tests done; device check pending) |
 | F3.6 | Retune timings | todo |
-| F4.1 | IslandType roles reproducing today exactly | todo |
+| F4.1 | IslandType roles reproducing today exactly | done |
 | F4.2 | Explicit line heights and Trim | todo |
 | F4.3 | Harmonize the scales | todo |
 | F4.4 | NumericSlot | done |

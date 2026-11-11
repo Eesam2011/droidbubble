@@ -375,12 +375,14 @@ class LiveLayout(scale: Float, fontScale: Float = 1f) {
     val control = ((50.dp * scale).coerceIn(48.dp, 58.dp) * rowGrowth)
     val cornerRadius = control / 2 + margin
 
-    // Hero numbers grow with the row, not with the font setting, so they always fit the row
-    val heroSize = ((38 * scale).coerceIn(31f, 44f) * rowGrowth / textGrowth).sp
-    val heroSmallSize = ((28 * scale).coerceIn(23f, 32f) * rowGrowth / textGrowth).sp
-    val labelSize = (13 * scale).coerceIn(11.5f, 15f).sp
-    val titleSize = (16 * scale).coerceIn(13.5f, 18f).sp
-    val captionSize = (12 * scale).coerceIn(10.5f, 13.5f).sp
+    // Text sizes come from IslandType (F4.1). Hero numbers grow with the row, not with the font
+    // setting, so they always fit the row.
+    private val type = IslandType(scale, fontScale)
+    val heroSize = type.hero
+    val heroSmallSize = type.heroSmall
+    val labelSize = type.secondary
+    val titleSize = type.title(IslandType.Card.LIVE)
+    val captionSize = type.caption
 
     /** Height of a card with one row of content. */
     val rowCardHeight = control + margin * 2

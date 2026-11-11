@@ -393,9 +393,13 @@ fun IslandOverlayRoot(
         settings.animationSpeed, settings.expandDamping, settings.expandStiffness,
         settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness,
     ) { IslandMotion.from(settings) }
+    // F4.1: text sizes by role, for the card scale and the phone's font size
+    val fontScale = LocalDensity.current.fontScale
+    val type = remember(settings.expandedScale, fontScale) { IslandType(settings.expandedScale, fontScale) }
     CompositionLocalProvider(
         LocalIslandHaptics provides haptics,
         LocalIslandMotion provides motion,
+        LocalIslandType provides type,
     ) {
         IslandOverlayContent(settings)
     }
@@ -1818,7 +1822,7 @@ private fun IslandOverlayContent(
                                 Text(
                                     text = chargingLabel,
                                     color = IslandTokens.ChargingGreen,
-                                    fontSize = 13.sp,
+                                    fontSize = IslandType.CompactValue,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -1836,7 +1840,7 @@ private fun IslandOverlayContent(
                                 Text(
                                     text = "${charging?.percentage ?: 100}%",
                                     color = IslandTokens.ChargingGreen,
-                                    fontSize = 13.sp,
+                                    fontSize = IslandType.CompactValue,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1
                                 )
@@ -2007,7 +2011,7 @@ private fun IslandOverlayContent(
                                         Text(
                                             text = labelText,
                                             color = labelColor,
-                                            fontSize = 12.sp,
+                                            fontSize = IslandType.CompactLabel,
                                             fontWeight = FontWeight.SemiBold,
                                             maxLines = 1
                                         )
@@ -2290,14 +2294,12 @@ fun AuxiliaryBubbleContent(
                     BoxWithConstraints(contentAlignment = Alignment.Center) {
                         val ring = bubbleRingDiameter(minOf(maxWidth, maxHeight))
                         val label = "${(pct * 100).roundToInt()}"
-                        val numeralStyle = LocalTextStyle.current.merge(
-                            TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        )
+                        val numeralStyle = LocalTextStyle.current.merge(IslandType.BubbleNumeral.copy(color = Color.White))
                         val measurer = rememberTextMeasurer()
                         val density = LocalDensity.current
                         val labelWidth = with(density) { measurer.measure(label, numeralStyle).size.width.toDp() }
                         // Digits are about 0.72 em tall: the box that must sit inside the circle
-                        val digitHeight = with(density) { 11.sp.toDp() } * 0.72f
+                        val digitHeight = with(density) { IslandType.BubbleValue.toDp() } * 0.72f
                         CircularProgressIndicator(
                             progress = { pct },
                             modifier = Modifier.size(ring),
@@ -2508,7 +2510,7 @@ fun CompactContent(
                             Text(
                                 text = notification?.appName ?: "Download",
                                 color = IslandTokens.ControlLight,
-                                fontSize = IslandTokens.TypeCaption,
+                                fontSize = IslandType.CompactLabel,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2557,7 +2559,7 @@ fun CompactContent(
                     RollingNumberText(
                         text = String.format(Locale.US, "%02d:%02d", call.durationSeconds / 60, call.durationSeconds % 60),
                         color = LiveActivityColors.CallGreen,
-                        fontSize = IslandTokens.TypeCaption,
+                        fontSize = IslandType.CompactLabel,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -2567,7 +2569,7 @@ fun CompactContent(
                     RollingNumberText(
                         text = String.format(Locale.US, "%02d:%02d", minutes, seconds),
                         color = LiveActivityColors.RecordingRed,
-                        fontSize = IslandTokens.TypeCaption,
+                        fontSize = IslandType.CompactLabel,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -2586,7 +2588,7 @@ fun CompactContent(
                     RollingNumberText(
                         text = liveTimer ?: notification?.title ?: "Notification",
                         color = if (liveKind != LiveActivityKind.NONE && liveTimer != null) LiveActivityColors.accentFor(liveKind) else IslandTokens.ControlLight,
-                        fontSize = IslandTokens.TypeCaption,
+                        fontSize = IslandType.CompactLabel,
                         fontWeight = FontWeight.SemiBold,
                         countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
                     )
@@ -2606,7 +2608,7 @@ fun CompactContent(
                         Text(
                             text = "${(pct * 100).roundToInt()}%",
                             color = IslandTokens.ControlLight,
-                            fontSize = IslandTokens.TypeCaption,
+                            fontSize = IslandType.CompactLabel,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             softWrap = false
@@ -3037,9 +3039,8 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
 
     // Time labels use tabular digits and a fixed width sized for the longest possible value,
     // so the seek bar keeps its length while the time ticks or is scrubbed.
-    val timeLabelStyle = LocalTextStyle.current.merge(
-        TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
-    )
+    val type = rememberIslandType(scale)
+    val timeLabelStyle = LocalTextStyle.current.merge(type.timeLabel)
     // F4.4: both labels sit in a NumericSlot as wide as the track's full length
     val timeLabelTemplate = formatDuration(duration)
     val timeLabelAlsoFits = remember { listOf("--:--") }
@@ -3057,8 +3058,8 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     )
 
     val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
-    val titleSize = (17 * scale).coerceIn(14f, 19f).sp
-    val artistSize = (13 * scale).coerceIn(11.5f, 15f).sp
+    val titleSize = type.title(IslandType.Card.MEDIA)
+    val artistSize = type.secondary
     val sliderGapTop = (IslandTokens.SpaceSm * scale).coerceIn(4.dp, 10.dp)
     val sliderGapBottom = (IslandTokens.SpaceXs * scale).coerceIn(2.dp, 8.dp)
     val prevNextSize = (42.dp * scale).coerceIn(34.dp, 48.dp)
@@ -3507,7 +3508,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                             },
                         textStyle = TextStyle(
                             color = Color.White,
-                            fontSize = 14.sp
+                            fontSize = metrics.replyInputSize
                         ),
                         singleLine = true,
                         cursorBrush = SolidColor(IslandTokens.ControlLight),
@@ -3519,7 +3520,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                                     text = replyAction?.remoteInputLabel ?: "Type a reply...",
                                     // B5.2: TextTertiary on the input reaches 4.5:1 (#71717A was about 3.3:1)
                                     color = IslandTokens.TextTertiary,
-                                    fontSize = 14.sp
+                                    fontSize = metrics.replyInputSize
                                 )
                             }
                             innerTextField()
@@ -3735,6 +3736,7 @@ fun ExpandedRecordingView(recording: ScreenRecordingState, onCollapse: () -> Uni
 
 @Composable
 fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
+    val type = rememberIslandType(scale)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -3745,14 +3747,14 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
         Text(
             text = "Droidbubble Island",
             color = Color.White,
-            fontSize = 15.sp,
+            fontSize = type.idleTitle,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "Ready for Media, Notifications & Recording",
             color = IslandTokens.TextSecondary,
-            fontSize = 12.sp
+            fontSize = type.idleCaption
         )
         Spacer(modifier = Modifier.height(12.dp))
         FilledTonalButton(
@@ -3763,7 +3765,7 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
                 contentColor = Color.White
             )
         ) {
-            Text("Collapse", fontSize = 12.sp)
+            Text("Collapse", fontSize = type.idleCaption)
         }
     }
 }

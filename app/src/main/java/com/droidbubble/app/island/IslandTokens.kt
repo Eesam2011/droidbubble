@@ -6,7 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * Single source of truth for the island's visual language:
@@ -146,10 +145,15 @@ object IslandTokens {
         const val LegacySwipeUpPx = 15f
     }
 
-    // ---- Type scale (base sizes; views may scale by settings.expandedScale) ----
-    val TypeTitle = 17.sp
-    val TypeSubtitle = 13.sp
-    val TypeBody = 15.sp
-    val TypeCaption = 12.sp
-    val TypeMicro = 11.sp
+    // ---- Type scale: moved to IslandType (F4.1). These aliases go in a later release. ----
+    @Deprecated("Use IslandType", ReplaceWith("IslandType.HeaderTitle"))
+    val TypeTitle get() = IslandType.HeaderTitle
+    @Deprecated("Use IslandType", ReplaceWith("IslandType.HeaderSubtitle"))
+    val TypeSubtitle get() = IslandType.HeaderSubtitle
+    @Deprecated("Use IslandType", ReplaceWith("IslandType.Body"))
+    val TypeBody get() = IslandType.Body
+    @Deprecated("Use IslandType", ReplaceWith("IslandType.CompactLabel"))
+    val TypeCaption get() = IslandType.CompactLabel
+    @Deprecated("Use IslandType", ReplaceWith("IslandType.Micro"))
+    val TypeMicro get() = IslandType.Micro
 }
