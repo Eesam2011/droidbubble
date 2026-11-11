@@ -61,6 +61,7 @@ import com.droidbubble.app.service.window.ShrinkOnSettle
 import com.droidbubble.app.service.window.WindowState
 import com.droidbubble.app.island.IslandStateManager
 import com.droidbubble.app.island.scene.IslandEnv
+import com.droidbubble.app.island.scene.IslandSceneHolder
 import com.droidbubble.app.island.scene.IslandMode
 import com.droidbubble.app.island.scene.IslandScene
 import com.droidbubble.app.island.scene.IslandTargets
@@ -442,6 +443,7 @@ class IslandOverlayService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        envState.value = currentEnv()
         updateWindowState(IslandStateManager.isExpanded.value)
     }
 
@@ -662,50 +664,18 @@ class IslandOverlayService : Service() {
             if (currentSettings.liquidGlassCards) IslandStateManager.glassPanes.value else emptyList()
         )
 
-        // Listen for expansion and state changes to resize WindowManager touch bounds
+        // F1.5: one scene flow drives the window. It emits only when what the island shows
+        // changes, so media ticks and timer seconds never reach the window.
+        val holder = sceneHolder ?: IslandSceneHolder.fromStateManager(serviceScope, settingsState, envState)
+            .also { sceneHolder = it }
         overlayJobs += serviceScope.launch {
-            kotlinx.coroutines.flow.combine(
-                IslandStateManager.isExpanded,
-                kotlinx.coroutines.flow.combine(
-                    IslandStateManager.activeMedia,
-                    IslandStateManager.activeNotification,
-                    IslandStateManager.activeProgress,
-                    IslandStateManager.screenRecordingState,
-                    IslandStateManager.activeCallState
-                ) { _, _, _, _, _ -> Unit },
-                kotlinx.coroutines.flow.combine(
-                    IslandStateManager.activeCharging,
-                    IslandStateManager.isUnlocked,
-                    IslandStateManager.isBluetoothConnected,
-                    IslandStateManager.activeRingerMode,
-                    IslandStateManager.isFlashlightOn
-                ) { _, _, _, _, _ -> Unit },
-                IslandStateManager.isDeviceLocked,
-                kotlinx.coroutines.flow.combine(
-                    IslandStateManager.userHidden,
-                    IslandStateManager.userMinimized,
-                    // B2.1: an app's own media / alert hides while it is in front, and so must the window
-                    IslandStateManager.foregroundPackage
-                ) { _, _, _ -> Unit }
-            ) { expanded, _, _, _, _ -> expanded }.collectLatest { expanded ->
-                val shapeKey = listOf(
-                    expanded,
-                    IslandStateManager.isChargingActive, IslandStateManager.isUnlockActive,
-                    IslandStateManager.isBluetoothActive, IslandStateManager.isRingerModeActive,
-                    IslandStateManager.isRecordingActive, IslandStateManager.isNotificationActive,
-                    IslandStateManager.isMediaActive, IslandStateManager.isProgressActive,
-                    IslandStateManager.isFlashlightActive,
-                    IslandStateManager.isDeviceLocked.value,
-                    IslandStateManager.userHidden.value, IslandStateManager.userMinimized.value,
-                    // B2.1: an app's own cards hide while it is in front; the scene knows what is drawn
-                    windowScene(expanded).scene.visible
-                )
-                if (shapeKey != lastShapeKey) {
-                    lastShapeKey = shapeKey
+            holder.scene.collectLatest { scene ->
+                if (scene != lastShape) {
+                    lastShape = scene
                     boostRefreshRate()
                     startMorphHold()
                 }
-                updateWindowState(expanded)
+                updateWindowState(scene.isExpanded)
                 // The boost rides on the resize above; if the size didn't change it goes alone
                 pushWindow()
             }
@@ -731,6 +701,7 @@ class IslandOverlayService : Service() {
         if (settingsJob == null) settingsJob = serviceScope.launch {
             settingsFlow.collectLatest { settings ->
                 currentSettings = settings
+                settingsState.value = settings
                 updateSpokenAlerts(settings.spokenAlerts)
                 settingsReceived = true
                 IslandStateManager.dismissMediaOnPause = settings.dismissMediaOnPause
@@ -754,7 +725,20 @@ class IslandOverlayService : Service() {
 
     @androidx.annotation.VisibleForTesting
     internal val overlayViewForTest: View? get() = composeView
-    private var lastShapeKey: List<Any>? = null
+    private var lastShape: IslandScene? = null
+    private var sceneHolder: IslandSceneHolder? = null
+    private val settingsState = kotlinx.coroutines.flow.MutableStateFlow(IslandSettings())
+    private val envState by lazy { kotlinx.coroutines.flow.MutableStateFlow(currentEnv()) }
+
+    private fun currentEnv(): IslandEnv {
+        val config = resources.configuration
+        return IslandEnv(
+            isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            screenWidthDp = config.screenWidthDp,
+            // The same clamp the overlay content applies to the font scale
+            fontScale = config.fontScale.coerceIn(0.85f, 1.5f),
+        )
+    }
     private val settingsFlow: kotlinx.coroutines.flow.Flow<IslandSettings>
         get() = settingsFlowForTest ?: settingsRepository.settingsFlow
 
@@ -834,13 +818,7 @@ class IslandOverlayService : Service() {
 
     /** The scene the view is drawing and its targets, derived from the current state and settings (F1.4). */
     private fun windowScene(expanded: Boolean): WindowScene {
-        val config = resources.configuration
-        val env = IslandEnv(
-            isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE,
-            screenWidthDp = config.screenWidthDp,
-            // The same clamp the overlay content applies to the font scale
-            fontScale = config.fontScale.coerceIn(0.85f, 1.5f),
-        )
+        val env = currentEnv()
         val scene = deriveIslandScene(IslandStateManager.snapshotInputs().copy(isExpanded = expanded), currentSettings, env)
         return WindowScene(scene, windowTargets(scene, currentSettings, env))
     }
@@ -956,7 +934,7 @@ class IslandOverlayService : Service() {
         windowController = null
         isCollapsing = false
         wasExpanded = false
-        lastShapeKey = null
+        lastShape = null
         glassPaneJob?.cancel()
         glassPaneJob = null
         IslandStateManager.glassPaneListener = null

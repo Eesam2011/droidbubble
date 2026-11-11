@@ -252,13 +252,8 @@ internal fun IslandShell(
     val expandedPriority by IslandStateManager.expandedPriority.collectAsState()
     val isDeviceLocked by IslandStateManager.isDeviceLocked.collectAsState()
 
-    // Tapping the flashlight expands only the flashlight control in the main pill (like iOS)
-    // instead of every active card. Latched until the collapse finishes so the card's content
-    // doesn't swap to another activity halfway through the animation.
-    var flashlightSolo by remember { mutableStateOf(false) }
-    LaunchedEffect(isExpanded, expandedPriority) {
-        if (isExpanded) flashlightSolo = expandedPriority == IslandPriority.FLASHLIGHT
-    }
+    // Tapping the flashlight expands only the flashlight card (latched in the state manager, F1.5)
+    val flashlightSolo by IslandStateManager.flashlightSolo.collectAsState()
 
     val view = LocalView.current
     val context = LocalContext.current
@@ -758,7 +753,6 @@ internal fun IslandShell(
             glassCardBounds[1] = null
             IslandStateManager.setGlassPanes(emptyList())
             IslandStateManager.notifyCollapseSettled()
-            flashlightSolo = false
         }
     }
 

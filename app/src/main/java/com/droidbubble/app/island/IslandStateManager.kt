@@ -143,6 +143,7 @@ object IslandStateManager {
 
     fun notifyCollapseSettled() {
         _collapseSettled.value = true
+        _flashlightSolo.value = false
     }
 
     // F5.3: the shape the island has come to rest in, or null while any shape animation runs.
@@ -156,6 +157,18 @@ object IslandStateManager {
 
     private val _expandedPriority = MutableStateFlow<IslandPriority?>(null)
     val expandedPriority: StateFlow<IslandPriority?> = _expandedPriority.asStateFlow()
+
+    // Tapping the flashlight expands only the flashlight card instead of every active card (F1.5:
+    // state here, so the scene can be derived outside Compose). Latched until the collapse has
+    // settled, so the card's content doesn't swap to another activity halfway through.
+    private val _flashlightSolo = MutableStateFlow(false)
+    val flashlightSolo: StateFlow<Boolean> = _flashlightSolo.asStateFlow()
+
+    /** Changes which card the open island shows; the flashlight-solo latch follows while open. */
+    private fun setExpandedPriority(priority: IslandPriority?) {
+        _expandedPriority.value = priority
+        if (_isExpanded.value) _flashlightSolo.value = priority == IslandPriority.FLASHLIGHT
+    }
 
     private val _isPopInActive = MutableStateFlow(false)
     val isPopInActive: StateFlow<Boolean> = _isPopInActive.asStateFlow()
@@ -312,10 +325,9 @@ object IslandStateManager {
         }
 
     /**
-     * The state the scene is derived from, read now (F1.4). Main thread only. The window uses it
-     * until one shared scene flow replaces it (F1.5).
+     * The state the scene is derived from, read now (F1.4). Main thread only.
      */
-    fun snapshotInputs(flashlightSolo: Boolean = false) = com.droidbubble.app.island.scene.IslandInputs(
+    fun snapshotInputs(flashlightSolo: Boolean = _flashlightSolo.value) = com.droidbubble.app.island.scene.IslandInputs(
         isExpanded = _isExpanded.value,
         expandedPriority = _expandedPriority.value,
         isPopIn = _isPopInActive.value,
@@ -547,7 +559,7 @@ object IslandStateManager {
         onPauseMedia?.invoke()
         _activeMedia.value = null
         if (_isExpanded.value) {
-            if (!isOccupied) collapse() else if (_expandedPriority.value == IslandPriority.MEDIA) _expandedPriority.value = null
+            if (!isOccupied) collapse() else if (_expandedPriority.value == IslandPriority.MEDIA) setExpandedPriority(null)
         }
     }
 
@@ -642,7 +654,7 @@ object IslandStateManager {
                 if (!isOccupied) {
                     collapse()
                 } else {
-                    _expandedPriority.value = null
+                    setExpandedPriority(null)
                 }
             }
         } else if (isNewNotification) {
@@ -672,7 +684,7 @@ object IslandStateManager {
                 if (!isOccupied) {
                     collapse()
                 } else {
-                    _expandedPriority.value = null
+                    setExpandedPriority(null)
                 }
             }
         }
@@ -737,7 +749,7 @@ object IslandStateManager {
             if (!isOccupied) {
                 collapse()
             } else {
-                _expandedPriority.value = null
+                setExpandedPriority(null)
             }
         }
         return true
@@ -752,7 +764,7 @@ object IslandStateManager {
             if (!isOccupied) {
                 collapse()
             } else {
-                _expandedPriority.value = null
+                setExpandedPriority(null)
             }
         }
         return true
@@ -763,7 +775,7 @@ object IslandStateManager {
         if (state.isRecording && !wasRecording) restoreIsland()
         _screenRecordingState.value = state
         if (wasRecording && !state.isRecording && _isExpanded.value) {
-            if (!isOccupied) collapse() else if (_expandedPriority.value == IslandPriority.SCREEN_RECORDING) _expandedPriority.value = null
+            if (!isOccupied) collapse() else if (_expandedPriority.value == IslandPriority.SCREEN_RECORDING) setExpandedPriority(null)
         }
     }
 
@@ -784,6 +796,7 @@ object IslandStateManager {
         _expandedPriority.value = priority
         _collapseSettled.value = false
         _isExpanded.value = true
+        _flashlightSolo.value = priority == IslandPriority.FLASHLIGHT
     }
 
     fun collapse() {
@@ -811,6 +824,7 @@ object IslandStateManager {
         _expandedPriority.value = null
         _collapseSettled.value = true
         _settledShape.value = null
+        _flashlightSolo.value = false
         _isPopInActive.value = false
         _isKeyboardFocused.value = false
         _isFlashlightOn.value = false

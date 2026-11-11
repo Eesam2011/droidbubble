@@ -118,7 +118,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F1.2 | Composable consumes the scene | done |
 | F1.3 | Target geometry as a pure function (`IslandGeometry`) | done |
 | F1.4 | Window consumes the scene | doing (code and tests done; device check pending) |
-| F1.5 | One `StateFlow<IslandScene>` per process | todo |
+| F1.5 | One `StateFlow<IslandScene>` per process | doing (code and tests done; device check pending: rapid notification bursts still resize the window). The view still collects its leaf flows; M2.7 narrows them |
 | F2.1 | Literal ratchet test | done |
 | F2.2 | Color literals into IslandTokens (exact) | done |
 | F2.3 | Merge near-duplicate colors | todo |
