@@ -147,7 +147,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M1.3 | Expand starts from the pill | todo |
 | M1.4 | One surface for pill and card | todo |
 | M1.5 | Notch style on the one body | todo |
-| M2.1 | Extract the shell to `island/shell/` | todo |
+| M2.1 | Extract the shell to `island/shell/` | done (one file, IslandShell.kt; finer splits land with M1.4 and M2.x) |
 | M2.2 | Size and position read in the layout phase | todo |
 | M2.3 | Cached squircle surface | todo |
 | M2.4 | Stretch and blur from spring velocity | todo |
