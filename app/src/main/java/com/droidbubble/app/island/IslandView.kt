@@ -195,6 +195,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
+import com.droidbubble.app.island.motion.rememberMotionTier
 import com.droidbubble.app.island.shell.Follow
 import com.droidbubble.app.island.shell.IslandShell
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -392,11 +393,12 @@ fun IslandOverlayRoot(
     // F3.3: every island haptic goes through here, and none fires with the haptics switch off
     val hapticsEnabled = rememberUpdatedState(settings.hapticsEnabled)
     val haptics = remember(view) { IslandHaptics(view, enabled = { hapticsEnabled.value }) }
-    // F3.1: one motion object, rebuilt only when the speed or a curve changes
+    // F3.1: one motion object, rebuilt only when the speed, a curve or the motion tier (M5.1) changes
+    val tier = rememberMotionTier(settings.reduceMotion)
     val motion = remember(
         settings.animationSpeed, settings.expandDamping, settings.expandStiffness,
-        settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness,
-    ) { IslandMotion.from(settings) }
+        settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness, tier,
+    ) { IslandMotion.from(settings, tier) }
     // F4.1: text sizes by role, for the card scale and the phone's font size
     val fontScale = LocalDensity.current.fontScale
     val type = remember(settings.expandedScale, fontScale) { IslandType(settings.expandedScale, fontScale) }

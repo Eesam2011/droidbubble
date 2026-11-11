@@ -36,6 +36,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Menu
 import android.view.HapticFeedbackConstants
@@ -2447,6 +2448,22 @@ fun AccessibilityPage(
                                 Switch(
                                     checked = settings.highContrast,
                                     onCheckedChange = { on -> onUpdateSettings { it.copy(highContrast = on) } }
+                                )
+                            }
+                        )
+                    }
+                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.reduceMotion) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = { Text("Reduce Motion", fontWeight = FontWeight.SemiBold) },
+                            supportingContent = { Text("No bounces or shakes: the island moves without overshoot and content fades. Also on when Android's animations are turned down.") },
+                            leadingContent = {
+                                Icon(Icons.Default.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.reduceMotion,
+                                    onCheckedChange = { on -> onUpdateSettings { it.copy(reduceMotion = on) } }
                                 )
                             }
                         )

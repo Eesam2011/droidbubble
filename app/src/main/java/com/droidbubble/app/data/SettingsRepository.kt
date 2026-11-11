@@ -45,6 +45,7 @@ private object PreferencesKeys {
     val SHOW_IN_LANDSCAPE = booleanPreferencesKey("show_in_landscape")
     val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
     val SPOKEN_ALERTS = booleanPreferencesKey("spoken_alerts")
+    val REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
     val ANIMATION_SPEED_MULTIPLIER = floatPreferencesKey("anim_speed_multiplier")
     val LEGACY_ANIMATION_SPEED = stringPreferencesKey("animation_speed")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
@@ -106,6 +107,7 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         showInLandscape = this[PreferencesKeys.SHOW_IN_LANDSCAPE] ?: false,
         highContrast = this[PreferencesKeys.HIGH_CONTRAST] ?: false,
         spokenAlerts = this[PreferencesKeys.SPOKEN_ALERTS] ?: false,
+        reduceMotion = this[PreferencesKeys.REDUCE_MOTION] ?: false,
         animationSpeed = resolvedSpeed,
         blockedPackages = this[PreferencesKeys.BLOCKED_PACKAGES] ?: emptySet(),
         priorityApps = this[PreferencesKeys.PRIORITY_APPS] ?: emptySet(),
@@ -155,6 +157,7 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.SHOW_IN_LANDSCAPE] = s.showInLandscape
     this[PreferencesKeys.HIGH_CONTRAST] = s.highContrast
     this[PreferencesKeys.SPOKEN_ALERTS] = s.spokenAlerts
+    this[PreferencesKeys.REDUCE_MOTION] = s.reduceMotion
     this[PreferencesKeys.ANIMATION_SPEED_MULTIPLIER] = s.animationSpeed
     remove(PreferencesKeys.LEGACY_ANIMATION_SPEED)
     this[PreferencesKeys.BLOCKED_PACKAGES] = s.blockedPackages

@@ -54,6 +54,8 @@ data class IslandSettings(
     val highContrast: Boolean = false,
     // Accessibility: read "Time's up", alarms and the caller's name aloud
     val spokenAlerts: Boolean = false,
+    // Accessibility: no bounces, stretches or shakes; shapes move without overshoot and content fades (M5)
+    val reduceMotion: Boolean = false,
     val animationSpeed: Float = 0.7f,
     val blockedPackages: Set<String> = emptySet(),
     // Apps whose notifications take over the main pill (e.g. WhatsApp while music plays)
