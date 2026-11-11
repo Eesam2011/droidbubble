@@ -138,7 +138,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F5.2 | Grow the window before animating | todo |
 | F5.3 | Shrink on settle everywhere, including hide | todo |
 | F5.4 | Envelope window trial behind a flag | todo |
-| F6.1 | Apply Decision D1 (minSdk or guards) | todo |
+| F6.1 | Apply Decision D1 (minSdk or guards) | done (D1 = no: API gates in `IslandApi`) |
 | F6.2 | Compose compiler reports and stability config | todo |
 | F6.3 | Baseline profile | todo |
 | F6.4 | Release signing | todo |
@@ -322,6 +322,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
   - `ScreenRecordingService` and `FOREGROUND_SERVICE_MEDIA_PROJECTION`; the manifest `PowerConnectionReceiver` (the A9.2 receiver half); Shizuku (`ShizukuHelper`, both dependencies, the exported `ShizukuProvider`, `WRITE_SECURE_SETTINGS`).
   - Dead code: `morphBlurEffect`, `expandedCornerRadiusFor`, `CellularSignalBars`, `toggleExpand`, `activeExpandedPriority`, `IslandOverlayRoot`'s `onBoundsChange` parameter.
   - Kept on purpose: the unused tokens `SpaceLg`, `SpaceXl`, `RadiusCard`, `SurfaceSunken`, `AccentPurple`, `AccentYellow` (their values still appear as literals, so F2.2/F2.5 route those literals into them), `HighContrastOutline` (B5.1), `IslandTouchManager` (B2.3).
+- **Owner decisions (2026-11-11):** Decision D1 = **no**: `minSdk` stays 29. Features that need a newer Android are gated in `island/IslandApi.kt` and keep a fallback (squircle corners and AGSL need API 33, blur needs API 31). The liquid shader (epic D1) must check `IslandApi.hasRuntimeShader` and fall back to the current neck. Decision D7 = **yes**: MATCH_PARENT on expand, with the envelope window as a flag-gated trial (F5.4).
 - **Owner decisions (2026-11-08):** D5 = yes, D6 = yes, adb debug control = **no** (B1.1 registers `RECEIVER_NOT_EXPORTED` only; the Test panel covers manual testing).
 - The `MainScreen.kt` line ranges in the phase-8 file are stale; the curve editor is now around `:2649–2796`. Re-check them before C5.1.
 - `IslandGeometry` means the animated shape (M1). The cutout data is `CameraGeometry` (V1), and margins are `CardGeometry` (V2).

@@ -1,6 +1,5 @@
 package com.droidbubble.app.island
 
-import android.os.Build
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.geometry.Offset
@@ -109,7 +108,7 @@ class SquircleShape(private val radius: Dp, private val smoothing: Float = 0.6f)
  * so they keep regular rounded corners.
  */
 fun islandShape(radius: Dp): Shape =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) SquircleShape(radius) else RoundedCornerShape(radius)
+    if (IslandApi.hasSmoothPathClip) SquircleShape(radius) else RoundedCornerShape(radius)
 
 /**
  * Black bridge that joins a notch-style island to the top edge of the screen: a bar as wide as

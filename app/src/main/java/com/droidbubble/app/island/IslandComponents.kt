@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.content.Context
 import android.app.PendingIntent
 import android.app.ActivityOptions
-import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.spring
@@ -578,7 +577,7 @@ private val blurEffectCache = HashMap<Int, RenderEffect>()
  * nothing extra on the GPU. Reading Battery Saver here also redraws the layer when it changes.
  */
 fun steppedBlurEffect(strength: Float, maxRadiusPx: Float): RenderEffect? {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+    if (!IslandApi.hasRenderEffect) return null
     if (AudioPowerPolicy.lowPower) return null
     val steps = (strength.coerceIn(0f, 1f) * maxRadiusPx / BLUR_STEP_PX).roundToInt()
     if (steps < 1) return null

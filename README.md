@@ -17,7 +17,7 @@ Because Droidbubble is free and open source, there are no ads, no trackers, and 
 - **Tweak-able animations**: Play around with the speed, bounce and snap of the droidbubble’s individual animations to fit your liking.
 
 Requirements:
-- Android 13+
+- Android 10 or newer. Squircle corners and the liquid effects need Android 13; blur needs Android 12. Older versions get rounded corners and plain fades.
 
 ## License
 
