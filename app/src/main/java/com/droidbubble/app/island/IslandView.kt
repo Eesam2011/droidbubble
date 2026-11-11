@@ -3131,16 +3131,9 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     val timeLabelStyle = LocalTextStyle.current.merge(
         TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
     )
-    val timeTextMeasurer = rememberTextMeasurer()
-    val timeLabelTemplate = formatDuration(duration).replace(Regex("[0-9]"), "0")
-    val timeLabelWidth = with(LocalDensity.current) {
-        remember(timeLabelTemplate, timeLabelStyle) {
-            maxOf(
-                timeTextMeasurer.measure(timeLabelTemplate, timeLabelStyle).size.width,
-                timeTextMeasurer.measure("--:--", timeLabelStyle).size.width
-            ).toDp()
-        }
-    }
+    // F4.4: both labels sit in a NumericSlot as wide as the track's full length
+    val timeLabelTemplate = formatDuration(duration)
+    val timeLabelAlsoFits = remember { listOf("--:--") }
 
     val thumbWidth by animateDpAsState(
         targetValue = if (isSeeking) 5.dp else 3.dp,
@@ -3219,13 +3212,13 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                 .padding(horizontal = IslandTokens.SpaceXs),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
+            NumericSlot(
                 text = formatDuration(currentPosition),
-                color = durationTextTint,
                 style = timeLabelStyle,
-                maxLines = 1,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.width(timeLabelWidth)
+                template = timeLabelTemplate,
+                align = Alignment.Start,
+                color = durationTextTint,
+                alsoFits = timeLabelAlsoFits,
             )
 
             Spacer(modifier = Modifier.width(IslandTokens.SpaceMd))
@@ -3297,13 +3290,13 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
 
             Spacer(modifier = Modifier.width(IslandTokens.SpaceMd))
 
-            Text(
+            NumericSlot(
                 text = if (hasValidDuration) formatDuration(duration) else "--:--",
-                color = durationTextTint,
                 style = timeLabelStyle,
-                maxLines = 1,
-                textAlign = TextAlign.End,
-                modifier = Modifier.width(timeLabelWidth)
+                template = timeLabelTemplate,
+                align = Alignment.End,
+                color = durationTextTint,
+                alsoFits = timeLabelAlsoFits,
             )
         }
 
