@@ -126,6 +126,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -704,7 +705,8 @@ internal fun IslandShell(
     val targetHorizontalOffset = targets.horizontalOffset
     val targetCardSpacing = targets.cardSpacing
 
-    val animatedCompactWidthRaw by animateDpAsState(targetValue = targetCompactWidth, animationSpec = compactPillWidthAnimSpec, label = "compactWidth")
+    val compactWidthState = animateDpAsState(targetValue = targetCompactWidth, animationSpec = compactPillWidthAnimSpec, label = "compactWidth")
+    val animatedCompactWidthRaw by compactWidthState
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
     // pill retracting); a negative width throws in layout and crashed the island
     val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
@@ -721,7 +723,15 @@ internal fun IslandShell(
     val animatedCard2OffsetY by animateDpAsState(targetValue = targetCard2OffsetY, animationSpec = sizeAnimSpecDp, label = "card2OffsetY")
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
     val animatedHorizontalOffset = shell.xDp
-    val animatedTopOffset = animatedCardMorph.top
+
+    // M2.2: coarse flags over the animated sizes. They change a handful of times per morph, not
+    // every frame, so they don't recompose the shell on their own.
+    val card1Shown by remember { derivedStateOf { shell.geometry.width > 1.dp } }
+    val card1Filled by remember { derivedStateOf { shell.geometry.width > 2.dp } }
+    val card1Outlined by remember { derivedStateOf { shell.geometry.width > 8.dp } }
+    val pillShown by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 0.5.dp } }
+    val pillFilled by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 2.dp } }
+    val pillOutlined by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 8.dp } }
     val animatedCardSpacing by animateDpAsState(targetValue = targetCardSpacing, animationSpec = sizeAnimSpecDp, label = "cardSpacing")
 
     // F5.3: tell the window when every shape animation (card, pill, bubble, card 2) has come to
@@ -947,9 +957,10 @@ internal fun IslandShell(
             Box(
                 modifier = Modifier
                     .offset {
+                        // Read here, in the layout phase (M2.2)
                         IntOffset(
-                            x = animatedHorizontalOffset.roundToPx(),
-                            y = animatedTopOffset.roundToPx()
+                            x = shell.xDp.roundToPx(),
+                            y = shell.geometry.top.roundToPx()
                         )
                     },
                 contentAlignment = Alignment.TopCenter
@@ -984,13 +995,12 @@ internal fun IslandShell(
                     } else Modifier
                 ) {
                     // Card 1: Primary Expanded Card
-                    if (animatedCard1Width > 1.dp && (expandProgress > 0.001f || isExpanded)) {
+                    if (card1Shown && (expandProgress > 0.001f || isExpanded)) {
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD)
                                 .offset { IntOffset(animatedCard1OffsetX.roundToInt(), 0) }
-                                .width(animatedCard1Width)
-                                .height(animatedCard1Height)
+                                .layoutSize(width = { shell.geometry.width }, height = { shell.geometry.height })
                                 .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
                                     alpha = cardContainerAlpha
@@ -1006,9 +1016,9 @@ internal fun IslandShell(
                                     }
                                 }
                                 .clip(islandShape(animatedCornerRadius))
-                                .background(if (animatedCard1Width > 2.dp) cardBackgroundBrush else SolidColor(Color.Transparent))
+                                .background(if (card1Filled) cardBackgroundBrush else SolidColor(Color.Transparent))
                                 .then(
-                                    if (settings.showOutline && animatedCard1Width > 8.dp) {
+                                    if (settings.showOutline && card1Outlined) {
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = primaryOutlineColor,
@@ -1176,7 +1186,7 @@ internal fun IslandShell(
                         Box(
                             modifier = Modifier
                                 .offset { IntOffset(animatedCard2OffsetX.roundToInt(), animatedCard2OffsetY.roundToPx()) }
-                                .width(animatedCard1Width)
+                                .layoutSize(width = { shell.geometry.width })
                                 .height(animatedCard2Height)
                                 .onGloballyPositioned { glassCardBounds[1] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
@@ -1346,7 +1356,7 @@ internal fun IslandShell(
             modifier = Modifier
                 .offset {
                     IntOffset(
-                        x = animatedHorizontalOffset.roundToPx(),
+                        x = shell.xDp.roundToPx(),
                         y = settings.topOffsetDp.dp.roundToPx()
                     )
                 },
@@ -1504,11 +1514,11 @@ internal fun IslandShell(
             }
 
             // 2. Main Compact Pill: Rendered on top of the bubble (covers it when sliding near x = 0)
-            if (animatedCompactWidth > 0.5.dp) {
+            if (pillShown) {
                 Box(
                     modifier = Modifier
                         .testTag(IslandTestTags.PILL)
-                        .width(animatedCompactWidth)
+                        .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)
                         .graphicsLayer {
                             alpha = compactPillAlpha
@@ -1519,10 +1529,10 @@ internal fun IslandShell(
                             scaleY = idleBounceScale.value * pillPressScale * (1f - swapSquash.value * 0.5f)
                         }
                         .clip(compactPillShape)
-                        .background(if (animatedCompactWidth > 2.dp) Color.Black else Color.Transparent)
+                        .background(if (pillFilled) Color.Black else Color.Transparent)
                         .then(
                             // Deliberately no pill outline in notch style: the notch is fused to the screen edge
-                            if (settings.showOutline && !settings.isNotch && animatedCompactWidth > 8.dp) {
+                            if (settings.showOutline && !settings.isNotch && pillOutlined) {
                                 Modifier.border(
                                     width = settings.outlineThicknessDp.dp,
                                     color = primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)),
