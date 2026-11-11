@@ -203,6 +203,9 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.droidbubble.app.island.scene.IslandEnv
+import com.droidbubble.app.island.scene.IslandInputs
+import com.droidbubble.app.island.scene.deriveIslandScene
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.MediaInfo
@@ -448,73 +451,47 @@ fun IslandOverlayRoot(
             null
         }
     }
-    val isRecording = allowInOrientation && recording.isRecording && settings.showScreenRecording
-    val isProgress = allowInOrientation && currentProgress != null && settings.showLiveProgress &&
-        currentProgress.packageName != foregroundPackage
-    // A ringing call always shows, even if the phone app's call screen is the foreground window
-    // B3.1: messages need "Incoming Notifications", calls and live activities their own toggles
-    val notifGate = remember(currentNotif) { currentNotif?.let { notificationSlotGate(it) } }
-    val isNotification = allowInOrientation && currentNotif != null && notifGate != null && settings.allows(notifGate) &&
-        (currentNotif.packageName != foregroundPackage || currentNotif.isIncomingCall)
-    val isMedia = allowInOrientation && currentMedia != null && currentMedia.packageName != foregroundPackage && (!settings.dismissMediaOnPause || currentMedia.isPlaying) && (currentMedia.isPlaying || currentMedia.title.isNotBlank()) && settings.showMedia
-    val isFlashlight = allowInOrientation && settings.showFlashlight && isFlashlightOn
-    val isCharging = allowInOrientation && settings.showCharging && charging != null
-    val isUnlock = allowInOrientation && isUnlocked && !isCharging
-    val connectionAlertEnabled = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) settings.showWifi else settings.showBluetooth
-    val isBluetooth = allowInOrientation && connectionAlertEnabled && isBluetoothConnected && !isCharging && !isUnlock
-    val isRingerMode = allowInOrientation && settings.showRingerMode && activeRingerMode != null && !isCharging && !isUnlock && !isBluetooth
-
-
-    val isOccupied = allowInOrientation && (isRecording || isNotification || isMedia || isProgress || isCharging || isUnlock || isBluetooth || isFlashlight || isRingerMode)
-
-    // Determine dual-island state (when 2+ activities occupy the island, temporarily overshadowed by charging, unlock, bluetooth, or ringer)
-    val activeCount = (if (isRecording) 1 else 0) +
-            (if (isNotification) 1 else 0) +
-            (if (isMedia) 1 else 0) +
-            (if (isProgress) 1 else 0) +
-            (if (isFlashlight) 1 else 0)
-    val ephemeralCount = activeCount
-    val isDual = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && ephemeralCount >= 2
-
-    // Primary & Secondary activity assignment ordered dynamically by settings.featurePriorities:
-    val orderedEphemeralPriorities = buildList {
-        if (isNotification && (currentNotif?.isCall == true || currentNotif?.packageName in settings.priorityApps)) {
-            add(IslandPriority.POP_NOTIFICATION)
-        }
-        for (featureKey in settings.featurePriorities) {
-            when (featureKey) {
-                "MEDIA" -> if (isMedia) add(IslandPriority.MEDIA)
-                "PROGRESS" -> if (isProgress) add(IslandPriority.PROGRESS)
-                "RECORDING" -> if (isRecording) add(IslandPriority.SCREEN_RECORDING)
-                "NOTIFICATION" -> if (isNotification && IslandPriority.POP_NOTIFICATION !in this) add(IslandPriority.POP_NOTIFICATION)
-                "FLASHLIGHT" -> if (isFlashlight) add(IslandPriority.FLASHLIGHT)
-            }
-        }
-        if (isFlashlight && "FLASHLIGHT" !in settings.featurePriorities) {
-            add(IslandPriority.FLASHLIGHT)
-        }
-    }
-
-    val basePrimaryPriority: IslandPriority = when {
-        orderedEphemeralPriorities.isNotEmpty() -> orderedEphemeralPriorities.first()
-        else -> IslandPriority.IDLE
-    }
-
-    val baseSecondaryPriority: IslandPriority? = when {
-        !isDual -> null
-        orderedEphemeralPriorities.size >= 2 -> {
-            if (isPopIn && isNotification && basePrimaryPriority != IslandPriority.POP_NOTIFICATION) {
-                IslandPriority.POP_NOTIFICATION
-            } else {
-                orderedEphemeralPriorities[1]
-            }
-        }
-        else -> null
-    }
-
-    val isFlashlightSolo = flashlightSolo && isFlashlight
-    val primaryPriority: IslandPriority = if (isFlashlightSolo) IslandPriority.FLASHLIGHT else basePrimaryPriority
-    val secondaryPriority: IslandPriority? = if (isFlashlightSolo) null else baseSecondaryPriority
+    // F1.2: one arbitration source. The local names below are aliases of the scene, so the rest of
+    // this function reads the same values it always did.
+    val sceneInputs = IslandInputs(
+        isExpanded = isExpanded,
+        expandedPriority = expandedPriority,
+        isPopIn = isPopIn,
+        media = currentMedia,
+        notification = currentNotif,
+        progress = currentProgress,
+        recording = recording,
+        charging = charging,
+        isUnlocked = isUnlocked,
+        isBluetoothConnected = isBluetoothConnected,
+        connectionAlert = connectionAlert,
+        ringerMode = activeRingerMode,
+        isFlashlightOn = isFlashlightOn,
+        foregroundPackage = foregroundPackage,
+        userHidden = userHidden,
+        userMinimized = userMinimized,
+        flashlightSolo = flashlightSolo,
+    )
+    val sceneEnv = IslandEnv(
+        isLandscape = isLandscape,
+        screenWidthDp = configuration.screenWidthDp,
+        fontScale = LocalDensity.current.fontScale,
+    )
+    val scene = remember(sceneInputs, settings, sceneEnv) { deriveIslandScene(sceneInputs, settings, sceneEnv) }
+    val isRecording = scene.visible.isRecording
+    val isProgress = scene.visible.isProgress
+    val isNotification = scene.visible.isNotification
+    val isMedia = scene.visible.isMedia
+    val isFlashlight = scene.visible.isFlashlight
+    val isCharging = scene.visible.isCharging
+    val isUnlock = scene.visible.isUnlock
+    val isBluetooth = scene.visible.isBluetooth
+    val isRingerMode = scene.visible.isRingerMode
+    val isOccupied = scene.isOccupied
+    val activeCount = scene.activeCount
+    val isDual = scene.isDual
+    val primaryPriority: IslandPriority = scene.primary
+    val secondaryPriority: IslandPriority? = scene.secondary
 
     // Dynamic non-customizable outline colors (around 15% opacity):
     val redRecordingOutline = Color(0xFFFF3B30).copy(alpha = 0.15f)
@@ -953,7 +930,7 @@ fun IslandOverlayRoot(
         }
     }
 
-    val showSecondaryCard = !isCharging && !isUnlock && !isBluetooth && !isRingerMode && activeCount >= 2 && secondaryPriority != null
+    val showSecondaryCard = scene.showSecondaryCard
     val targetCard2Height = if (card2Expanded && showSecondaryCard) {
         cardHeightFor(secondaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
     } else 0.dp
