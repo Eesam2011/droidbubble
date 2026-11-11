@@ -606,7 +606,7 @@ fun rememberMorphSpeed(width: Dp, height: Dp, targetWidth: Dp, targetHeight: Dp,
     return meter.update(
         size = width.value + height.value,
         target = targetWidth.value + targetHeight.value,
-        nowNanos = System.nanoTime(),
+        nowNanos = IslandClock.nanoTime(),
         fullSpeed = fullSpeedDpPerSec
     )
 }

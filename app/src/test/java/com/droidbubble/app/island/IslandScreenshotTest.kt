@@ -149,7 +149,63 @@ class IslandScreenshotTest {
         IslandStateManager.updateProgress(IslandFixtures.progress(42))
     }
 
+    // ---- mid-animation frames (F3.2): the proof that a motion refactor kept every spring ----
+    // The clock is frozen and stepped by hand, so each frame is the same on every run.
+
+    @Test fun motionExpandMedia() {
+        prepare()
+        rule.runOnIdle { IslandStateManager.updateMedia(IslandFixtures.song) }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.expand(null) }
+        h.advanceFrozen(100)
+        capture("src/test/screenshots/island/motion_expand_media__100ms.png")
+        h.advanceFrozen(150)
+        capture("src/test/screenshots/island/motion_expand_media__250ms.png")
+    }
+
+    @Test fun motionCollapseMedia() {
+        prepare()
+        rule.runOnIdle {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.expand(null)
+        }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.collapse() }
+        h.advanceFrozen(100)
+        capture("src/test/screenshots/island/motion_collapse_media__100ms.png")
+        h.advanceFrozen(150)
+        capture("src/test/screenshots/island/motion_collapse_media__250ms.png")
+    }
+
+    @Test fun motionDualAppear() {
+        prepare()
+        rule.runOnIdle {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.updateNotification(IslandFixtures.message())
+        }
+        h.advanceFrozen(150)
+        capture("src/test/screenshots/island/motion_dual_appear__150ms.png")
+    }
+
+    @Test fun motionChargingGlance() {
+        prepare()
+        rule.runOnIdle { IslandStateManager.updateMedia(IslandFixtures.song) }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.triggerChargingEvent(80, 18.0) }
+        h.advanceFrozen(120)
+        capture("src/test/screenshots/island/motion_charging_glance__120ms.png")
+    }
+
     // ---- helpers ----
+
+    private fun prepare(s: IslandSettings = BASE) {
+        rule.runOnIdle {
+            IslandTokens.highContrast = false
+            settings.value = s
+            fontScale.floatValue = 1f
+        }
+        h.advanceFrozen(100)
+    }
 
     private fun openReply() {
         val reply = rule.onAllNodesWithText("Reply")

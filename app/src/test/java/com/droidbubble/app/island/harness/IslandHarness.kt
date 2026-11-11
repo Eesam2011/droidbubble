@@ -67,11 +67,15 @@ class IslandHarness(
      */
     fun freezeClock(atMs: Long = FROZEN_WALL_MS) {
         IslandClock.wallMs = { atMs }
+        // The morph-speed meter (stretch, blur) follows the compose clock, so mid-animation frames
+        // are the same on every run
+        IslandClock.nanoTime = { rule.mainClock.currentTime * 1_000_000L }
         rule.mainClock.autoAdvance = false
     }
 
     fun unfreezeClock() {
         IslandClock.wallMs = System::currentTimeMillis
+        IslandClock.nanoTime = System::nanoTime
     }
 
     /** Advances a frozen compose clock by [ms] and lets composition, layout and drawing catch up. */
