@@ -143,7 +143,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F6.3 | Baseline profile | todo |
 | F6.4 | Release signing | doing (wiring done and tested with a throwaway key; the owner creates the real keystore) |
 | M1.1 | IslandShellState (Animatable geometry + x) | done |
-| M1.2 | Continuity test harness | todo |
+| M1.2 | Continuity test harness | done |
 | M1.3 | Expand starts from the pill | todo |
 | M1.4 | One surface for pill and card | todo |
 | M1.5 | Notch style on the one body | todo |
