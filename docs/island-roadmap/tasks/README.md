@@ -158,7 +158,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M3.2 | Staggers in progress, not wall-clock time | todo |
 | M3.3 | Expanded content keyed per activity | todo |
 | M3.4 | Compact content keyed per activity | todo |
-| M4.1 | `Modifier.islandGestures` and release resolver | todo |
+| M4.1 | `Modifier.islandGestures` and release resolver | done |
 | M4.2 | Card sideways fling-out or spring-back | todo |
 | M4.3 | Card swipe-up tucks, with velocity hand-off | todo |
 | M4.4 | Pill: down expands, further opens the shade, inward minimizes | todo |
