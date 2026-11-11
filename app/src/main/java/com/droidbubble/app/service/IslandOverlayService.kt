@@ -360,6 +360,8 @@ class IslandOverlayService : Service() {
         DebugCommands.enableStrictMode()
         com.droidbubble.app.util.CrashLog.install(this)
         serviceInstance = this
+        // F3.5: island timeouts follow the phone's "Time to take action" accessibility setting
+        IslandStateManager.timings = com.droidbubble.app.island.IslandTimings.from(this)
         // B11.3: after a crash loop, pause the activity that was on the island at the crash
         com.droidbubble.app.util.SafeMode.evaluateOnStart(this, System.currentTimeMillis())
         val appContext = applicationContext

@@ -287,6 +287,9 @@ object IslandStateManager {
     val isNotificationActive: Boolean
         get() = _activeNotification.value != null
 
+    /** Island timeouts (F3.5). The service swaps in the accessibility-scaled ones when it starts. */
+    var timings: IslandTimings = IslandTimings.Unscaled
+
     var dismissMediaOnPause: Boolean = false
     var autoDismissNotifications: Boolean = false
     private var autoDismissNotificationJob: Job? = null
@@ -440,7 +443,7 @@ object IslandStateManager {
         unlockJob?.cancel()
         _isUnlocked.value = true
         unlockJob = scope.launch {
-            delay(2200)
+            delay(timings.unlock)
             _isUnlocked.value = false
             android.util.Log.d("IslandStateManager", "triggerUnlockEvent() finished: isUnlocked reset to false")
         }
@@ -458,7 +461,7 @@ object IslandStateManager {
         _connectionAlert.value = kind
         _isBluetoothConnected.value = true
         bluetoothJob = scope.launch {
-            delay(3000)
+            delay(timings.connection)
             _isBluetoothConnected.value = false
         }
     }
@@ -470,7 +473,7 @@ object IslandStateManager {
         ringerJob?.cancel()
         _activeRingerMode.value = mode
         ringerJob = scope.launch {
-            delay(2500)
+            delay(timings.ringer)
             _activeRingerMode.value = null
         }
     }
@@ -482,7 +485,7 @@ object IslandStateManager {
         chargingJob?.cancel()
         _activeCharging.value = ChargingInfo(percentage.coerceIn(0, 100), wattage)
         chargingJob = scope.launch {
-            delay(4000)
+            delay(timings.charging)
             _activeCharging.value = null
         }
     }
@@ -641,7 +644,7 @@ object IslandStateManager {
             if (autoDismissNotifications && !isLiveActivity) {
                 val notifKey = notification.key
                 autoDismissNotificationJob = scope.launch {
-                    delay(3000)
+                    delay(timings.notificationAuto)
                     if (_activeNotification.value?.key == notifKey && (!_isExpanded.value || _expandedPriority.value != IslandPriority.POP_NOTIFICATION)) {
                         dismissCurrentNotification()
                     }
@@ -698,7 +701,7 @@ object IslandStateManager {
         _isPopInActive.value = true
         popInJob?.cancel()
         popInJob = scope.launch {
-            delay(4500) // Bubble pop-in for 4.5 seconds then auto-shrink to compact
+            delay(timings.popIn) // Bubble pop-in for 4.5 seconds then auto-shrink to compact
             _isPopInActive.value = false
         }
     }
@@ -815,5 +818,6 @@ object IslandStateManager {
         lastTrackKey = null
         dismissMediaOnPause = false
         autoDismissNotifications = false
+        timings = IslandTimings.Unscaled
     }
 }

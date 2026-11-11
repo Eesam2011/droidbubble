@@ -1138,7 +1138,7 @@ fun IslandOverlayRoot(
             if (pressed) {
                 pressed = touchPresses.receive()
             } else {
-                val next = withTimeoutOrNull(3000) { touchPresses.receive() }
+                val next = withTimeoutOrNull(IslandStateManager.timings.autoCollapse) { touchPresses.receive() }
                 if (next == null) {
                     IslandStateManager.collapse()
                     return@LaunchedEffect
