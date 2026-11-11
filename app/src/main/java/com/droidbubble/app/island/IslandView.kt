@@ -196,6 +196,8 @@ import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.shell.Follow
+import androidx.compose.ui.platform.LocalWindowInfo
+import com.droidbubble.app.island.shell.rememberWindowReady
 import com.droidbubble.app.island.shell.rememberIslandShellState
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandInputs
@@ -844,6 +846,9 @@ private fun IslandOverlayContent(
     }
 
     // F1.3: every target size comes from one pure function, shared with the window (F1.4)
+    // The overlay window's size (state: it updates when the window is resized), known even while
+    // nothing is drawn
+    val rootSize = LocalWindowInfo.current.containerSize
     val targets = deriveIslandTargets(
         scene = scene,
         settings = settings,
@@ -852,9 +857,36 @@ private fun IslandOverlayContent(
         card2Expanded = card2Expanded,
         bubbleEmerged = secondaryBubbleEmerged,
     )
-    val targetCompactWidth = targets.compactWidth
-    val targetCard1Width = targets.card1.width
-    val targetCard1Height = targets.card1.height
+    // F5.2: grow the window first. A bigger shape (the card opening, the pill appearing from
+    // nothing) waits until the overlay window has really grown to hold it, at most 100 ms, so its
+    // first frames are never clipped.
+    val windowDensity = LocalDensity.current
+    fun fitsWindow(widthDp: Dp, bottomDp: Dp): Boolean = with(windowDensity) {
+        rootSize.width >= widthDp.roundToPx() && rootSize.height >= bottomDp.roundToPx()
+    }
+    val cardWanted = targets.card1.width > 0.dp
+    val cardReady = rememberWindowReady(
+        want = cardWanted,
+        fits = fitsWindow(targets.card1.width, targets.card1.top + targets.card1.height),
+    )
+    val pillReady = rememberWindowReady(
+        want = targets.compactWidth > 0.dp,
+        fits = fitsWindow(targets.compactWidth, settings.topOffsetDp.dp + settings.heightDp.dp),
+    )
+    // Until then the shape holds where it is: the card docked at the pill, the pill at zero width
+    val heldTargets = if (cardReady) targets else deriveIslandTargets(
+        scene = scene.copy(isExpanded = false),
+        settings = settings,
+        env = sceneEnv,
+        measured = MeasuredHeights(notifBaseHeight, progressBaseHeight),
+        card2Expanded = card2Expanded,
+        bubbleEmerged = secondaryBubbleEmerged,
+    )
+    val shellTargetCard1 = if (cardReady) targets.card1 else heldTargets.card1
+    val shellTargetX = if (cardReady) targets.horizontalOffset else heldTargets.horizontalOffset
+    val targetCompactWidth = if (pillReady) targets.compactWidth else 0.dp
+    val targetCard1Width = shellTargetCard1.width
+    val targetCard1Height = shellTargetCard1.height
     val card1ContentHeight = targets.card1ContentHeight
     val targetCard2Height = targets.card2Height
     val targetBubbleOffsetX = targets.bubbleRestX
@@ -867,8 +899,8 @@ private fun IslandOverlayContent(
     val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
     // M1.1: the body's shape and position live in one state holder (Animatables), so later
     // tasks can retarget with a velocity, snap, and read the velocity
-    val shell = rememberIslandShellState(targets.card1, targetHorizontalOffset)
-    shell.Follow(targets.card1, targetHorizontalOffset, cardMorphAnimSpec, positionAnimSpec)
+    val shell = rememberIslandShellState(shellTargetCard1, shellTargetX)
+    shell.Follow(shellTargetCard1, shellTargetX, cardMorphAnimSpec, positionAnimSpec)
     val animatedCardMorph = shell.geometry
     val animatedCard1Width = animatedCardMorph.width.coerceAtLeast(0.dp)
     val animatedCard1Height = animatedCardMorph.height.coerceAtLeast(0.dp)

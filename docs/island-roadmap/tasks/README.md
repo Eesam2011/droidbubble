@@ -135,7 +135,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F4.3 | Harmonize the scales | todo |
 | F4.4 | NumericSlot | done |
 | F5.1 | WindowSpec and OverlayWindowController | doing (code and tests done; device check pending: one relayout at expand start in a Perfetto trace) |
-| F5.2 | Grow the window before animating | todo |
+| F5.2 | Grow the window before animating | doing (code and tests done; device check pending: no clipped first frames at 120 Hz) |
 | F5.3 | Shrink on settle everywhere, including hide | todo |
 | F5.4 | Envelope window trial behind a flag | todo |
 | F6.1 | Apply Decision D1 (minSdk or guards) | done (D1 = no: API gates in `IslandApi`) |
