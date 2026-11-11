@@ -1,60 +1,16 @@
 package com.droidbubble.app.service
 
 import android.view.WindowManager
+import androidx.compose.ui.unit.dp
+import com.droidbubble.app.island.scene.IslandEnv
+import com.droidbubble.app.island.scene.IslandMode
+import com.droidbubble.app.island.scene.IslandScene
+import com.droidbubble.app.island.scene.IslandTargets
+import com.droidbubble.app.island.scene.MeasuredHeights
+import com.droidbubble.app.island.scene.bubbleRestCenterX
+import com.droidbubble.app.island.scene.deriveIslandTargets
 import com.droidbubble.app.model.IslandSettings
-import com.droidbubble.app.model.NotificationGateKind
-import com.droidbubble.app.model.allows
 import kotlin.math.abs
-
-/**
- * Everything the overlay window's size and touchability depend on. The service fills it from
- * [com.droidbubble.app.island.IslandStateManager] and its current settings. The activity flags
- * are the raw state (is there media, a notification...), before any `show*` setting is applied.
- */
-data class WindowInputs(
-    val settings: IslandSettings,
-    val expanded: Boolean = false,
-    val landscape: Boolean = false,
-    val locked: Boolean = false,
-    val call: Boolean = false,
-    val media: Boolean = false,
-    val notification: Boolean = false,
-    val progress: Boolean = false,
-    val recording: Boolean = false,
-    val flashlight: Boolean = false,
-    val charging: Boolean = false,
-    val unlock: Boolean = false,
-    val connection: Boolean = false,
-    val ringer: Boolean = false,
-    val userHidden: Boolean = false,
-    val userMinimized: Boolean = false,
-    /**
-     * The app in front, and the app of each activity (B2.1). The island hides an app's own media,
-     * progress and notification while that app is in front (except a ringing call), so they don't
-     * hold the window either. A temporary copy of the view's rule (IslandView `isMedia` ...),
-     * until F1's single scene derivation replaces both.
-     */
-    val foregroundPackage: String? = null,
-    val mediaPackage: String? = null,
-    val notificationPackage: String? = null,
-    val progressPackage: String? = null,
-    val incomingCall: Boolean = false,
-    /** Which toggle governs the notification slot (B3.1); see [notificationSlotGate]. */
-    val notificationGate: NotificationGateKind = NotificationGateKind.MESSAGE,
-    /**
-     * B2.2: the island has finished animating. Settled, the window hugs what is drawn
-     * ([SETTLED_MARGIN_DP] per side); while it morphs (the default) it keeps the wide envelope,
-     * so a spring overshoot or a shrinking pill is never clipped.
-     */
-    val settled: Boolean = false,
-) {
-    private fun notInFront(pkg: String?) = foregroundPackage == null || pkg != foregroundPackage
-
-    /** Media, notification and progress as the island draws them: not the foreground app's own. */
-    val mediaShown: Boolean get() = media && notInFront(mediaPackage)
-    val notificationShown: Boolean get() = notification && (incomingCall || notInFront(notificationPackage))
-    val progressShown: Boolean get() = progress && notInFront(progressPackage)
-}
 
 /** What the overlay window should be. The service turns it into pixels and window flags. */
 sealed interface WindowSpec {
@@ -81,102 +37,56 @@ fun WindowSpec.toWindowPx(density: Float): WindowPx = when (this) {
     )
 }
 
-/** Which kinds of content keep the compact window up, after the `show*` settings are applied. */
-data class WindowOccupancy(
-    /** A visible activity or system alert. */
-    val occupied: Boolean,
-    /** Charging, unlock, connection or ringer: these interrupt the collapse latch. */
-    val systemAlert: Boolean,
-)
-
-/** Whether the island may show at all: enabled, orientation and lock-screen rules. */
-fun islandAllowed(i: WindowInputs): Boolean {
-    val s = i.settings
-    return s.isEnabled && (s.showInLandscape || !i.landscape) && (!s.hideOnLockScreen || !i.locked)
-}
-
-/** The service's occupancy rule, used by [compactWindowSpec] and by the service's collapse timing. */
-fun windowOccupancy(i: WindowInputs): WindowOccupancy {
-    val s = i.settings
-    val charging = s.showCharging && i.charging
-    val unlock = i.unlock
-    val connection = (s.showBluetooth || s.showWifi) && i.connection
-    val ringer = s.showRingerMode && i.ringer
-    val flashlight = s.showFlashlight && i.flashlight
-    val occupied = (s.showCalls && i.call) ||
-        (s.showMedia && i.mediaShown) ||
-        (s.allows(i.notificationGate) && i.notificationShown) ||
-        (s.showLiveProgress && i.progressShown) ||
-        (s.showScreenRecording && i.recording) ||
-        flashlight || charging || unlock || connection || ringer
-    return WindowOccupancy(
-        occupied = occupied,
-        systemAlert = charging || unlock || connection || ringer,
-    )
-}
+/**
+ * The island's targets as the window needs them. The compact strip depends on no measured text,
+ * so the card heights are left at 0; the bubble counts as emerged, so the strip has room for it
+ * from the first frame.
+ */
+fun windowTargets(scene: IslandScene, settings: IslandSettings, env: IslandEnv): IslandTargets =
+    deriveIslandTargets(scene, settings, env, MeasuredHeights(0.dp), card2Expanded = false, bubbleEmerged = true)
 
 /**
- * The window the service settles on after a state change (`updateWindowState`). Only the "what
- * size" decision lives here: when to apply it (the collapse latch, the delayed hide) stays in the
- * service. Behaviour is today's, inconsistencies included (06 P1-1; F5 changes them).
+ * The window for a scene (F1.4). The scene is the one the view draws, so the window is touchable
+ * exactly when something touchable is drawn: an app's own card hidden while the app is in front,
+ * a notification its toggle hides, or a call with no card all leave the window out of the way.
+ *
+ * Only the "what size" decision lives here: when to apply it (the collapse latch, the delayed
+ * hide) stays in the service.
+ *
+ * [settled] (B2.2): the island has finished animating. Settled, the window hugs what is drawn
+ * ([SETTLED_MARGIN_DP] per side); while it morphs it keeps the wide envelope, so a spring
+ * overshoot or a shrinking pill is never clipped.
  */
-fun compactWindowSpec(i: WindowInputs): WindowSpec {
-    if (!islandAllowed(i)) return WindowSpec.Gone
-    if (i.expanded) return WindowSpec.FullScreen
+fun compactWindowSpec(scene: IslandScene, targets: IslandTargets, settings: IslandSettings, settled: Boolean): WindowSpec {
+    if (scene.mode == IslandMode.OFF) return WindowSpec.Gone
+    if (scene.isExpanded) return WindowSpec.FullScreen
 
-    val s = i.settings
-    val occ = windowOccupancy(i)
-    val charging = s.showCharging && i.charging
-    val unlock = i.unlock
-    val connection = (s.showBluetooth || s.showWifi) && i.connection
-    val ringer = s.showRingerMode && i.ringer
-    val flashlight = s.showFlashlight && i.flashlight
-
-    val shouldShowCompact = (occ.occupied || s.alwaysShowPill) && !i.userHidden
+    val shouldShowCompact = (scene.isOccupied || settings.alwaysShowPill) && !scene.userHidden
     if (!shouldShowCompact) return WindowSpec.Gone
 
     // B2.2: room beside the drawn pill. Settled: the camera brackets (about 7.6 dp out) and the
     // tap bounce (up to 1.04x). Morphing: the old flat margin, for spring overshoot.
-    val side = if (i.settled) SETTLED_MARGIN_DP else MORPH_MARGIN_DP
-    val activeCount = (if (s.showScreenRecording && i.recording) 1 else 0) +
-        (if (s.allows(i.notificationGate) && i.notificationShown) 1 else 0) +
-        (if (s.showMedia && i.mediaShown) 1 else 0) +
-        (if (s.showLiveProgress && i.progressShown) 1 else 0) +
-        (if (flashlight) 1 else 0)
-    // The view's rule (IslandView isDual): two activities share the pill and the bubble
-    val isDual = !charging && !unlock && !connection && !ringer && activeCount >= 2
+    val side = if (settled) SETTLED_MARGIN_DP else MORPH_MARGIN_DP
+    val pill = targets.compactWidth.value
+    val height = settings.heightDp.toFloat()
 
-    val totalWidthDp = if (charging) {
-        val chargingPillWidth = (s.widthDp + 20f).coerceAtLeast(140f)
-        chargingPillWidth + 2f * side
-    } else if (ringer) {
-        val pillWidth = (s.widthDp * 0.95f).coerceAtLeast(130f)
-        pillWidth + 2f * side
-    } else if (unlock || connection) {
-        val pillWidth = (s.widthDp * 0.82f).coerceAtLeast(108f)
-        pillWidth + 2f * side
-    } else if (i.userMinimized) {
-        if (i.settled) s.heightDp + 2f * SETTLED_MARGIN_DP else s.heightDp + 24f
-    } else if (isDual) {
-        val mainHalf = s.widthDp / 2f
-        if (i.settled) {
-            // The bubble sits 6 dp beside the pill (IslandView bubbleGap)
-            (mainHalf + 6f + s.heightDp + SETTLED_MARGIN_DP) * 2f
+    val totalWidthDp = when {
+        scene.hasAlert -> pill + 2f * side
+        scene.userMinimized -> pill + 2f * SETTLED_MARGIN_DP
+        scene.isDual -> if (settled) {
+            (bubbleRestCenterX(settings).value + height / 2f + SETTLED_MARGIN_DP) * 2f
         } else {
-            val rightEdge = mainHalf + 8f + s.heightDp + 40f
-            (rightEdge * 2f).coerceAtLeast(s.widthDp + 80f)
+            val rightEdge = settings.widthDp / 2f + 8f + height + MORPH_MARGIN_DP
+            (rightEdge * 2f).coerceAtLeast(settings.widthDp + 2f * MORPH_MARGIN_DP)
         }
-    } else {
-        s.widthDp + 2f * side
+        else -> pill + 2f * side
     }
 
-    // userHidden is already excluded above, so touchability is just "is something there"
-    val touchable = occ.occupied
     return WindowSpec.Compact(
-        widthDp = if (s.isLeftCutout) null else totalWidthDp + 2f * abs(s.horizontalOffsetDp),
+        widthDp = if (settings.isLeftCutout) null else totalWidthDp + 2f * abs(settings.horizontalOffsetDp),
         // Settled: the tap bounce moves the pill down about 4 dp
-        heightDp = (s.topOffsetDp + s.heightDp + if (i.settled) SETTLED_BOTTOM_DP else 12).toFloat(),
-        touchable = touchable,
+        heightDp = (settings.topOffsetDp + settings.heightDp + if (settled) SETTLED_BOTTOM_DP else 12).toFloat(),
+        touchable = scene.wantsTouch,
     )
 }
 
@@ -190,31 +100,3 @@ private const val MORPH_MARGIN_DP = 40f
  * lowest damping the settings allow, scaled by the island's animation speed.
  */
 fun morphHoldMs(animationSpeed: Float): Long = kotlin.math.round(1200f / animationSpeed.coerceIn(0.3f, 3f)).toLong()
-
-/**
- * The window `initOverlay` creates before the first state update. Kept separate on purpose,
- * because it differs from [compactWindowSpec] (06 P1-1, F5 merges them):
- * - occupancy ignores the `show*` toggles (any raw activity counts) and `userHidden`
- * - the width uses `widthDp * 0.90` and a charging edge, and ignores the unlock, ringer,
- *   minimized and dual widths
- */
-fun initialWindowSpec(i: WindowInputs): WindowSpec {
-    val s = i.settings
-    val allowed = islandAllowed(i)
-    val rawOccupied = i.call || i.recording || i.notification || i.media || i.progress ||
-        i.charging || i.unlock || i.connection || i.flashlight || i.ringer
-    val occupied = rawOccupied && allowed
-    val shouldShowCompact = (occupied || s.alwaysShowPill) && allowed
-    if (!shouldShowCompact) return WindowSpec.Gone
-
-    val mainHalf = (s.widthDp * 0.90f).coerceAtLeast(124f) / 2f
-    val dualRightEdge = mainHalf + 8f + s.heightDp + 44f
-    val chargingEdge = ((s.widthDp + 20f).coerceAtLeast(140f) + 80f) / 2f
-    val totalWidthDp = (maxOf(dualRightEdge, chargingEdge) * 2f).coerceAtLeast(s.widthDp + 100f)
-
-    return WindowSpec.Compact(
-        widthDp = if (s.isLeftCutout) null else totalWidthDp + 2f * abs(s.horizontalOffsetDp),
-        heightDp = (s.topOffsetDp + s.heightDp + 12).toFloat(),
-        touchable = occupied,
-    )
-}

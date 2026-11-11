@@ -24,12 +24,12 @@ data class IslandInputs(
     val connectionAlert: IslandStateManager.ConnectionAlert = IslandStateManager.ConnectionAlert.BLUETOOTH,
     val ringerMode: IslandStateManager.RingerMode? = null,
     val isFlashlightOn: Boolean = false,
-    /** An ongoing call tracked by the service. The window counts it; the view does not (F1.4). */
+    /** An ongoing call tracked by the listener. It has no card of its own (the call's notification is the card). */
     val isCallActive: Boolean = false,
     val foregroundPackage: String? = null,
     val userHidden: Boolean = false,
     val userMinimized: Boolean = false,
-    /** Only the window reads it today, for `hideOnLockScreen` (F1.4). */
+    /** With "hide on lock screen", a locked device shows nothing. */
     val isDeviceLocked: Boolean = false,
     /** The view's latch: the flashlight was tapped, so only its card expands. */
     val flashlightSolo: Boolean = false,
@@ -43,7 +43,7 @@ data class IslandEnv(
 )
 
 enum class IslandMode {
-    /** Disabled, or landscape without "show in landscape". Nothing is composed. */
+    /** Disabled, landscape without "show in landscape", or locked with "hide on lock screen". Nothing is composed. */
     OFF,
     /** Nothing to show (or swiped away): no pill. */
     IDLE,

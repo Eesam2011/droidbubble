@@ -117,7 +117,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F1.1 | Lift arbitration into a pure `deriveIslandScene` | done |
 | F1.2 | Composable consumes the scene | done |
 | F1.3 | Target geometry as a pure function (`IslandGeometry`) | done |
-| F1.4 | Window consumes the scene | todo |
+| F1.4 | Window consumes the scene | doing (code and tests done; device check pending) |
 | F1.5 | One `StateFlow<IslandScene>` per process | todo |
 | F2.1 | Literal ratchet test | done |
 | F2.2 | Color literals into IslandTokens (exact) | todo |

@@ -151,6 +151,21 @@ class DeriveIslandSceneTest {
     }
 
     @Test
+    fun locked_isOff_onlyWithHideOnLockScreen() {
+        val locked = IslandInputs(media = song, isDeviceLocked = true)
+        assertEquals(IslandScene.Off, scene(locked, base.copy(hideOnLockScreen = true)))
+        assertEquals(IslandMode.COMPACT, scene(locked).mode)
+        assertEquals(IslandMode.COMPACT, scene(IslandInputs(media = song), base.copy(hideOnLockScreen = true)).mode)
+    }
+
+    @Test
+    fun anOngoingCall_hasNoCardOfItsOwn() {
+        val s = scene(IslandInputs(isCallActive = true))
+        assertEquals(IslandMode.IDLE, s.mode)
+        assertFalse(s.isOccupied || s.wantsTouch)
+    }
+
+    @Test
     fun dualAndCounts() {
         val dual = scene(IslandInputs(media = song, notification = message))
         assertTrue(dual.isDual)

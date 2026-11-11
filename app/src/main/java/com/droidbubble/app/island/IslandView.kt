@@ -205,6 +205,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandInputs
+import com.droidbubble.app.island.scene.IslandMode
 import com.droidbubble.app.island.scene.MeasuredHeights
 import com.droidbubble.app.island.scene.deriveIslandTargets
 import com.droidbubble.app.island.scene.deriveIslandScene
@@ -409,6 +410,7 @@ fun IslandOverlayRoot(
     val userHidden by IslandStateManager.userHidden.collectAsState()
     val userMinimized by IslandStateManager.userMinimized.collectAsState()
     val expandedPriority by IslandStateManager.expandedPriority.collectAsState()
+    val isDeviceLocked by IslandStateManager.isDeviceLocked.collectAsState()
 
     // Tapping the flashlight expands only the flashlight control in the main pill (like iOS)
     // instead of every active card. Latched until the collapse finishes so the card's content
@@ -472,6 +474,7 @@ fun IslandOverlayRoot(
         foregroundPackage = foregroundPackage,
         userHidden = userHidden,
         userMinimized = userMinimized,
+        isDeviceLocked = isDeviceLocked,
         flashlightSolo = flashlightSolo,
     )
     val sceneEnv = IslandEnv(
@@ -480,6 +483,8 @@ fun IslandOverlayRoot(
         fontScale = LocalDensity.current.fontScale,
     )
     val scene = remember(sceneInputs, settings, sceneEnv) { deriveIslandScene(sceneInputs, settings, sceneEnv) }
+    // Locked with "hide on lock screen": the window is gone too (F1.4)
+    if (scene.mode == IslandMode.OFF) return
     val isRecording = scene.visible.isRecording
     val isProgress = scene.visible.isProgress
     val isNotification = scene.visible.isNotification

@@ -57,6 +57,11 @@ import com.droidbubble.app.R
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandOverlayRoot
 import com.droidbubble.app.island.IslandStateManager
+import com.droidbubble.app.island.scene.IslandEnv
+import com.droidbubble.app.island.scene.IslandMode
+import com.droidbubble.app.island.scene.IslandScene
+import com.droidbubble.app.island.scene.IslandTargets
+import com.droidbubble.app.island.scene.deriveIslandScene
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Handler
@@ -518,7 +523,11 @@ class IslandOverlayService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
-        val initialWindow = initialWindowSpec(windowInputs(expanded = false)).toWindowPx(density)
+        // F1.4: the first window comes from the same scene as every later one. Not settled: the
+        // pill may still be appearing.
+        val initialWindow = windowScene(expanded = false)
+            .let { compactWindowSpec(it.scene, it.targets, currentSettings, settled = false) }
+            .toWindowPx(density)
         val initialWidth = initialWindow.width
         val initialHeight = initialWindow.height
         val initialFlags = if (initialWindow.touchable) flags else (flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
@@ -667,7 +676,8 @@ class IslandOverlayService : Service() {
                     IslandStateManager.isFlashlightActive,
                     IslandStateManager.isDeviceLocked.value,
                     IslandStateManager.userHidden.value, IslandStateManager.userMinimized.value,
-                    windowInputs(expanded).let { listOf(it.mediaShown, it.notificationShown, it.progressShown) }
+                    // B2.1: an app's own cards hide while it is in front; the scene knows what is drawn
+                    windowScene(expanded).scene.visible
                 )
                 if (shapeKey != lastShapeKey) {
                     lastShapeKey = shapeKey
@@ -842,33 +852,23 @@ class IslandOverlayService : Service() {
         runCatching { windowManager?.updateViewLayout(view, params) }
     }
 
-    /** Snapshot of everything the window math needs, from the state manager and current settings. */
-    private fun windowInputs(expanded: Boolean) = WindowInputs(
-        settings = currentSettings,
-        expanded = expanded,
-        landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
-        locked = IslandStateManager.isDeviceLocked.value,
-        call = IslandStateManager.isCallActive,
-        media = IslandStateManager.isMediaActive,
-        notification = IslandStateManager.isNotificationActive,
-        progress = IslandStateManager.isProgressActive,
-        recording = IslandStateManager.isRecordingActive,
-        flashlight = IslandStateManager.isFlashlightActive,
-        charging = IslandStateManager.isChargingActive,
-        unlock = IslandStateManager.isUnlockActive,
-        connection = IslandStateManager.isBluetoothActive,
-        ringer = IslandStateManager.isRingerModeActive,
-        userHidden = IslandStateManager.userHidden.value,
-        userMinimized = IslandStateManager.userMinimized.value,
-        foregroundPackage = IslandStateManager.foregroundPackage.value,
-        mediaPackage = IslandStateManager.activeMedia.value?.packageName,
-        notificationPackage = IslandStateManager.activeNotification.value?.packageName,
-        progressPackage = IslandStateManager.activeProgress.value?.packageName,
-        incomingCall = IslandStateManager.activeNotification.value?.isIncomingCall == true,
-        notificationGate = IslandStateManager.activeNotification.value?.let { com.droidbubble.app.island.notificationSlotGate(it) }
-            ?: com.droidbubble.app.model.NotificationGateKind.MESSAGE,
-        settled = android.os.SystemClock.uptimeMillis() >= morphUntilMs,
-    )
+    private class WindowScene(val scene: IslandScene, val targets: IslandTargets)
+
+    /** The scene the view is drawing and its targets, derived from the current state and settings (F1.4). */
+    private fun windowScene(expanded: Boolean): WindowScene {
+        val config = resources.configuration
+        val env = IslandEnv(
+            isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            screenWidthDp = config.screenWidthDp,
+            // The same clamp the overlay content applies to the font scale
+            fontScale = config.fontScale.coerceIn(0.85f, 1.5f),
+        )
+        val scene = deriveIslandScene(IslandStateManager.snapshotInputs().copy(isExpanded = expanded), currentSettings, env)
+        return WindowScene(scene, windowTargets(scene, currentSettings, env))
+    }
+
+    private fun windowSpec(ws: WindowScene): WindowSpec =
+        compactWindowSpec(ws.scene, ws.targets, currentSettings, settled = android.os.SystemClock.uptimeMillis() >= morphUntilMs)
 
     // B2.2: until this time the compact window keeps the wide envelope (a shape change animates)
     private var morphUntilMs = 0L
@@ -896,15 +896,14 @@ class IslandOverlayService : Service() {
         if (km != null) {
             IslandStateManager.setDeviceLocked(km.isKeyguardLocked)
         }
-        val inputs = windowInputs(expanded)
-        compactWindowSpec(inputs).let { spec ->
-            if (spec != lastLoggedSpec) {
-                lastLoggedSpec = spec
-                com.droidbubble.app.util.CrashLog.breadcrumb("window", "spec=$spec")
-            }
+        val ws = windowScene(expanded)
+        val spec = windowSpec(ws)
+        if (spec != lastLoggedSpec) {
+            lastLoggedSpec = spec
+            com.droidbubble.app.util.CrashLog.breadcrumb("window", "spec=$spec")
         }
 
-        if (!islandAllowed(inputs)) {
+        if (ws.scene.mode == IslandMode.OFF) {
             collapseJob?.cancel()
             isCollapsing = false
             applyLayoutParams(
@@ -936,9 +935,7 @@ class IslandOverlayService : Service() {
                 flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
             )
         } else {
-            val occupancy = windowOccupancy(inputs)
-            val isOccupied = occupancy.occupied
-            val spec = compactWindowSpec(inputs)
+            val isOccupied = ws.scene.isOccupied
 
             fun applyCompactBounds() {
                 collapseJob?.cancel()
@@ -973,7 +970,7 @@ class IslandOverlayService : Service() {
                 }
             }
 
-            if (occupancy.systemAlert) {
+            if (ws.scene.hasAlert) {
                 isCollapsing = false
                 collapseJob?.cancel()
             } else if (isCollapsing) {

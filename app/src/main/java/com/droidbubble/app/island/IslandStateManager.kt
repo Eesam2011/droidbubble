@@ -299,6 +299,32 @@ object IslandStateManager {
             return media.title.isNotBlank()
         }
 
+    /**
+     * The state the scene is derived from, read now (F1.4). Main thread only. The window uses it
+     * until one shared scene flow replaces it (F1.5).
+     */
+    fun snapshotInputs(flashlightSolo: Boolean = false) = com.droidbubble.app.island.scene.IslandInputs(
+        isExpanded = _isExpanded.value,
+        expandedPriority = _expandedPriority.value,
+        isPopIn = _isPopInActive.value,
+        media = _activeMedia.value,
+        notification = _activeNotification.value,
+        progress = _activeProgress.value,
+        recording = _screenRecordingState.value,
+        charging = _activeCharging.value,
+        isUnlocked = _isUnlocked.value,
+        isBluetoothConnected = _isBluetoothConnected.value,
+        connectionAlert = _connectionAlert.value,
+        ringerMode = _activeRingerMode.value,
+        isFlashlightOn = _isFlashlightOn.value,
+        isCallActive = _activeCallState.value.isActive,
+        foregroundPackage = _foregroundPackage.value,
+        userHidden = _userHidden.value,
+        userMinimized = _userMinimized.value,
+        isDeviceLocked = _isDeviceLocked.value,
+        flashlightSolo = flashlightSolo,
+    )
+
     val isProgressActive: Boolean
         get() = _activeProgress.value != null
 

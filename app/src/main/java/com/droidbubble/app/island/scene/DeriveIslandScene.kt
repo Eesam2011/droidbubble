@@ -15,7 +15,9 @@ import com.droidbubble.app.model.allows
  */
 fun deriveIslandScene(inputs: IslandInputs, settings: IslandSettings, env: IslandEnv): IslandScene {
     val allowInOrientation = settings.isEnabled && (settings.showInLandscape || !env.isLandscape)
-    if (!allowInOrientation) return IslandScene.Off
+    // F1.4: "hide on lock screen" was the window's rule only; now the scene carries it for both
+    val allowOnLockScreen = !settings.hideOnLockScreen || !inputs.isDeviceLocked
+    if (!allowInOrientation || !allowOnLockScreen) return IslandScene.Off
 
     val currentMedia = inputs.media
     val currentNotif = inputs.notification
