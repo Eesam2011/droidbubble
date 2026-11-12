@@ -124,7 +124,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -804,49 +803,35 @@ internal fun IslandShell(
         }
     }
 
-    // Liquid glass blur: the cards' on-screen rects go to the overlay service every frame (from
-    // layout and from each animated recomposition), so the blur windows under them move, grow and
-    // fade in together with the cards instead of appearing after they settle.
+    // Liquid glass blur (M2.5): the cards' on-screen rects go to the overlay service from their
+    // layout callbacks, and again whenever the fade-in strengths or the corner change, so the
+    // blur windows move, grow and fade in with the cards. Nothing here runs on recomposition.
     val glassDensity = LocalDensity.current
     val latestGlassEnabled by rememberUpdatedState(settings.liquidGlassCards)
-    val latestGlassExpandProgress by rememberUpdatedState(expandProgress)
-    val latestGlassCard2Alpha by rememberUpdatedState(if (showSecondaryCard) animatedCard2Alpha else 0f)
-    val latestGlassCornerPx by rememberUpdatedState(with(glassDensity) { animatedCornerRadius.toPx() })
+    val latestGlassShowsCard2 by rememberUpdatedState(showSecondaryCard)
+    // Read live (delegated animation states), not captured: these lambdas see every frame
+    val glassStrengths: () -> FloatArray = remember {
+        {
+            val progress = expandProgress.coerceIn(0f, 1f)
+            floatArrayOf(progress, ((if (latestGlassShowsCard2) animatedCard2Alpha else 0f) * progress).coerceIn(0f, 1f))
+        }
+    }
+    val glassCornerPx: () -> Float = remember { { with(glassDensity) { shell.geometry.corner.coerceAtLeast(0.dp).toPx() } } }
     val glassMotionInsetPx = with(glassDensity) { 3.dp.toPx() }
     val publishGlass: () -> Unit = remember {
         {
-            val panes = if (!latestGlassEnabled) emptyList() else buildList {
-                val strengths = floatArrayOf(
-                    latestGlassExpandProgress.coerceIn(0f, 1f),
-                    (latestGlassCard2Alpha * latestGlassExpandProgress).coerceIn(0f, 1f)
-                )
-                for (i in 0..1) {
-                    val r = glassCardBounds[i] ?: continue
-                    val strength = strengths[i]
-                    if (strength < 0.03f || r.width < 8f || r.height < 8f) continue
-                    // While moving, tuck the pane a few px inside the card so a one-frame lag of
-                    // the blur window can never peek out past the card's edge
-                    val inset = if (strength < 0.98f) glassMotionInsetPx else 0f
-                    val w = (r.width - inset * 2f).roundToInt()
-                    val h = (r.height - inset * 2f).roundToInt()
-                    if (w < 4 || h < 4) continue
-                    add(
-                        IslandStateManager.GlassPane(
-                            left = (r.left + inset).roundToInt(),
-                            top = (r.top + inset).roundToInt(),
-                            width = w,
-                            height = h,
-                            cornerRadiusPx = (latestGlassCornerPx - inset).coerceAtLeast(0f),
-                            // Coarse steps: smooth to the eye, far fewer window updates
-                            strength = (strength * 20f).roundToInt() / 20f
-                        )
-                    )
-                }
-            }
-            IslandStateManager.setGlassPanes(panes)
+            IslandStateManager.setGlassPanes(
+                if (!latestGlassEnabled) emptyList()
+                else glassPanes(glassCardBounds, glassStrengths(), glassCornerPx(), glassMotionInsetPx)
+            )
         }
     }
-    SideEffect { publishGlass() }
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            val strengths = glassStrengths()
+            listOf(latestGlassEnabled, quantizeGlassStrength(strengths[0]), quantizeGlassStrength(strengths[1]), glassCornerPx())
+        }.collect { publishGlass() }
+    }
     LaunchedEffect(isExpanded, showSecondaryCard) {
         if (!isExpanded && !showSecondaryCard) glassCardBounds[1] = null
     }

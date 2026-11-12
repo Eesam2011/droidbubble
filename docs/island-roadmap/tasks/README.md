@@ -151,7 +151,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M2.2 | Size and position read in the layout phase | done (recompositions within budget, not yet lower: the shell still reads the geometry in composition until M2.4–M2.7) |
 | M2.3 | Cached squircle surface | done (exact-radius cache: 0.25 dp buckets would shift mid-animation pixels) |
 | M2.4 | Stretch and blur from spring velocity | done (owner approved the mid-frame diff, 2026-11-12) |
-| M2.5 | Glass publishing without SideEffect | todo |
+| M2.5 | Glass publishing without SideEffect | doing (code and tests done; device check pending: with Liquid glass on, the blur follows the card on expand and collapse) |
 | M2.6 | Pill content laid out at final width | todo |
 | M2.7 | Narrow state reads and recomposition gate | todo |
 | M3.1 | Content progress as a pure function of geometry | todo |
