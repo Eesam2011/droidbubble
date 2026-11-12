@@ -1,0 +1,349 @@
+diff --git a/app/src/main/java/com/droidbubble/app/island/scene/IslandTargets.kt b/app/src/main/java/com/droidbubble/app/island/scene/IslandTargets.kt
+index 1cda380..9fc36d5 100644
+--- a/app/src/main/java/com/droidbubble/app/island/scene/IslandTargets.kt
++++ b/app/src/main/java/com/droidbubble/app/island/scene/IslandTargets.kt
+@@ -18,9 +18,9 @@ data class MeasuredHeights(val notification: Dp, val progress: Dp? = null)
+ /** Where every part of the island is heading, in dp. The view animates toward these. */
+ @Immutable
+ data class IslandTargets(
+-    /** Width of the compact pill; 0 while expanded, hidden or idle. */
++    /** Width of the compact pill; 0 while hidden or idle (and, in notch style, while expanded). */
+     val compactWidth: Dp,
+-    /** Card 1: 0 wide and docked at the pill while collapsed, the full card while expanded. */
++    /** Card 1: the full card while expanded; closed, the pill's own rect (M1.3; notch: 0 wide). */
+     val card1: IslandGeometry,
+     /** Card 1's content height (its laid-out size, whether or not it is open). */
+     val card1ContentHeight: Dp,
+@@ -67,10 +67,9 @@ fun deriveIslandTargets(
+         else -> null
+     }
+ 
+-    // The pill docks at settings.topOffsetDp. It shrinks to 0 while the card is open.
+-    val compactWidth = when {
++    // The pill docks at settings.topOffsetDp: its width when the card is closed
++    val collapsedCompactWidth = when {
+         !scene.isOccupied && !settings.alwaysShowPill -> 0.dp
+-        isExpanded -> 0.dp
+         alertWidth != null -> alertWidth
+         // Swiped right: gone. Swiped left: shrunk into a circle around the camera.
+         scene.userHidden -> 0.dp
+@@ -78,16 +77,39 @@ fun deriveIslandTargets(
+         // Dual mode keeps the main pill at full size; the secondary bubble sits beside it
+         else -> settings.widthDp.dp
+     }
++    // M1.3, pill style: the island is one body, so the pill keeps its width under the open card
++    // and the card grows out of it. The notch keeps the old two-body path until M1.5: its pill
++    // shrinks to 0 while the card opens.
++    val oneBody = !settings.isNotch
++    val compactWidth = if (isExpanded && !oneBody) 0.dp else collapsedCompactWidth
+ 
+     val cardOpen = isExpanded && !hasAlert
+-    val card1Width = if (cardOpen) expandedCardWidth(settings, env) else 0.dp
+     val card1ContentHeight = cardHeightFor(scene.primary, settings.expandedScale, measured.notification, measured.progress, env.fontScale)
+-    val card1Height = if (isExpanded) card1ContentHeight else settings.heightDp.dp
+-    // One corner radius for every expanded card, concentric with the round controls of the live
+-    // activity cards (see LiveLayout). The squircle caps it at half the height.
+-    val corner = if (cardOpen) liveActivityCornerRadius(settings.expandedScale, env.fontScale) else IslandTokens.CompactCornerRadius
+-    // Open, the card sits below the status bar; closed, it docks over the camera
+-    val top = if (cardOpen) settings.topOffsetDp.dp + IslandTokens.Shell.ExpandedDrop else settings.topOffsetDp.dp
++    val card1 = when {
++        // One corner radius for every expanded card, concentric with the round controls of the
++        // live activity cards (see LiveLayout). Open, the card sits below the status bar.
++        cardOpen -> IslandGeometry(
++            width = expandedCardWidth(settings, env),
++            height = card1ContentHeight,
++            corner = liveActivityCornerRadius(settings.expandedScale, env.fontScale),
++            top = settings.topOffsetDp.dp + IslandTokens.Shell.ExpandedDrop,
++        )
++        // M1.3: closed, the card *is* the pill: same rect, capsule corners (the squircle caps the
++        // corner at half the height), so expand starts from the pill and collapse lands on it
++        oneBody -> IslandGeometry(
++            width = collapsedCompactWidth,
++            height = settings.heightDp.dp,
++            corner = settings.heightDp.dp / 2,
++            top = settings.topOffsetDp.dp,
++        )
++        // Notch: closed, the card is 0 wide, docked over the camera (today's two-body morph)
++        else -> IslandGeometry(
++            width = 0.dp,
++            height = if (isExpanded) card1ContentHeight else settings.heightDp.dp,
++            corner = IslandTokens.CompactCornerRadius,
++            top = settings.topOffsetDp.dp,
++        )
++    }
+ 
+     val card2Height = if (card2Expanded && scene.showSecondaryCard) {
+         cardHeightFor(scene.secondary, settings.expandedScale, measured.notification, measured.progress, env.fontScale)
+@@ -95,7 +117,7 @@ fun deriveIslandTargets(
+ 
+     return IslandTargets(
+         compactWidth = compactWidth,
+-        card1 = IslandGeometry(card1Width, card1Height, corner, top),
++        card1 = card1,
+         card1ContentHeight = card1ContentHeight,
+         card2Height = card2Height,
+         bubbleRestX = if (bubbleEmerged && scene.emergesBubble) bubbleRestCenterX(settings) else 0.dp,
+diff --git a/app/src/main/java/com/droidbubble/app/island/shell/IslandShell.kt b/app/src/main/java/com/droidbubble/app/island/shell/IslandShell.kt
+index 9e7482a..2d845ea 100644
+--- a/app/src/main/java/com/droidbubble/app/island/shell/IslandShell.kt
++++ b/app/src/main/java/com/droidbubble/app/island/shell/IslandShell.kt
+@@ -676,7 +676,7 @@ internal fun IslandShell(
+     fun fitsWindow(widthDp: Dp, bottomDp: Dp): Boolean = with(windowDensity) {
+         rootSize.width >= widthDp.roundToPx() && rootSize.height >= bottomDp.roundToPx()
+     }
+-    val cardWanted = targets.card1.width > 0.dp
++    val cardWanted = scene.isExpanded && !scene.hasAlert // the card opening (closed, it is the pill: M1.3)
+     val cardReady = rememberWindowReady(
+         want = cardWanted,
+         fits = fitsWindow(targets.card1.width, targets.card1.top + targets.card1.height),
+@@ -716,7 +716,15 @@ internal fun IslandShell(
+     // M1.1: the body's shape and position live in one state holder (Animatables), so later
+     // tasks can retarget with a velocity, snap, and read the velocity
+     val shell = rememberIslandShellState(shellTargetCard1, shellTargetX)
+-    shell.Follow(shellTargetCard1, shellTargetX, cardMorphAnimSpec, positionAnimSpec)
++    // M1.3, pill style: the card is the island's one body. It is drawn from the moment the island
++    // opens until it has landed back on the pill, and the pill draws only its content meanwhile.
++    val oneBody = !settings.isNotch
++    var cardActive by remember { mutableStateOf(false) }
++    if (isExpanded && !cardActive) cardActive = true
++    shell.Follow(shellTargetCard1, shellTargetX, cardMorphAnimSpec, positionAnimSpec, animateBody = !oneBody || isExpanded || cardActive)
++    // Read live by the landing check below: the style and the pill's size may change while it waits
++    val latestCardTarget by rememberUpdatedState(shellTargetCard1)
++    val latestOneBody by rememberUpdatedState(oneBody)
+     val animatedCardMorph = shell.geometry
+     val animatedCard1Width = animatedCardMorph.width.coerceAtLeast(0.dp)
+     val animatedCard1Height = animatedCardMorph.height.coerceAtLeast(0.dp)
+@@ -761,7 +769,19 @@ internal fun IslandShell(
+ 
+     LaunchedEffect(isExpanded) {
+         if (!isExpanded) {
+-            snapshotFlow { shell.geometry.width <= 0.5.dp && animatedCard2Height <= 0.5.dp }.first { it }
++            snapshotFlow {
++                val landed = if (latestOneBody) {
++                    // Back on the pill's rect and at rest: the card can hand over to the pill.
++                    // The target is read live: the pill's size may change while the card lands.
++                    val g = shell.geometry
++                    val target = latestCardTarget
++                    shell.isSettled && abs(g.height.value - target.height.value) < 0.5f && abs(g.top.value - target.top.value) < 0.5f
++                } else {
++                    shell.geometry.width <= 0.5.dp
++                }
++                landed && animatedCard2Height <= 0.5.dp
++            }.first { it }
++            cardActive = false
+             glassCardBounds[0] = null
+             glassCardBounds[1] = null
+             IslandStateManager.setGlassPanes(emptyList())
+@@ -781,7 +801,9 @@ internal fun IslandShell(
+         SolidColor(Color.Black)
+     }
+ 
+-    val cardContainerAlpha = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
++    // One body: the card never fades as a whole, it lands on the pill (M1.3). Notch: fades out on collapse.
++    val cardContainerAlpha = if (isExpanded || oneBody) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
++    val cardDrawn = if (oneBody) isExpanded || cardActive else expandProgress > 0.001f || isExpanded
+ 
+     var card1OffsetX by remember { mutableFloatStateOf(0f) }
+     var card2OffsetX by remember { mutableFloatStateOf(0f) }
+@@ -956,7 +978,7 @@ internal fun IslandShell(
+ 
+ 
+         // Expanded Cards Container: Positioned at animated top and horizontal offset
+-        if (expandProgress > 0.001f || isExpanded) {
++        if (cardDrawn) {
+             Box(
+                 modifier = Modifier
+                     .offset {
+@@ -998,7 +1020,7 @@ internal fun IslandShell(
+                     } else Modifier
+                 ) {
+                     // Card 1: Primary Expanded Card
+-                    if (card1Shown && (expandProgress > 0.001f || isExpanded)) {
++                    if (card1Shown && cardDrawn) {
+                         Box(
+                             modifier = Modifier
+                                 .testTag(IslandTestTags.CARD)
+@@ -1525,8 +1547,15 @@ internal fun IslandShell(
+                 }
+             }
+ 
+-            // 2. Main Compact Pill: Rendered on top of the bubble (covers it when sliding near x = 0)
+-            if (pillShown) {
++            // 2. Main Compact Pill: Rendered on top of the bubble (covers it when sliding near x = 0).
++            // M1.3: while the card is the island's body, the pill draws only its content (no black
++            // surface), and leaves the tree once that content has faded out.
++            val pillUnderCard = oneBody && cardDrawn
++            // 1 when the body's top is at the pill's, 0 once it has dropped [CONTENT_ARRIVAL_DP] below
++            fun bodyAtPill(): Float =
++                (1f - (shell.geometry.top - settings.topOffsetDp.dp).value / CONTENT_ARRIVAL_DP).coerceIn(0f, 1f)
++            val pillContentAlpha = if (isExpanded) (1f - expandProgress * 3.0f).coerceIn(0f, 1f) else (1f - expandProgress * 1.8f).coerceIn(0f, 1f)
++            if (pillShown && (!pillUnderCard || pillContentAlpha > 0.01f)) {
+                 Box(
+                     modifier = Modifier
+                         .testTag(IslandTestTags.PILL)
+@@ -1541,10 +1570,10 @@ internal fun IslandShell(
+                             scaleY = idleBounceScale.value * pillPressScale * (1f - swapSquash.value * 0.5f)
+                         }
+                         .clip(compactPillShape)
+-                        .background(if (pillFilled) Color.Black else Color.Transparent)
++                        .background(if (pillFilled && !pillUnderCard) Color.Black else Color.Transparent)
+                         .then(
+                             // Deliberately no pill outline in notch style: the notch is fused to the screen edge
+-                            if (settings.showOutline && !settings.isNotch && pillOutlined) {
++                            if (settings.showOutline && !settings.isNotch && pillOutlined && !pillUnderCard) {
+                                 Modifier.border(
+                                     width = settings.outlineThicknessDp.dp,
+                                     color = primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)),
+@@ -1903,7 +1932,10 @@ internal fun IslandShell(
+                             modifier = Modifier
+                                 .fillMaxSize()
+                                 .graphicsLayer {
+-                                    alpha = compactAlpha
++                                    // M1.3: while the card is the body, the pill's content only shows
++                                    // within the last few dp of the body's way back to the pill, so it
++                                    // never sits outside the black shape
++                                    alpha = compactAlpha * if (pillUnderCard) bodyAtPill() else 1f
+                                     // Pill content leaving for the card blurs out with the morph
+                                     renderEffect = if (isExpanded) steppedBlurEffect(
+                                         maxOf(1f - compactAlpha, shell.morphSpeed()), 10.dp.toPx()
+@@ -2030,3 +2062,6 @@ internal fun IslandShell(
+         }
+     }
+ }
++
++/** M1.3: the pill's content shows only within this many dp of the body's way back to the pill. */
++private const val CONTENT_ARRIVAL_DP = 6f
+diff --git a/app/src/main/java/com/droidbubble/app/island/shell/IslandShellState.kt b/app/src/main/java/com/droidbubble/app/island/shell/IslandShellState.kt
+index 3c23a5a..bf0997f 100644
+--- a/app/src/main/java/com/droidbubble/app/island/shell/IslandShellState.kt
++++ b/app/src/main/java/com/droidbubble/app/island/shell/IslandShellState.kt
+@@ -97,7 +97,9 @@ fun IslandShellState.Follow(
+     targetX: Dp,
+     spec: AnimationSpec<IslandGeometry>,
+     xSpec: AnimationSpec<Float>,
++    /** False while the body isn't drawn (the card is closed): it then snaps to follow the pill. */
++    animateBody: Boolean = true,
+ ) {
+-    LaunchedEffect(target) { animateBodyTo(target, spec) }
++    LaunchedEffect(target) { if (animateBody) animateBodyTo(target, spec) else body.snapTo(target) }
+     LaunchedEffect(targetX) { animateXTo(targetX, xSpec) }
+ }
+diff --git a/app/src/test/java/com/droidbubble/app/island/IslandContinuityTest.kt b/app/src/test/java/com/droidbubble/app/island/IslandContinuityTest.kt
+index 491b198..720cbaf 100644
+--- a/app/src/test/java/com/droidbubble/app/island/IslandContinuityTest.kt
++++ b/app/src/test/java/com/droidbubble/app/island/IslandContinuityTest.kt
+@@ -14,7 +14,6 @@ import com.droidbubble.app.model.IslandSettings
+ import org.junit.After
+ import org.junit.Assert.assertTrue
+ import org.junit.Before
+-import org.junit.Ignore
+ import org.junit.Rule
+ import org.junit.Test
+ import org.junit.runner.RunWith
+@@ -31,9 +30,8 @@ import java.util.Locale
+  *   shrinks before the card has grown, so the silhouette narrows, and collapse looks like
+  *   "vanish and re-pop")
+  *
+- * Today (two bodies) only the interrupted expand, the reopen after an interrupted collapse and the
+- * charging glance pass. The other cases are @Ignore'd until M1.3, with today's numbers in the
+- * reason; run them by hand to see each frame.
++ * Before M1.3 (two bodies) five cases failed: the silhouette narrowed 180 → 123 dp on expand, and
++ * its top jumped 52 dp when the pill popped back at the camera. With one body they all hold.
+  */
+ @RunWith(AndroidJUnit4::class)
+ @Config(sdk = [35], qualifiers = "w411dp-h891dp-xxhdpi")
+@@ -112,14 +110,12 @@ class IslandContinuityTest {
+ 
+     // ---- no jump ----
+ 
+-    @Ignore("fails until M1.3: the pill and the card are two bodies, so the silhouette's top jumps 52 dp when the pill pops back at the camera while the card is still down")
+     @Test
+     fun expand_noJump() {
+         showMediaPill()
+         record(45, at = 0) { IslandStateManager.expand(null) }.assertNoJumpOver()
+     }
+ 
+-    @Ignore("fails until M1.3: the pill and the card are two bodies, so the silhouette's top jumps 52 dp when the pill pops back at the camera while the card is still down")
+     @Test
+     fun collapse_noJump() {
+         showMediaPill()
+@@ -139,7 +135,6 @@ class IslandContinuityTest {
+         }
+     }
+ 
+-    @Ignore("fails until M1.3: the pill and the card are two bodies, so the silhouette's top jumps 52 dp when the pill pops back at the camera while the card is still down")
+     @Test
+     fun collapseInterruptedByExpand_noJump() {
+         showMediaPill()
+@@ -156,7 +151,6 @@ class IslandContinuityTest {
+         record(60, at = 6) { IslandStateManager.triggerChargingEvent(80, 18.0) }.assertNoJumpOver()
+     }
+ 
+-    @Ignore("fails until M1.3: the pill and the card are two bodies, so the silhouette's top jumps 52 dp when the pill pops back at the camera while the card is still down")
+     @Test
+     fun dualSplitDuringCollapse_noJump() {
+         rule.runOnIdle {
+@@ -170,7 +164,6 @@ class IslandContinuityTest {
+ 
+     // ---- no narrowing ----
+ 
+-    @Ignore("fails until M1.3: the pill shrinks before the card grows (two-body morph); today the silhouette narrows 180 → 123 dp")
+     @Test
+     fun expand_neverNarrows() {
+         showMediaPill()
+diff --git a/app/src/test/java/com/droidbubble/app/island/scene/DeriveIslandTargetsTest.kt b/app/src/test/java/com/droidbubble/app/island/scene/DeriveIslandTargetsTest.kt
+index dd33715..8a395cc 100644
+--- a/app/src/test/java/com/droidbubble/app/island/scene/DeriveIslandTargetsTest.kt
++++ b/app/src/test/java/com/droidbubble/app/island/scene/DeriveIslandTargetsTest.kt
+@@ -33,12 +33,28 @@ class DeriveIslandTargetsTest {
+     ) = deriveIslandTargets(deriveIslandScene(inputs, settings, env), settings, env, measured, card2Expanded, bubbleEmerged)
+ 
+     private fun assertDp(expected: Dp, actual: Dp) = assertEquals(expected.value, actual.value, 0.001f)
++    private fun assertDp(message: String, expected: Dp, actual: Dp) = assertEquals(message, expected.value, actual.value, 0.001f)
+ 
+     @Test
+-    fun default_isA180x36Pill_withTheCardDockedBehindIt() {
++    fun closedCard_followsThePill() {
++        assertEquals(IslandGeometry(36.dp, 36.dp, 18.dp, 12.dp), targets(IslandInputs(media = song, userMinimized = true)).card1)
++        assertDp(0.dp, targets(IslandInputs(media = song, userHidden = true)).card1.width)
++        assertEquals(IslandGeometry(220.dp, 40.dp, 20.dp, 20.dp), targets(IslandInputs(media = song), base.copy(widthDp = 220, heightDp = 40, topOffsetDp = 20)).card1)
++    }
++
++    @Test
++    fun notch_keepsTheTwoBodyPath_untilM15() {
++        val notch = base.copy(islandStyle = IslandSettings.STYLE_NOTCH)
++        assertEquals(IslandGeometry(0.dp, 36.dp, IslandTokens.CompactCornerRadius, 12.dp), targets(IslandInputs(media = song), notch).card1)
++        assertDp(0.dp, targets(IslandInputs(media = song, isExpanded = true), notch).compactWidth)
++    }
++
++    @Test
++    fun default_isA180x36Pill_andTheClosedCardIsThePill() {
+         val t = targets(IslandInputs(media = song))
+         assertDp(180.dp, t.compactWidth)
+-        assertEquals(IslandGeometry(0.dp, 36.dp, IslandTokens.CompactCornerRadius, 12.dp), t.card1)
++        // M1.3: closed, the card is the pill's own rect with capsule corners
++        assertEquals(IslandGeometry(180.dp, 36.dp, 18.dp, 12.dp), t.card1)
+         assertDp(0.dp, t.card2Height)
+         assertDp(0.dp, t.bubbleRestX)
+         assertDp(0.dp, t.cardSpacing)
+@@ -62,7 +78,7 @@ class DeriveIslandTargetsTest {
+     @Test
+     fun expanded_isTheCardBelowTheStatusBar() {
+         val t = targets(IslandInputs(media = song, isExpanded = true))
+-        assertDp(0.dp, t.compactWidth)
++        assertDp("the pill keeps its width under the card (M1.3)", 180.dp, t.compactWidth)
+         assertDp(374.dp, t.card1.width)          // 340 × 1.1
+         assertDp(214.5.dp, t.card1.height)       // media: 195 × 1.1
+         assertDp(64.dp, t.card1.top)             // 12 + 52
+@@ -119,9 +135,9 @@ class DeriveIslandTargetsTest {
+         assertDp(0.dp, targets(IslandInputs(media = song, isExpanded = true), offset).horizontalOffset)
+ 
+         val alertWhileExpanded = targets(IslandInputs(media = song, isExpanded = true, charging = ChargingInfo(80)))
+-        assertDp(0.dp, alertWhileExpanded.card1.width)
++        assertDp("the card closes onto the charging pill", 200.dp, alertWhileExpanded.card1.width)
+         assertDp(12.dp, alertWhileExpanded.card1.top)
+-        assertDp(IslandTokens.CompactCornerRadius, alertWhileExpanded.card1.corner)
++        assertDp(18.dp, alertWhileExpanded.card1.corner)
+     }
+ 
+     @Test
