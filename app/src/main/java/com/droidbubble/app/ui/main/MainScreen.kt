@@ -2456,7 +2456,7 @@ fun AccessibilityPage(
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Reduce Motion", fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text("No bounces or shakes: the island moves without overshoot and content fades. Also on when Android's animations are turned down.") },
+                            supportingContent = { Text("No bounces or shakes: the island moves without overshoot and content fades. Also on when Android's animations are turned off.") },
                             leadingContent = {
                                 Icon(Icons.Default.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },

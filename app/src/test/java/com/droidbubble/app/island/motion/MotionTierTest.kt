@@ -16,7 +16,8 @@ class MotionTierTest {
             Row(true, 1f, false, MotionTier.REDUCED),
             Row(true, 1f, true, MotionTier.REDUCED),
             Row(false, 0f, false, MotionTier.REDUCED),     // "Remove animations"
-            Row(false, 0.5f, false, MotionTier.REDUCED),   // turned down
+            Row(false, 0.5f, false, MotionTier.FULL),      // faster animations are not a wish for less motion
+            Row(false, 0.5f, true, MotionTier.EFFICIENT),
             Row(false, 0f, true, MotionTier.REDUCED),      // reduced wins over Battery Saver
         )
         for (r in rows) {

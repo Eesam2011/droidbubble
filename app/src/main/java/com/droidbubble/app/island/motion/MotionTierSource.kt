@@ -18,14 +18,15 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * Which motion tier the island runs at (M5.1):
- * - [MotionTier.REDUCED]: the in-app "Reduce motion" switch, or the system animator scale below
- *   1 (0 is "Remove animations"; 05 R11 also counts the slower-than-normal scales as a wish for
- *   less motion)
+ * - [MotionTier.REDUCED]: the in-app "Reduce motion" switch, or the system animator scale at 0
+ *   ("Remove animations"). Other scales don't count: many people set 0.5x only to make the phone
+ *   feel faster, not to have less motion (owner's decision, 2026-11-12; 05 R11 counted any scale
+ *   below 1).
  * - [MotionTier.EFFICIENT]: Battery Saver
  * - otherwise [MotionTier.FULL]
  */
 fun resolveMotionTier(reduceMotionSetting: Boolean, animatorScale: Float, batterySaver: Boolean): MotionTier = when {
-    reduceMotionSetting || animatorScale < 1f -> MotionTier.REDUCED
+    reduceMotionSetting || animatorScale <= 0f -> MotionTier.REDUCED
     batterySaver -> MotionTier.EFFICIENT
     else -> MotionTier.FULL
 }
