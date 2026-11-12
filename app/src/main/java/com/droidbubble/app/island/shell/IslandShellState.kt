@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.droidbubble.app.island.IslandGeometry
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * The island's body as animation state (M1.1): its shape ([body]: width, height, corner, top) as
@@ -31,6 +32,17 @@ class IslandShellState(initial: IslandGeometry, initialX: Dp) {
     val velocity: IslandGeometry get() = body.velocity
     val xDp: Dp get() = x.value.dp
     val isSettled: Boolean get() = !body.isRunning && !x.isRunning
+
+    /**
+     * How fast the shape is changing size, 0 to 1 (M2.4): the spring's own velocity, so stretch and
+     * blur peak mid-morph and are gone the moment it settles. Read it in draw-phase lambdas.
+     */
+    fun morphSpeed(fullSpeedDpPerSec: Float = FULL_SPEED_DP_PER_SEC): Float =
+        ((abs(velocity.width.value) + abs(velocity.height.value)) / fullSpeedDpPerSec).coerceIn(0f, 1f)
+
+    /** True while the shape is getting bigger toward [target]. */
+    fun isGrowing(target: IslandGeometry): Boolean =
+        (target.width + target.height) > (geometry.width + geometry.height)
 
     /** Moves the shape to [target]; velocity carries over unless [initialVelocity] replaces it (a gesture hand-off, M4). */
     suspend fun animateBodyTo(
@@ -62,6 +74,13 @@ class IslandShellState(initial: IslandGeometry, initialX: Dp) {
         x.snapTo(targetX.value)
     }
 }
+
+/** A morph this fast (width + height, dp per second) counts as full speed for stretch and blur. */
+const val FULL_SPEED_DP_PER_SEC = 1800f
+
+/** [IslandShellState.morphSpeed] for a one-dimensional size, such as the pill's width. */
+fun morphSpeedOf(velocityDpPerSec: Float, fullSpeedDpPerSec: Float = FULL_SPEED_DP_PER_SEC): Float =
+    (abs(velocityDpPerSec) / fullSpeedDpPerSec).coerceIn(0f, 1f)
 
 @Composable
 fun rememberIslandShellState(initial: IslandGeometry, initialX: Dp): IslandShellState =

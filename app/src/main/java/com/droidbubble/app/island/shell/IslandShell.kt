@@ -431,9 +431,9 @@ internal fun IslandShell(
     // The pill: shrinks away without overshoot while the card opens, and comes back (or appears,
     // hides, minimises) on the user's Split curve, with its small bounce
     val compactPillWidthAnimSpec = if (isExpanded) {
-        motion.spring<Dp>(motion.pillShrinkOnExpand)
+        motion.spring<Float>(motion.pillShrinkOnExpand)
     } else {
-        motion.spring<Dp>(motion.split)
+        motion.spring<Float>(motion.split)
     }
 
     val expandProgress by animateFloatAsState(
@@ -705,7 +705,10 @@ internal fun IslandShell(
     val targetHorizontalOffset = targets.horizontalOffset
     val targetCardSpacing = targets.cardSpacing
 
-    val compactWidthState = animateDpAsState(targetValue = targetCompactWidth, animationSpec = compactPillWidthAnimSpec, label = "compactWidth")
+    // M2.4: the pill's width on an Animatable (dp as Float), so its velocity drives the blur
+    val pillWidth = remember { Animatable(targetCompactWidth.value) }
+    LaunchedEffect(targetCompactWidth) { pillWidth.animateTo(targetCompactWidth.value, compactPillWidthAnimSpec) }
+    val compactWidthState = remember { derivedStateOf { pillWidth.value.dp } }
     val animatedCompactWidthRaw by compactWidthState
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
     // pill retracting); a negative width throws in layout and crashed the island
@@ -748,10 +751,10 @@ internal fun IslandShell(
         }.collect { IslandStateManager.publishSettledShape(it) }
     }
 
-    // How fast the card and the pill are changing size right now. Leaving content blurs with
-    // these and the card stretches with them, so both peak mid-morph and vanish as it settles.
-    val cardSpeed = rememberMorphSpeed(animatedCard1Width, animatedCard1Height, targetCard1Width, targetCard1Height)
-    val pillSpeed = rememberMorphSpeed(animatedCompactWidth, 0.dp, targetCompactWidth.coerceAtLeast(0.dp), 0.dp)
+    // M2.4: how fast the card and the pill are changing size comes from their springs' velocity,
+    // read only inside graphicsLayer blocks. Leaving content blurs with it and the card stretches
+    // with it, so both peak mid-morph and vanish as it settles.
+    fun pillMorphSpeed() = morphSpeedOf(pillWidth.velocity)
 
     // On-screen rects of card 1 / card 2, for the liquid glass blur windows
     val glassCardBounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(2) }
@@ -1009,10 +1012,11 @@ internal fun IslandShell(
                                     // the top edge so it stays docked under the camera. Off for
                                     // glass cards, whose blur window behind follows the unscaled
                                     // bounds and would no longer line up.
-                                    if (cardSpeed.growing && !settings.liquidGlassCards) {
+                                    val speed = shell.morphSpeed()
+                                    if (speed > 0f && shell.isGrowing(shellTargetCard1) && !settings.liquidGlassCards && motion.allowsStretch) {
                                         transformOrigin = TransformOrigin(0.5f, 0f)
-                                        scaleX = 1f + 0.035f * cardSpeed.speed
-                                        scaleY = 1f - 0.02f * cardSpeed.speed
+                                        scaleX = 1f + 0.035f * speed
+                                        scaleY = 1f - 0.02f * speed
                                     }
                                 }
                                 // M2.3: the corner is read in the draw phase; same as clip(islandShape(corner))
@@ -1163,7 +1167,7 @@ internal fun IslandShell(
                                             // Only leaving content blurs: sharp on the way in, blurred
                                             // with the card's speed (or its fade) on the way out
                                             renderEffect = if (isExpanded) null else steppedBlurEffect(
-                                                maxOf(1f - expandedAlpha, cardSpeed.speed), 10.dp.toPx()
+                                                maxOf(1f - expandedAlpha, shell.morphSpeed()), 10.dp.toPx()
                                             )
                                         }
                                 ) {
@@ -1332,7 +1336,7 @@ internal fun IslandShell(
                                         )
                                         .graphicsLayer {
                                             renderEffect = if (card2Expanded) null else steppedBlurEffect(
-                                                maxOf(1f - animatedCard2Alpha, cardSpeed.speed), 10.dp.toPx()
+                                                maxOf(1f - animatedCard2Alpha, shell.morphSpeed()), 10.dp.toPx()
                                             )
                                         }
                                         // Inner padding lives in each view (islandCardContentPadding)
@@ -1902,7 +1906,7 @@ internal fun IslandShell(
                                     alpha = compactAlpha
                                     // Pill content leaving for the card blurs out with the morph
                                     renderEffect = if (isExpanded) steppedBlurEffect(
-                                        maxOf(1f - compactAlpha, cardSpeed.speed), 10.dp.toPx()
+                                        maxOf(1f - compactAlpha, shell.morphSpeed()), 10.dp.toPx()
                                     ) else null
                                 },
                             contentAlignment = Alignment.Center
@@ -1930,7 +1934,7 @@ internal fun IslandShell(
                                             // Only the leaving activity blurs, with the swap's squash
                                             // and the pill's width change; the new one stays sharp
                                             renderEffect = if (shownPriority != primaryPriority) steppedBlurEffect(
-                                                maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillSpeed.speed), 12.dp.toPx()
+                                                maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillMorphSpeed()), 12.dp.toPx()
                                             ) else null
                                         },
                                     contentAlignment = Alignment.Center

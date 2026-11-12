@@ -9,9 +9,4 @@ object IslandClock {
     @Volatile
     @JvmField
     var wallMs: () -> Long = System::currentTimeMillis
-
-    /** Monotonic nanoseconds, for measuring frame-to-frame speed. Tests tie it to the compose clock. */
-    @Volatile
-    @JvmField
-    var nanoTime: () -> Long = System::nanoTime
 }

@@ -587,55 +587,6 @@ fun steppedBlurEffect(strength: Float, maxRadiusPx: Float): RenderEffect? {
     }
 }
 
-/** How fast a morph moves this frame: 0 (still) to 1 (full speed), and whether it's growing. */
-data class MorphSpeed(val speed: Float, val growing: Boolean) {
-    companion object {
-        val Still = MorphSpeed(0f, growing = false)
-    }
-}
-
-/**
- * Speed of a size spring, measured from how far its width + height moved since the last frame.
- * Blur and stretch follow it, so they peak at the fastest point of the morph and are gone the
- * moment the shape settles, whatever spring settings the user picked. An animating size
- * recomposes every frame, so measuring here costs no extra frame callbacks.
- */
-@Composable
-fun rememberMorphSpeed(width: Dp, height: Dp, targetWidth: Dp, targetHeight: Dp, fullSpeedDpPerSec: Float = 1800f): MorphSpeed {
-    val meter = remember { MorphSpeedMeter() }
-    return meter.update(
-        size = width.value + height.value,
-        target = targetWidth.value + targetHeight.value,
-        nowNanos = IslandClock.nanoTime(),
-        fullSpeed = fullSpeedDpPerSec
-    )
-}
-
-/** Frame-to-frame state for [rememberMorphSpeed]. */
-class MorphSpeedMeter {
-    private var lastSize = Float.NaN
-    private var lastNanos = 0L
-    private var smoothed = 0f
-
-    fun update(size: Float, target: Float, nowNanos: Long, fullSpeed: Float): MorphSpeed {
-        val previous = lastSize
-        val dtSec = (nowNanos - lastNanos) / 1_000_000_000f
-        lastSize = size
-        lastNanos = nowNanos
-        // Settled (or nothing to compare with yet): no blur or stretch left over
-        if (previous.isNaN() || kotlin.math.abs(target - size) < 0.5f) {
-            smoothed = 0f
-            return MorphSpeed.Still
-        }
-        // A frame from long ago (the spring just started) or a repeat of this frame says nothing
-        if (dtSec <= 0.001f || dtSec > 0.1f) return MorphSpeed(smoothed, growing = target > size)
-        val raw = (kotlin.math.abs(size - previous) / dtSec / fullSpeed).coerceIn(0f, 1f)
-        // Half-and-half smoothing hides frame-time jitter without lagging behind the spring
-        smoothed += (raw - smoothed) * 0.5f
-        return MorphSpeed(smoothed, growing = target > size)
-    }
-}
-
 /**
  * Notification picture: the sender's photo (WhatsApp contact, SMS sender...) as a circle with a
  * small app-icon badge, like iOS communication notifications; otherwise the app icon.
