@@ -151,11 +151,11 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M2.2 | Size and position read in the layout phase | done (recompositions within budget, not yet lower: the shell still reads the geometry in composition until M2.4–M2.7) |
 | M2.3 | Cached squircle surface | done (exact-radius cache: 0.25 dp buckets would shift mid-animation pixels) |
 | M2.4 | Stretch and blur from spring velocity | done (owner approved the mid-frame diff, 2026-11-12) |
-| M2.5 | Glass publishing without SideEffect | doing (code and tests done; device check pending: with Liquid glass on, the blur follows the card on expand and collapse) |
+| M2.5 | Glass publishing without SideEffect | done (device: OPPO CPH2631, Android 16, Liquid glass on; the blur follows the card on expand and collapse) |
 | M2.6 | Pill content laid out at final width | todo |
 | M2.7 | Narrow state reads and recomposition gate | todo |
-| M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; card 1 and pill content. Card 2 follows in M3.2/M3.3. Device check pending at 0.7× and 2.0×) |
-| M3.2 | Staggers in progress, not wall-clock time | doing (code and tests done; owner kept it; device check at 0.7× and 2.0× in progress) |
+| M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; device checked at 0.7×, 1×, 2× and 10×: content waits for the shape, leaves blurred) |
+| M3.2 | Staggers in progress, not wall-clock time | done (device checked at 0.7×, 1×, 2× and 10×: card 2 after card 1, bubble after the pill, parentheses at 60%; no jank regression vs the pre-M2.5 build) |
 | M3.3 | Expanded content keyed per activity | todo |
 | M3.4 | Compact content keyed per activity | todo |
 | M4.1 | `Modifier.islandGestures` and release resolver | done |
