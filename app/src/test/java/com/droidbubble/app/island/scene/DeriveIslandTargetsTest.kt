@@ -46,6 +46,19 @@ class DeriveIslandTargetsTest {
     }
 
     @Test
+    fun card1_endpoints_areTheClosedAndOpenRects_eitherWay() {
+        // M3.1: content progress runs between these, so they don't depend on the current state
+        for (expanded in listOf(false, true)) {
+            val t = targets(IslandInputs(media = song, isExpanded = expanded))
+            assertEquals(IslandGeometry(0.dp, 36.dp, IslandTokens.CompactCornerRadius, 12.dp), t.card1Closed)
+            assertEquals(IslandGeometry(374.dp, 214.5.dp, liveActivityCornerRadius(1.1f, 1f), 64.dp), t.card1Open)
+        }
+        val open = targets(IslandInputs(media = song, isExpanded = true))
+        assertEquals(open.card1Open, open.card1)
+        assertEquals(targets(IslandInputs(media = song)).card1Closed, targets(IslandInputs(media = song)).card1)
+    }
+
+    @Test
     fun idle_hasNoPill_unlessAlwaysShown() {
         assertDp(0.dp, targets(IslandInputs()).compactWidth)
         assertDp(180.dp, targets(IslandInputs(), base.copy(alwaysShowPill = true)).compactWidth)

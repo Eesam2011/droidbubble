@@ -726,6 +726,19 @@ internal fun IslandShell(
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
     val animatedHorizontalOffset = shell.xDp
 
+    // M3.1: content follows the shape. p runs 0 → 1 from card 1's closed rect to its open rect,
+    // read from the body's own geometry (draw phase), and every content fade is a pure function of
+    // it: the same curve whichever way the card is moving, so an interrupted morph never jumps.
+    val card1Closed = targets.card1Closed
+    val card1Open = targets.card1Open
+    fun contentP(): Float = contentProgress(shell.geometry, card1Closed, card1Open)
+    val card1ContentShown by remember(card1Closed, card1Open) {
+        derivedStateOf { IslandChoreography.incomingAlpha(contentProgress(shell.geometry, card1Closed, card1Open)) > 0.01f }
+    }
+    val compactContentShown by remember(card1Closed, card1Open) {
+        derivedStateOf { IslandChoreography.compactAlpha(contentProgress(shell.geometry, card1Closed, card1Open)) > 0.01f }
+    }
+
     // M2.2: coarse flags over the animated sizes. They change a handful of times per morph, not
     // every frame, so they don't recompose the shell on their own.
     val card1Shown by remember { derivedStateOf { shell.geometry.width > 1.dp } }
@@ -1128,17 +1141,10 @@ internal fun IslandShell(
                             }
 
                             // Expanded Card 1 Content (e.g. Media Player or Primary Notification)
-                            // Arriving content waits until the card is ~60% of the way to its
-                            // shape, so it never shows stretched while the card is still growing.
-                            // Fade and scale come from expandProgress, which runs on the same
-                            // spring as the card's size, so an interrupted morph reverses together.
-                            val expandedAlpha = if (isExpanded) {
-                                ((expandProgress - 0.60f) / 0.40f).coerceIn(0f, 1f)
-                            } else {
-                                ((expandProgress - 0.45f) / 0.55f).coerceIn(0f, 1f)
-                            }
-
-                            if (!isCharging && expandedAlpha > 0.01f) {
+                            // M3.1: arriving content waits until the card is 45% of the way to its
+                            // shape, so it never shows stretched while the card is still growing,
+                            // and leaves on the same curve
+                            if (!isCharging && card1ContentShown) {
                                 Box(
                                     modifier = Modifier
                                         .testTag(IslandTestTags.content("card1", primaryPriority))
@@ -1146,13 +1152,17 @@ internal fun IslandShell(
                                         .requiredSize(expandedCardWidth, card1ContentHeight)
                                         // Inner padding lives in each view (islandCardContentPadding)
                                         .graphicsLayer {
-                                            alpha = expandedAlpha
-                                            scaleX = 0.94f + (0.06f * expandedAlpha)
-                                            scaleY = 0.94f + (0.06f * expandedAlpha)
+                                            val p = contentP()
+                                            alpha = IslandChoreography.incomingAlpha(p)
+                                            scaleX = IslandChoreography.incomingScale(p)
+                                            scaleY = scaleX
+                                            transformOrigin = TransformOrigin(0.5f, 0f)
                                             // Only leaving content blurs: sharp on the way in, blurred
                                             // with the card's speed (or its fade) on the way out
-                                            renderEffect = if (isExpanded) null else steppedBlurEffect(
-                                                maxOf(1f - expandedAlpha, shell.morphSpeed()), 10.dp.toPx()
+                                            val contracting = !isExpanded
+                                            renderEffect = if (!contracting || !motion.allowsBlur) null else steppedBlurEffect(
+                                                maxOf(IslandChoreography.leavingBlurFraction(p, contracting), shell.morphSpeed()),
+                                                IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                             )
                                         }
                                 ) {
@@ -1626,11 +1636,9 @@ internal fun IslandShell(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    val compactAlpha = if (userMinimized && !isCharging && !isUnlock && !isBluetooth && !isRingerMode) 0f else if (isExpanded) {
-                        (1f - (expandProgress * 3.0f)).coerceIn(0f, 1f)
-                    } else {
-                        (1f - (expandProgress * 1.8f)).coerceIn(0f, 1f)
-                    }
+                    // M3.1: the pill's content is gone by p 0.35, and back below it, either way
+                    val compactHidden = userMinimized && !isCharging && !isUnlock && !isBluetooth && !isRingerMode
+                    fun compactAlpha(): Float = if (compactHidden) 0f else IslandChoreography.compactAlpha(contentP())
 
                     // Background darker green progress bar for charging status:
                     if (isCharging || chargingContentAlpha > 0.01f) {
@@ -1883,15 +1891,16 @@ internal fun IslandShell(
                                 }
                             }
                         }
-                    } else if (compactAlpha > 0.01f && animatedCompactWidth > 24.dp) {
+                    } else if (!compactHidden && compactContentShown && animatedCompactWidth > 24.dp) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
-                                    alpha = compactAlpha
+                                    val a = compactAlpha()
+                                    alpha = a
                                     // Pill content leaving for the card blurs out with the morph
-                                    renderEffect = if (isExpanded) steppedBlurEffect(
-                                        maxOf(1f - compactAlpha, shell.morphSpeed()), 10.dp.toPx()
+                                    renderEffect = if (isExpanded && motion.allowsBlur) steppedBlurEffect(
+                                        maxOf(1f - a, shell.morphSpeed()), IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                     ) else null
                                 },
                             contentAlignment = Alignment.Center

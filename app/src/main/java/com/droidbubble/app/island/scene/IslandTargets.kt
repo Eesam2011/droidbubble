@@ -31,6 +31,9 @@ data class IslandTargets(
     val cardSpacing: Dp,
     /** Width of the charging, unlock, connection or ringer pill; null when no glance shows. */
     val alertWidth: Dp?,
+    /** M3.1: card 1's closed and open rects, the endpoints its content progress runs between. */
+    val card1Closed: IslandGeometry = IslandGeometry(0.dp, 0.dp, 0.dp, 0.dp),
+    val card1Open: IslandGeometry = IslandGeometry(0.dp, 0.dp, 0.dp, 0.dp),
 )
 
 /** Width of an expanded card: the token width × scale, kept inside the screen gutter. */
@@ -102,5 +105,11 @@ fun deriveIslandTargets(
         horizontalOffset = if (!isExpanded && !hasAlert) settings.horizontalOffsetDp.dp else 0.dp,
         cardSpacing = if (isExpanded && scene.showSecondaryCard) IslandTokens.Shell.CardSpacing else 0.dp,
         alertWidth = alertWidth,
+        card1Closed = IslandGeometry(0.dp, settings.heightDp.dp, IslandTokens.CompactCornerRadius, settings.topOffsetDp.dp),
+        card1Open = IslandGeometry(
+            expandedCardWidth(settings, env), card1ContentHeight,
+            liveActivityCornerRadius(settings.expandedScale, env.fontScale),
+            settings.topOffsetDp.dp + IslandTokens.Shell.ExpandedDrop,
+        ),
     )
 }

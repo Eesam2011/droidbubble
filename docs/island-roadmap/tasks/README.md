@@ -154,7 +154,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M2.5 | Glass publishing without SideEffect | doing (code and tests done; device check pending: with Liquid glass on, the blur follows the card on expand and collapse) |
 | M2.6 | Pill content laid out at final width | todo |
 | M2.7 | Narrow state reads and recomposition gate | todo |
-| M3.1 | Content progress as a pure function of geometry | todo |
+| M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; card 1 and pill content. Card 2 follows in M3.2/M3.3. Device check pending at 0.7× and 2.0×) |
 | M3.2 | Staggers in progress, not wall-clock time | todo |
 | M3.3 | Expanded content keyed per activity | todo |
 | M3.4 | Compact content keyed per activity | todo |
