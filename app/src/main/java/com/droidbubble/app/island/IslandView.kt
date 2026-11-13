@@ -374,6 +374,8 @@ object IslandTestTags {
     const val PILL = "island_pill"
     const val BUBBLE = "island_bubble"
     const val CARD = "island_card"
+    /** Card 2, the second activity's card in dual mode (not part of the S1 golden). */
+    const val CARD2 = "island_card2"
 
     /** Content slots that tests can ask "which activity is drawn here?" (see [content]). */
     val CONTENT_SLOTS = listOf("pill", "bubble", "card1", "card2")

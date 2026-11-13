@@ -619,16 +619,8 @@ internal fun IslandShell(
     val progressBaseHeight = remember(currentProgress, settings.expandedScale, notifBaseTextStyle, notifDensity) {
         measureProgressCardHeight(currentProgress, settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
     }
-    // Card 2 delayed appearance: starts a split frame after Card 1 when expanding
+    // Card 2 starts a beat after card 1: once card 1 is 10% open (M3.2, set below the shell)
     var card2Expanded by remember { mutableStateOf(false) }
-    LaunchedEffect(isExpanded) {
-        if (isExpanded) {
-            kotlinx.coroutines.delay((45L / speed).toLong())
-            card2Expanded = true
-        } else {
-            card2Expanded = false
-        }
-    }
 
     val showSecondaryCard = scene.showSecondaryCard
     val targetCard2Alpha = if (card2Expanded && showSecondaryCard) 1f else 0f
@@ -638,16 +630,8 @@ internal fun IslandShell(
     val compactMainHalf = settings.widthDp.dp / 2f
 
     val shouldEmergeSecondary = scene.emergesBubble
+    // The bubble emerges once the main pill has established itself (M3.2, set below the pill)
     var secondaryBubbleEmerged by remember { mutableStateOf(false) }
-    LaunchedEffect(shouldEmergeSecondary) {
-        if (shouldEmergeSecondary) {
-            // Subtle delay for a split fraction when the main island appears, so the main island establishes first
-            kotlinx.coroutines.delay((60L / speed).toLong().coerceAtLeast(10L))
-            secondaryBubbleEmerged = true
-        } else {
-            secondaryBubbleEmerged = false
-        }
-    }
 
     // Out on the user's Split curve (a slight overshoot); back into the punch hole smoothly
     val bubbleOffsetAnimSpec = if (secondaryBubbleEmerged && shouldEmergeSecondary) {
@@ -708,6 +692,17 @@ internal fun IslandShell(
     val pillWidth = remember { Animatable(targetCompactWidth.value) }
     LaunchedEffect(targetCompactWidth) { pillWidth.animateTo(targetCompactWidth.value, compactPillWidthAnimSpec) }
     val compactWidthState = remember { derivedStateOf { pillWidth.value.dp } }
+    // M3.2: the bubble emerges when the pill is 95% of the way to its width, not after a fixed
+    // 60 ms, so it waits for the pill at any speed and through interruptions
+    val latestCompactTarget by rememberUpdatedState(targetCompactWidth.value)
+    LaunchedEffect(shouldEmergeSecondary) {
+        if (shouldEmergeSecondary) {
+            snapshotFlow { latestCompactTarget > 0f && pillWidth.value >= latestCompactTarget * BUBBLE_EMERGE_AT }.first { it }
+            secondaryBubbleEmerged = true
+        } else {
+            secondaryBubbleEmerged = false
+        }
+    }
     val animatedCompactWidthRaw by compactWidthState
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
     // pill retracting); a negative width throws in layout and crashed the island
@@ -737,6 +732,17 @@ internal fun IslandShell(
     }
     val compactContentShown by remember(card1Closed, card1Open) {
         derivedStateOf { IslandChoreography.compactAlpha(contentProgress(shell.geometry, card1Closed, card1Open)) > 0.01f }
+    }
+    // M3.2: card 2 follows card 1 once it is 10% open, instead of 45 ms later, so the stagger
+    // holds at any speed and a collapse during the lead never starts card 2
+    val latestContentP by rememberUpdatedState(::contentP)
+    LaunchedEffect(isExpanded) {
+        if (isExpanded) {
+            snapshotFlow { latestContentP() >= CARD2_STARTS_AT }.first { it }
+            card2Expanded = true
+        } else {
+            card2Expanded = false
+        }
     }
 
     // M2.2: coarse flags over the animated sizes. They change a handful of times per morph, not
@@ -862,8 +868,8 @@ internal fun IslandShell(
 
         if (settings.bubbleEffectEnabled && (justMinimised || justAppeared)) {
             parenthesisExtraShoot.snapTo(0f)
-            // Wait for minimised island pill to expand close to punch hole exit (~70ms at 1x speed)
-            kotlinx.coroutines.delay((70L / speed).toLong().coerceAtLeast(10L))
+            // M3.2: shoot once the pill is 60% of the way out of the punch hole, at any speed
+            snapshotFlow { latestCompactTarget > 0f && pillWidth.value >= latestCompactTarget * PARENTHESES_SHOOT_AT }.first { it }
             // Shoot outward from the main island with spring bounce and settle back to 0
             parenthesisExtraShoot.animateTo(
                 targetValue = 0f,
@@ -1188,6 +1194,7 @@ internal fun IslandShell(
                     if (animatedCard2Height > 1.dp) {
                         Box(
                             modifier = Modifier
+                                .testTag(IslandTestTags.CARD2)
                                 .offset { IntOffset(animatedCard2OffsetX.roundToInt(), animatedCard2OffsetY.roundToPx()) }
                                 .layoutSize(width = { shell.geometry.width })
                                 .height(animatedCard2Height)
@@ -2024,3 +2031,8 @@ internal fun IslandShell(
         }
     }
 }
+
+// M3.2: staggers as fractions of the shape's own progress (03 §6)
+private const val CARD2_STARTS_AT = 0.1f
+private const val BUBBLE_EMERGE_AT = 0.95f
+private const val PARENTHESES_SHOOT_AT = 0.6f

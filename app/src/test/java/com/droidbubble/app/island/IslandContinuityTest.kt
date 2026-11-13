@@ -61,8 +61,8 @@ class IslandContinuityTest {
     // ---- recorder ----
 
     /** The union of every pill and card node, or null when nothing is drawn. */
-    private fun silhouette(): DpRect? {
-        val rects = listOf(IslandTestTags.PILL, IslandTestTags.CARD).flatMap { tag ->
+    private fun silhouette(tags: List<String> = listOf(IslandTestTags.PILL, IslandTestTags.CARD)): DpRect? {
+        val rects = tags.flatMap { tag ->
             rule.onAllNodesWithTag(tag).fetchSemanticsNodes().map { node ->
                 with(rule.density) {
                     val b = node.boundsInRoot
@@ -75,10 +75,15 @@ class IslandContinuityTest {
     }
 
     /** Advances [frames] frames of 16 ms; [before] runs on the main thread before frame [at]. */
-    private fun record(frames: Int, at: Int = -1, before: () -> Unit = {}): List<DpRect?> = (0 until frames).map { i ->
+    private fun record(
+        frames: Int,
+        at: Int = -1,
+        tags: List<String> = listOf(IslandTestTags.PILL, IslandTestTags.CARD),
+        before: () -> Unit = {},
+    ): List<DpRect?> = (0 until frames).map { i ->
         if (i == at) rule.runOnIdle(before)
         h.advanceFrozen(FRAME_MS)
-        silhouette()
+        silhouette(tags)
     }
 
     private fun DpRect.w(): Dp = right - left
@@ -166,6 +171,33 @@ class IslandContinuityTest {
         }
         h.advanceFrozen(1500)
         record(60, at = 0) { IslandStateManager.collapse() }.assertNoJumpOver()
+    }
+
+    /** M3.2: a collapse during card 2's lead (card 1 under 10% open) moves both cards smoothly. */
+    @Test
+    fun collapseDuringCard2Lead_cardsDontJump() {
+        rule.runOnIdle {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.updateNotification(IslandFixtures.message())
+        }
+        h.advanceFrozen(1500)
+        val cards = listOf(IslandTestTags.CARD, IslandTestTags.CARD2)
+        rule.runOnIdle { IslandStateManager.expand(null) }
+        record(60, at = 1, tags = cards) { IslandStateManager.collapse() }.assertNoJumpOver()
+    }
+
+    /** M3.2: card 2 still opens after card 1 and settles in the same place. */
+    @Test
+    fun dualExpand_card2OpensAndSettles() {
+        rule.runOnIdle {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.updateNotification(IslandFixtures.message())
+        }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.expand(null) }
+        val frames = record(60, tags = listOf(IslandTestTags.CARD2))
+        frames.assertNoJumpOver()
+        assertTrue("card 2 opened", frames.last() != null)
     }
 
     // ---- no narrowing ----
