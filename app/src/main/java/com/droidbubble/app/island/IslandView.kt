@@ -159,6 +159,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
+import com.droidbubble.app.island.icon.IconEffect
+import com.droidbubble.app.island.icon.iconEffect
 import com.droidbubble.app.island.motion.rememberMotionTier
 import com.droidbubble.app.island.shell.Follow
 import com.droidbubble.app.island.shell.IslandShell
@@ -2018,28 +2020,12 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
 
 @Composable
 fun PulsingRecordingDot(modifier: Modifier = Modifier) {
-    val motion = LocalIslandMotion.current
-    val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = motion.tween(MotionTween.RECORDING_PULSE),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_alpha"
-    )
-
-    // B8.1: the pulse is read in the layer and draw phases only, so the dot never recomposes
+    // I1.2: the engine's breathe, read in the layer only. Same pace and character as before:
+    // opacity 0.35 <-> 1 with the dot 12 % larger at full opacity, 650 ms each way
     Box(
         modifier = modifier
             .size(11.dp)
-            .graphicsLayer {
-                val a = alpha
-                scaleX = 1f + a * 0.12f
-                scaleY = 1f + a * 0.12f
-                this.alpha = a
-            }
+            .iconEffect(RECORDING_DOT_BREATHE)
             .drawBehind { drawCircle(IslandTokens.RecordingRed) }
     )
 }
@@ -2104,6 +2090,15 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.Contr
         }
     }
 }
+
+private const val RECORDING_DOT_MIN_ALPHA = 0.35f
+private const val RECORDING_DOT_GROWTH = 0.12f
+private val RECORDING_DOT_BREATHE = IconEffect.Breathe(
+    minAlpha = RECORDING_DOT_MIN_ALPHA,
+    scaleFrom = 1f + RECORDING_DOT_GROWTH * RECORDING_DOT_MIN_ALPHA,
+    scaleTo = 1f + RECORDING_DOT_GROWTH,
+    periodMillis = MotionTween.RECORDING_PULSE.millis * 2,
+)
 
 private val EQ_FAKE_SPEED = floatArrayOf(7.0f, 8.3f, 6.0f)
 private const val EQ_STEP_MS = 33L

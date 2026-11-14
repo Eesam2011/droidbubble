@@ -2,6 +2,10 @@ package com.droidbubble.app.island.icon
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -24,9 +28,48 @@ class IconEffectState {
     private val dip = Animatable(0f)
     private var dipDepth = 0f
 
+    /** The running loop (null: none) and where in its period it is, 0..1. Read in the layer only. */
+    private var loop by mutableStateOf<ResolvedLoop?>(null)
+    private var loopPhase by mutableFloatStateOf(0f)
+
+    /** Starts holding [l] at its first frame, or stops any loop with null. */
+    internal fun setLoop(l: ResolvedLoop?) {
+        loop = l
+        loopPhase = 0f
+    }
+
+    internal fun setLoopPhase(phase: Float) {
+        loopPhase = phase
+    }
+
+    /** The loop's wave right now, 0..1 (0 when no loop runs). */
+    val loopWave: Float get() {
+        val l = loop ?: return 0f
+        if (l.isStatic || l.turns) return 0f
+        val t = loopPhase * 2f
+        return if (t < 1f) l.easing.transform(t) else l.easing.transform(2f - t)
+    }
+
     fun value(channel: IconChannel): Float = animatable(channel).value
     fun velocity(channel: IconChannel): Float = animatable(channel).velocity
-    val alpha: Float get() = 1f - dipDepth * (1f - abs(2f * dip.value - 1f))
+    val alpha: Float get() {
+        val dipped = 1f - dipDepth * (1f - abs(2f * dip.value - 1f))
+        val l = loop ?: return dipped
+        return dipped * (l.minAlpha + (1f - l.minAlpha) * loopWave)
+    }
+
+    /** Scale, including a breathing loop. */
+    val totalScale: Float get() {
+        val l = loop ?: return scale.value
+        return scale.value * (l.scaleFrom + (l.scaleTo - l.scaleFrom) * loopWave)
+    }
+
+    /** Rotation in degrees, including a turning loop. */
+    val totalRotation: Float get() {
+        val l = loop
+        val turn = if (l != null && l.turns && !l.isStatic) loopPhase * 360f else 0f
+        return rotation.value + turn
+    }
     val isRunning: Boolean get() = IconChannel.entries.any { animatable(it).isRunning } || dip.isRunning
 
     private fun animatable(channel: IconChannel) = when (channel) {
@@ -83,12 +126,12 @@ class IconEffectState {
 
     /** Applies the values to a layer. Call only from `graphicsLayer { }`. */
     fun applyTo(layer: GraphicsLayerScope) = with(layer) {
-        val s = scale.value
+        val s = totalScale
         scaleX = s
         scaleY = s
         translationX = offsetX.value * size.width
         translationY = offsetY.value * size.height
-        rotationZ = rotation.value
+        rotationZ = totalRotation
         alpha = this@IconEffectState.alpha
     }
 }

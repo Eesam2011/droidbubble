@@ -18,6 +18,9 @@ import com.droidbubble.app.island.IslandTokens
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.opticalCenter
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
+import androidx.compose.ui.platform.LocalContext
+import com.droidbubble.app.island.motion.readAnimatorScale
 
 /** The last trigger an icon has seen, so only a change fires (Convention 4). */
 private class TriggerMemory(var last: Any?)
@@ -28,6 +31,7 @@ private class TriggerMemory(var last: Any?)
  * - A discrete effect fires each time [trigger] changes. The value it starts with never fires:
  *   an icon that appears in a state doesn't animate into it.
  * - [IconEffect.Wiggle] with `repeatEveryMs` swings again at that interval while [active].
+ * - An indefinite effect runs while [active] and drops back to rest when it turns false.
  * - Values are read only in the layer, so an effect recomposes nothing; only a changed
  *   [trigger] recomposes the caller, as any argument does.
  *
@@ -54,6 +58,26 @@ fun Modifier.iconEffect(
             }
         }
     }
+    if (effect is IconEffect.Indefinite) {
+        val removed = rememberAnimationsRemoved()
+        val loop = IconEffectSpecs.resolveLoop(effect, motion.value, removed)
+        LaunchedEffect(loop, active) {
+            if (!active) {
+                s.setLoop(null)
+                return@LaunchedEffect
+            }
+            s.setLoop(loop)
+            if (loop.isStatic) return@LaunchedEffect
+            // Frames only while composed: this ends with the composition (Convention 6)
+            val start = withInfiniteAnimationFrameMillis { it }
+            while (true) {
+                if (loop.frameIntervalMillis > 0) delay(loop.frameIntervalMillis.toLong())
+                withInfiniteAnimationFrameMillis { now ->
+                    s.setLoopPhase(((now - start) % loop.periodMillis) / loop.periodMillis.toFloat())
+                }
+            }
+        }
+    }
     val repeatMs = (effect as? IconEffect.Wiggle)?.repeatEveryMs
     if (repeatMs != null && active) {
         LaunchedEffect(effect) {
@@ -67,6 +91,13 @@ fun Modifier.iconEffect(
         transformOrigin = pivot
         s.applyTo(this)
     }
+}
+
+/** True when the system animator scale is 0 ("Remove animations"). */
+@Composable
+private fun rememberAnimationsRemoved(): Boolean {
+    val resolver = LocalContext.current.contentResolver
+    return remember(resolver) { readAnimatorScale(resolver) <= 0f }
 }
 
 /**

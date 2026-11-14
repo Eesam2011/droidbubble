@@ -1,5 +1,7 @@
 package com.droidbubble.app.island
 
+import com.droidbubble.app.island.icon.IconEffect
+import com.droidbubble.app.island.icon.iconEffect
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
 import androidx.compose.foundation.Canvas
@@ -1069,16 +1071,16 @@ private fun AlertPillButton(
     }
 }
 
+private val ALERT_ICON_BREATHE = IconEffect.Breathe(
+    minAlpha = 1f,
+    scaleFrom = 0.85f,
+    scaleTo = 1f,
+    periodMillis = MotionTween.ALERT_PULSE.millis * 2,
+)
+
 /** Alert icon in a tinted circle that gently pulses while ringing. */
 @Composable
 private fun PulsingAlertIcon(icon: ImageVector, color: Color, size: Dp) {
-    val motion = LocalIslandMotion.current
-    val pulse by rememberInfiniteTransition(label = "alert_pulse").animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(motion.tween(MotionTween.ALERT_PULSE), RepeatMode.Reverse),
-        label = "alert_scale"
-    )
     Box(
         modifier = Modifier
             .size(size)
@@ -1090,7 +1092,9 @@ private fun PulsingAlertIcon(icon: ImageVector, color: Color, size: Dp) {
             imageVector = icon,
             contentDescription = null,
             tint = color,
-            modifier = Modifier.size(size * 0.5f).scale(pulse)
+            // I1.2: the engine's breathe, read in the layer only (was a per-frame recomposition).
+            // Same character as before: 0.85 <-> 1 in size, 520 ms each way, no fading
+            modifier = Modifier.size(size * 0.5f).iconEffect(ALERT_ICON_BREATHE)
         )
     }
 }

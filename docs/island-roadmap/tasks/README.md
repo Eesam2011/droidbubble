@@ -222,7 +222,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 |---|---|---|
 | I0.1 | Symbol-effect tokens and motion-tier shim | done (tokens in `IslandMotion.Symbol`; the tier comes from M5.1, so no shim; graphics-shapes pin not added, waiting on owner sign-off) |
 | I1.1 | Engine core: bounce and wiggle | done (`island/icon/`; tests pass; no callers yet; device feel check in I4.1) |
-| I1.2 | Pulse, breathe, rotate; draw-phase pulses | todo |
+| I1.2 | Pulse, breathe, rotate; draw-phase pulses | done (recording dot and alarm icon on the engine; S2 unchanged, tests pass; check later on the phone: the dot pulse reads as before) |
 | I1.3 | Appear, disappear and replace | todo |
 | I1.4 | Variable color (LayeredIcon) | todo |
 | I2.1 | Morph toolkit and play↔pause | todo |

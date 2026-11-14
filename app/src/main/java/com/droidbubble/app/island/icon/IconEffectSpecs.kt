@@ -1,5 +1,7 @@
 package com.droidbubble.app.island.icon
 
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
@@ -34,6 +36,30 @@ sealed interface ResolvedEffect {
 }
 
 /**
+ * An indefinite effect after the tier is applied. A wave w goes 0 -> 1 -> 0 over [periodMillis]
+ * on [easing] (like a reversing infinite transition); opacity is `minAlpha + (1 - minAlpha) * w`,
+ * scale `scaleFrom + (scaleTo - scaleFrom) * w`. [turns]: a linear full turn per period instead.
+ * [periodMillis] 0: no frames at all, the icon holds [minAlpha] and [scaleFrom].
+ * [frameIntervalMillis] 0: every display frame.
+ */
+@Immutable
+data class ResolvedLoop(
+    val periodMillis: Int,
+    val frameIntervalMillis: Int,
+    val easing: Easing,
+    val minAlpha: Float,
+    val scaleFrom: Float,
+    val scaleTo: Float,
+    val turns: Boolean = false,
+) {
+    val isStatic: Boolean get() = periodMillis == 0
+
+    companion object {
+        fun still(alpha: Float = 1f, scale: Float = 1f) = ResolvedLoop(0, 0, LinearEasing, alpha, scale, scale)
+    }
+}
+
+/**
  * Turns an [IconEffect] into springs and kicks for the island's current [IslandMotion].
  *
  * Kick sizes are chosen for a target peak, so they look the same at every animation speed: a
@@ -57,6 +83,38 @@ object IconEffectSpecs {
      * (Convention 5).
      */
     const val MAX_STACKED_KICKS = 1.5f
+
+    /** Reduced motion with system animations removed: a loop holds this opacity instead. */
+    const val REMOVED_ANIMATIONS_ALPHA = 0.7f
+
+    /**
+     * Indefinite effects for [motion]'s tier:
+     * - Full: as asked.
+     * - Efficient (Battery Saver): the same, at most 30 frames a second.
+     * - Reduced: a pulse stays (opacity isn't motion) but slows to 2 s; a breathe becomes that
+     *   pulse at its resting size; a rotation stops. With [animationsRemoved] (system animator
+     *   scale 0) every loop holds still.
+     */
+    fun resolveLoop(effect: IconEffect.Indefinite, motion: IslandMotion, animationsRemoved: Boolean = false): ResolvedLoop {
+        val frame = if (motion.tier == MotionTier.EFFICIENT) IslandMotion.EFFICIENT_FRAME_MS else 0
+        val wave = FastOutSlowInEasing
+        if (motion.tier == MotionTier.REDUCED) {
+            val minAlpha = when (effect) {
+                is IconEffect.Pulse -> effect.minAlpha
+                is IconEffect.Breathe -> effect.minAlpha
+                is IconEffect.Rotate -> 1f
+            }
+            val restScale = (effect as? IconEffect.Breathe)?.scaleFrom ?: 1f
+            if (animationsRemoved) return ResolvedLoop.still(if (minAlpha < 1f) REMOVED_ANIMATIONS_ALPHA else 1f, restScale)
+            if (minAlpha >= 1f) return ResolvedLoop.still(1f, restScale)
+            return ResolvedLoop(IslandMotion.Symbol.PULSE_REDUCED_PERIOD_MS, 0, wave, minAlpha, restScale, restScale)
+        }
+        return when (effect) {
+            is IconEffect.Pulse -> ResolvedLoop(effect.periodMillis, frame, wave, effect.minAlpha, 1f, 1f)
+            is IconEffect.Breathe -> ResolvedLoop(effect.periodMillis, frame, wave, effect.minAlpha, effect.scaleFrom, effect.scaleTo)
+            is IconEffect.Rotate -> ResolvedLoop(effect.periodMillis, frame, LinearEasing, 1f, 1f, 1f, turns = true)
+        }
+    }
 
     fun resolve(effect: IconEffect.Discrete, motion: IslandMotion): ResolvedEffect {
         if (motion.tier == MotionTier.REDUCED) {
