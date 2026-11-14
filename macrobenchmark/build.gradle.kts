@@ -5,7 +5,9 @@ plugins {
 }
 
 // Build outputs live outside OneDrive, like the app's (see app/build.gradle.kts)
-layout.buildDirectory.set(File(System.getProperty("user.home"), ".droidbubble-build/macrobenchmark"))
+// -PdroidbubbleBuildRoot=<dir> gives a second checkout (a git worktree) its own outputs
+layout.buildDirectory.set(File(providers.gradleProperty("droidbubbleBuildRoot").orNull
+    ?: File(System.getProperty("user.home"), ".droidbubble-build").path, "macrobenchmark"))
 
 android {
     namespace = "com.droidbubble.macrobenchmark"

@@ -7,7 +7,9 @@ plugins {
 
 // Build outputs live outside OneDrive: syncing thousands of intermediate files on every build
 // slowed it down a lot. APKs end up in ~/.droidbubble-build/app/outputs/apk/
-layout.buildDirectory.set(File(System.getProperty("user.home"), ".droidbubble-build/app"))
+// -PdroidbubbleBuildRoot=<dir> gives a second checkout (a git worktree) its own outputs
+layout.buildDirectory.set(File(providers.gradleProperty("droidbubbleBuildRoot").orNull
+    ?: File(System.getProperty("user.home"), ".droidbubble-build").path, "app"))
 
 // F6.4: release signing. The key is never in the repo. Put these four values in
 // ~/.gradle/gradle.properties (or set them as environment variables):
