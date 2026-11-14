@@ -840,6 +840,20 @@ internal fun IslandShell(
         else -> false
     }
 
+    // M4.4: the pill body under the finger (px), rubber-banded; it springs home on release (Pill.kt)
+    val pillDragX = remember { Animatable(0f) }
+    val pillDragY = remember { Animatable(0f) }
+    // A pull down on the pill opens the card with the finger's speed. Two bodies (M1.3 parked):
+    // the card grows from the pulled-down pill's position instead of morphing out of the pill.
+    fun expandFromPill(velocityY: Float, draggedY: Float) {
+        val dragged = with(windowDensity) { draggedY.toDp() }
+        coroutineScope.launch {
+            if (shell.isSettled && dragged > 0.dp) shell.body.snapTo(card1Closed.copy(top = card1Closed.top + dragged))
+            shell.handOff(gestureVelocity(velocityY / windowDensity.density, card1Closed, card1Open))
+            IslandStateManager.expand(primaryPriority)
+        }
+    }
+
     // M4.3: a swipe up from card 1's pill zone tucks the island back. While dragging the body
     // follows the finger (rubber-banded, from its shape when the drag began); a tuck hands the
     // finger's velocity to the collapse, a short pull springs back with it. Not on the flashlight
@@ -1530,6 +1544,8 @@ internal fun IslandShell(
                 Box(
                     modifier = Modifier
                         .testTag(IslandTestTags.PILL)
+                        // M4.4: the body under the finger while dragged (layout phase)
+                        .offset { IntOffset(pillDragX.value.roundToInt(), pillDragY.value.roundToInt()) }
                         .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)
                         .graphicsLayer {
@@ -1552,34 +1568,22 @@ internal fun IslandShell(
                                 )
                             } else Modifier
                         )
-                        // Swipe left: shrink the pill into the camera circle. On the camera circle, a
-                        // right swipe (or a tap) brings it back. A right swipe on the full pill does
-                        // nothing (B6.4, D6): it used to hide the island until the next event, a trap.
-                        // The drag is still consumed so it doesn't leak to the card below.
-                        .pointerInput(isExpanded, userMinimized) {
-                            var dragTotal = 0f
-                            detectHorizontalDragGestures(
-                                onDragStart = { dragTotal = 0f },
-                                onHorizontalDrag = { change, amount ->
-                                    change.consume()
-                                    dragTotal += amount
-                                },
-                                onDragEnd = {
-                                    val threshold = IslandTokens.Gesture.LegacyPillSwipe.toPx()
-                                    when {
-                                        isExpanded -> Unit
-                                        userMinimized && dragTotal > threshold -> {
-                                            haptics.perform(IslandHapticEvent.RESTORE)
-                                            IslandStateManager.restoreIsland()
-                                        }
-                                        dragTotal < -threshold && !userMinimized -> {
-                                            haptics.perform(IslandHapticEvent.MINIMISE)
-                                            IslandStateManager.minimizeIsland()
-                                        }
-                                    }
-                                }
-                            )
-                        }
+                        // M4.4: pull down to expand (further: the system shade); swipe inward,
+                        // toward the camera, to shrink into the ring; the ring swiped outward (or
+                        // tapped) comes back. Outward on the full pill does nothing (B6.4, D6: no
+                        // swipe-to-hide). Claimed drags are consumed, so none leaks to the card below.
+                        .pillSwipe(
+                            enabled = !isExpanded,
+                            minimised = userMinimized,
+                            follows = !settings.isNotch,
+                            dragX = pillDragX,
+                            dragY = pillDragY,
+                            canExpand = isOccupied && !userMinimized && !isUnlock && !isBluetooth && !isRingerMode,
+                            canMinimise = !userMinimized,
+                            onExpand = { velocityY, draggedY -> expandFromPill(velocityY, draggedY) },
+                            onMinimise = { IslandStateManager.minimizeIsland() },
+                            onRestore = { IslandStateManager.restoreIsland() },
+                        )
                         .combinedClickable(
                             interactionSource = pillInteraction,
                             indication = null,

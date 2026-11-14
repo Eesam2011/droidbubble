@@ -72,12 +72,17 @@ class IslandOverlayCrashTest {
     // --- Pill swipes (the reported crashes) -------------------------------------------------
 
     @Test
-    fun swipeLeftTwice_onMediaPill_fromAlbumArt() {
+    fun swipeInwardTwice_onMediaPill_fromAlbumArt() {
+        // M4.4: inward is toward the pill's centre from where the drag starts, so from the album
+        // art (the left end) it is a right swipe. A left swipe from there is outward: nothing.
         onState { IslandStateManager.updateMedia(song) }
         settle()
         swipePill(-300f, startFraction = 0.12f)
         settle(300)
-        swipePill(-300f, startFraction = 0.12f)
+        assertFalse("outward from the left end", IslandStateManager.userMinimized.value)
+        swipePill(300f, startFraction = 0.12f)
+        settle(300)
+        swipePill(300f, startFraction = 0.12f)
         settle()
         assertTrue(IslandStateManager.userMinimized.value)
     }
