@@ -1,5 +1,9 @@
 package com.droidbubble.app.island.shell
 
+import com.droidbubble.app.island.icon.DrawOnIcon
+import com.droidbubble.app.island.icon.DynamicIconSwitch
+import com.droidbubble.app.island.icon.IconStrokes
+import com.droidbubble.app.island.icon.SlashOverlay
 import com.droidbubble.app.island.IslandIcons
 import android.content.Context
 import android.graphics.Bitmap
@@ -426,29 +430,6 @@ internal fun IslandShell(
         label = "unlockContentAlpha"
     )
 
-    var unlockCheckmarkVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(isUnlock) {
-        if (isUnlock) {
-            unlockCheckmarkVisible = false
-            kotlinx.coroutines.delay((110L / speed).toLong())
-            unlockCheckmarkVisible = true
-        } else {
-            unlockCheckmarkVisible = false
-        }
-    }
-
-    val unlockCheckmarkAlpha by animateFloatAsState(
-        targetValue = if (unlockCheckmarkVisible && isUnlock) 1f else 0f,
-        animationSpec = motion.tween(MotionTween.CHECKMARK_FADE),
-        label = "unlockCheckmarkAlpha"
-    )
-
-    val unlockCheckmarkScale by animateFloatAsState(
-        targetValue = if (unlockCheckmarkVisible && isUnlock) 1f else 0.4f,
-        // Gentle bounce: overshoots slightly by ~3-4px, then settles
-        animationSpec = motion.spring(motion.checkmarkPop),
-        label = "unlockCheckmarkScale"
-    )
 
     val bluetoothContentAlpha by animateFloatAsState(
         targetValue = if (isBluetooth) 1f else 0f,
@@ -456,29 +437,6 @@ internal fun IslandShell(
         label = "bluetoothContentAlpha"
     )
 
-    var bluetoothCheckmarkVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(isBluetooth) {
-        if (isBluetooth) {
-            bluetoothCheckmarkVisible = false
-            kotlinx.coroutines.delay((110L / speed).toLong())
-            bluetoothCheckmarkVisible = true
-        } else {
-            bluetoothCheckmarkVisible = false
-        }
-    }
-
-    val bluetoothCheckmarkAlpha by animateFloatAsState(
-        targetValue = if (bluetoothCheckmarkVisible && isBluetooth) 1f else 0f,
-        animationSpec = motion.tween(MotionTween.CHECKMARK_FADE),
-        label = "bluetoothCheckmarkAlpha"
-    )
-
-    val bluetoothCheckmarkScale by animateFloatAsState(
-        targetValue = if (bluetoothCheckmarkVisible && isBluetooth) 1f else 0.4f,
-        // Gentle bounce: overshoots slightly by ~3-4px, then settles
-        animationSpec = motion.spring(motion.checkmarkPop),
-        label = "bluetoothCheckmarkScale"
-    )
 
     // Ringer Mode (Silent, Vibrate, Ring) animations:
     val ringerContentAlpha by animateFloatAsState(
@@ -498,13 +456,14 @@ internal fun IslandShell(
         }
     }
 
-    val ringerSecondaryAlpha by animateFloatAsState(
+    // I2.2: read in the label's layer only, so its pop doesn't recompose the shell every frame
+    val ringerSecondaryAlpha = animateFloatAsState(
         targetValue = if (ringerSecondaryVisible && isRingerMode) 1f else 0f,
         animationSpec = motion.tween(MotionTween.CHECKMARK_FADE),
         label = "ringerSecondaryAlpha"
     )
 
-    val ringerSecondaryScale by animateFloatAsState(
+    val ringerSecondaryScale = animateFloatAsState(
         targetValue = if (ringerSecondaryVisible && isRingerMode) 1f else 0.4f,
         animationSpec = motion.spring(motion.checkmarkPop),
         label = "ringerSecondaryScale"
@@ -1787,20 +1746,11 @@ internal fun IslandShell(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
-                                if (unlockCheckmarkAlpha > 0.01f) {
-                                    Icon(
-                                        imageVector = IslandIcons.Compact.Done,
-                                        contentDescription = "Success",
-                                        tint = Color.White,
-                                        modifier = Modifier
-                                            .graphicsLayer {
-                                                alpha = unlockCheckmarkAlpha
-                                                scaleX = unlockCheckmarkScale
-                                                scaleY = unlockCheckmarkScale
-                                            }
-                                            .size(IslandTokens.Glyph.Compact)
-                                    )
-                                }
+                                // I2.2: the check draws itself on, a little after the pill appears
+                                DrawOnIcon(
+                                    IconStrokes.Check, drawn = isUnlock, tint = Color.White,
+                                    contentDescription = "Success", delayFraction = CHECK_DELAY_FRACTION,
+                                )
                             }
                         }
                     } else if (isBluetooth || bluetoothContentAlpha > 0.01f) {
@@ -1832,20 +1782,10 @@ internal fun IslandShell(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
-                                if (bluetoothCheckmarkAlpha > 0.01f) {
-                                    Icon(
-                                        imageVector = IslandIcons.Compact.Done,
-                                        contentDescription = "Connected",
-                                        tint = Color.White,
-                                        modifier = Modifier
-                                            .graphicsLayer {
-                                                alpha = bluetoothCheckmarkAlpha
-                                                scaleX = bluetoothCheckmarkScale
-                                                scaleY = bluetoothCheckmarkScale
-                                            }
-                                            .size(IslandTokens.Glyph.Compact)
-                                    )
-                                }
+                                DrawOnIcon(
+                                    IconStrokes.Check, drawn = isBluetooth, tint = Color.White,
+                                    contentDescription = "Connected", delayFraction = CHECK_DELAY_FRACTION,
+                                )
                             }
                         }
                     } else if (isRingerMode || ringerContentAlpha > 0.01f) {
@@ -1861,35 +1801,51 @@ internal fun IslandShell(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.CenterStart
                             ) {
-                                val icon = when (displayRingerMode) {
-                                    RingerMode.SILENT -> IslandIcons.Compact.RingerSilent
-                                    RingerMode.VIBRATE -> IslandIcons.Compact.RingerVibrate
-                                    RingerMode.RING -> IslandIcons.Compact.RingerOn
-                                }
                                 val iconTint = if (displayRingerMode == RingerMode.SILENT) {
                                     IslandTokens.RingerSilentRed // Red icon for silent
                                 } else {
                                     Color.White
                                 }
 
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = displayRingerMode.name,
-                                    tint = iconTint,
-                                    modifier = Modifier
-                                        .graphicsLayer {
-                                            if (displayRingerMode == RingerMode.RING) {
-                                                transformOrigin = TransformOrigin(0.5f, 0.0f)
-                                                rotationZ = bellShakeRotation.value
-                                            } else if (displayRingerMode == RingerMode.VIBRATE) {
-                                                transformOrigin = TransformOrigin.Center
-                                                translationX = vibrateShakeOffset.value.dp.toPx()
-                                            } else {
-                                                transformOrigin = TransformOrigin.Center
+                                // I2.2: Ring and Silent keep the bell and draw the slash on or off;
+                                // to or from Vibrate (an unrelated glyph) is a replace
+                                DynamicIconSwitch(target = displayRingerMode == RingerMode.VIBRATE) { vibrate ->
+                                    if (vibrate) {
+                                        Icon(
+                                            imageVector = IslandIcons.Compact.RingerVibrate,
+                                            contentDescription = RingerMode.VIBRATE.name,
+                                            tint = Color.White,
+                                            modifier = Modifier
+                                                .graphicsLayer { translationX = vibrateShakeOffset.value.dp.toPx() }
+                                                .size(IslandTokens.Glyph.Compact)
+                                        )
+                                    } else {
+                                        SlashOverlay(
+                                            slashed = displayRingerMode == RingerMode.SILENT,
+                                            slashTint = iconTint,
+                                            slashedGlyph = {
+                                                Icon(
+                                                    imageVector = IslandIcons.Compact.RingerSilent,
+                                                    contentDescription = RingerMode.SILENT.name,
+                                                    tint = iconTint,
+                                                    modifier = Modifier.size(IslandTokens.Glyph.Compact)
+                                                )
                                             }
+                                        ) {
+                                            Icon(
+                                                imageVector = IslandIcons.Compact.RingerOn,
+                                                contentDescription = displayRingerMode.name,
+                                                tint = iconTint,
+                                                modifier = Modifier
+                                                    .graphicsLayer {
+                                                        transformOrigin = TransformOrigin(0.5f, 0.0f)
+                                                        rotationZ = bellShakeRotation.value
+                                                    }
+                                                    .size(IslandTokens.Glyph.Compact)
+                                            )
                                         }
-                                        .size(IslandTokens.Glyph.Compact)
-                                )
+                                    }
+                                }
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
@@ -1900,7 +1856,8 @@ internal fun IslandShell(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
-                                if (ringerSecondaryAlpha > 0.01f) {
+                                // Always composed in this row; its layer alpha shows and hides it
+                                run {
                                     val labelText = when (displayRingerMode) {
                                         RingerMode.SILENT -> "Silent"
                                         RingerMode.VIBRATE -> "Vibrate"
@@ -1915,9 +1872,9 @@ internal fun IslandShell(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.End,
                                         modifier = Modifier.graphicsLayer {
-                                            alpha = ringerSecondaryAlpha
-                                            scaleX = ringerSecondaryScale
-                                            scaleY = ringerSecondaryScale
+                                            alpha = ringerSecondaryAlpha.value
+                                            scaleX = ringerSecondaryScale.value
+                                            scaleY = ringerSecondaryScale.value
                                         }
                                     ) {
                                         Text(
@@ -2100,3 +2057,6 @@ private const val CARD_SWAP_SCALE_DROP = 0.08f
 
 /** How far a resisting card moves per pixel of finger travel. */
 private const val RESISTED_SWIPE_FRACTION = 0.18f
+
+/** I2.2: the check starts drawing this far into its spring, after the pill has begun to appear. */
+private const val CHECK_DELAY_FRACTION = 0.3f
