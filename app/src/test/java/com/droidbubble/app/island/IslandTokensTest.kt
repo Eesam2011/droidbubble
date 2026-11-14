@@ -6,15 +6,15 @@ import org.junit.Test
 
 /**
  * F2.2: the color tokens hold the exact values the views used inline, and the documented
- * duplicates really are the same color.
+ * duplicates really are the same color. F2.3 merged the near-duplicates.
  */
 class IslandTokensTest {
 
     @Test
     fun roles_keepTheInlineValues() {
         assertEquals(Color(0xFFFF453A), IslandTokens.RecordingRed)
-        assertEquals(Color(0xFFFF3B30), IslandTokens.RecordingRedSystem)
-        assertEquals(Color(0xFFFF3B30), IslandTokens.RingerSilentRed)
+        assertEquals(Color(0xFFFF453A), IslandTokens.RingerSilentRed)
+        assertEquals(Color(0xFFF2F2F7), IslandTokens.TextBody)
         assertEquals(Color(0xFF30D158), IslandTokens.ChargingGreen)
         assertEquals(Color(0xFF04190B), IslandTokens.ChargingFillDark)
         assertEquals(Color(0xFF062B12), IslandTokens.ChargingFillFrom)
@@ -36,15 +36,40 @@ class IslandTokensTest {
 
     @Test
     fun liveActivityColors_keepTheirValues() {
-        assertEquals(Color(0xFFFF5A47), LiveActivityColors.RecordingRed)
+        assertEquals(Color(0xFFFF453A), LiveActivityColors.RecordingRed)
         assertEquals(Color(0xFF5B9BFF), LiveActivityColors.TimerBlue)
         assertEquals(Color(0xFFFF9F0A), LiveActivityColors.StopwatchOrange)
-        assertEquals(Color(0xFF34C759), LiveActivityColors.CallGreen)
+        assertEquals(Color(0xFF30D158), LiveActivityColors.CallGreen)
         assertEquals(Color(0xFFFF453A), LiveActivityColors.CallRed)
         assertEquals(Color(0xFF3A3A3C), LiveActivityColors.AvatarPlaceholder)
         assertEquals(Color(0xFFFFCC00), LiveActivityColors.AlarmYellow)
         assertEquals(Color(0xFF30D158), LiveActivityColors.TrackingGreen)
         assertEquals(Color(0xFFF2F2F7), LiveActivityColors.SportsWhite)
+    }
+
+    /** F2.3: one red, one green and one gray family. Each merge was below ΔE2000 5. */
+    @Test
+    fun mergedNearDuplicates_shareOneToken() {
+        assertEquals(IslandTokens.RecordingRed, IslandTokens.RingerSilentRed)
+        assertEquals(IslandTokens.RecordingRed, LiveActivityColors.RecordingRed)
+        assertEquals(IslandTokens.AccentRed, LiveActivityColors.CallRed)
+        assertEquals(IslandTokens.AccentGreen, LiveActivityColors.CallGreen)
+        assertEquals(IslandTokens.AccentGreen, LiveActivityColors.TrackingGreen)
+        assertEquals(IslandTokens.TextBody, LiveActivityColors.SportsWhite)
+    }
+
+    /** F2.3 leaves the high contrast values (B5) alone. */
+    @Test
+    fun highContrastValues_unchanged() {
+        val was = IslandTokens.highContrast
+        try {
+            IslandTokens.highContrast = true
+            assertEquals(Color(0xFFDADADF), IslandTokens.TextSecondary)
+            assertEquals(Color(0xFFC7C7CC), IslandTokens.TextTertiary)
+            assertEquals(Color(0xFF5A5A5E), IslandTokens.ActionSecondaryContainer)
+        } finally {
+            IslandTokens.highContrast = was
+        }
     }
 
     @Test

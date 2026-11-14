@@ -345,7 +345,7 @@ internal fun IslandShell(
     val secondaryPriority: IslandPriority? = scene.secondary
 
     // Dynamic non-customizable outline colors (around 15% opacity):
-    val redRecordingOutline = IslandTokens.RecordingRedSystem.copy(alpha = IslandTokens.OutlineAlphaTask)
+    val redRecordingOutline = IslandTokens.RecordingRed.copy(alpha = IslandTokens.OutlineAlphaTask)
     val defaultTaskOutline = Color.White.copy(alpha = IslandTokens.OutlineAlphaTask)
     val mediaOutline = if (mediaAccentColor != Color.Transparent) {
         mediaAccentColor.copy(alpha = IslandTokens.OutlineAlphaTask)

@@ -45,7 +45,8 @@ object IslandTokens {
 
     // ---- Text ----
     val TextPrimary = Color.White
-    val TextBody = Color(0xFFF4F4F5)
+    /** Apple's light gray (was zinc #F4F4F5 until F2.3, ΔE2000 2.1). */
+    val TextBody = Color(0xFFF2F2F7)
     val TextSecondary: Color get() = if (highContrast) Color(0xFFDADADF) else Color(0xFFA1A1AA)
     val TextTertiary: Color get() = if (highContrast) Color(0xFFC7C7CC) else Color(0xFF8E8E93)
 
@@ -63,13 +64,14 @@ object IslandTokens {
     // Brighter than SurfaceRaised for contrast on black cards
     val ActionSecondaryContainer: Color get() = if (highContrast) Color(0xFF5A5A5E) else Color(0xFF3A3A3C)
 
-    // ---- Semantic roles (F2.2: the values the views used inline, unchanged) ----
-    /** Recording tint on cards. Same value as [AccentRed]. */
+    // ---- Semantic roles (F2.2 named them; F2.3 merged the near-duplicates) ----
+    /**
+     * The one recording red: card tint, outline, dot and the recording live activity.
+     * F2.3 merged #FF3B30 (ΔE2000 1.6) and #FF5A47 (ΔE2000 3.2) into it.
+     */
     val RecordingRed = AccentRed
-    /** The recording outline and dot use the brighter system red. F2.3 merges it into [RecordingRed]. */
-    val RecordingRedSystem = Color(0xFFFF3B30)
     /** The silent ringer's icon and label. */
-    val RingerSilentRed = RecordingRedSystem
+    val RingerSilentRed = RecordingRed
     val ChargingGreen = AccentGreen
     /** The charging pill's fill: the dark base, then the gradient that fills it. */
     val ChargingFillDark = Color(0xFF04190B)
@@ -84,11 +86,10 @@ object IslandTokens {
     val IconDisabled = Color(0xFF52525B)
 
     // ---- Live activity accents (used through LiveActivityColors) ----
-    val LiveRecordingRed = Color(0xFFFF5A47)
+    // F2.3: recording uses [RecordingRed], call uses [AccentGreen] (#34C759 merged, ΔE2000 2.7)
+    // and sports uses [TextBody]. The alarm yellow (#FFCC00 vs AccentYellow, ΔE2000 3.3) is V5.1's.
     val LiveTimerBlue = Color(0xFF5B9BFF)
-    val LiveCallGreen = Color(0xFF34C759)
     val LiveAlarmYellow = Color(0xFFFFCC00)
-    val LiveSportsWhite = Color(0xFFF2F2F7)
 
     // ---- Outline strengths: the alpha of the thin tinted outline around a task's island ----
     const val OutlineAlphaTask = 0.15f

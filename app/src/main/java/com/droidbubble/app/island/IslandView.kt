@@ -2057,7 +2057,7 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
                 scaleY = 1f + a * 0.12f
                 this.alpha = a
             }
-            .drawBehind { drawCircle(IslandTokens.RecordingRedSystem) }
+            .drawBehind { drawCircle(IslandTokens.RecordingRed) }
     )
 }
 
