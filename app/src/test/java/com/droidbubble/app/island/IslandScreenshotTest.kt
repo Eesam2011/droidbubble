@@ -1,14 +1,9 @@
 package com.droidbubble.app.island
 
-import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,8 +21,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import kotlin.math.ceil
-import kotlin.math.floor
 
 /**
  * The screenshot baseline (S2.2): the 16 island states every polish task is checked against.
@@ -250,34 +243,7 @@ class IslandScreenshotTest {
 
     /** Crops the root to the island's union bounds plus 8 dp and saves it through Roborazzi. */
     private fun capture(path: String) {
-        // Every node of each tag: dual mode has two cards (and a pill plus a bubble)
-        // plus the content roots: card 2 overflows card 1's node and only carries its content tag
-        val contentRoots = rule.onAllNodes(
-            SemanticsMatcher("island content root") { node ->
-                node.config.getOrNull(SemanticsProperties.TestTag)?.let { tag ->
-                    IslandTestTags.CONTENT_SLOTS.any { tag.startsWith("island_${it}_") }
-                } == true
-            },
-            useUnmergedTree = true
-        ).fetchSemanticsNodes().map { it.boundsInRoot }
-        val rects = listOf(IslandTestTags.PILL, IslandTestTags.BUBBLE, IslandTestTags.CARD)
-            .flatMap { tag -> rule.onAllNodesWithTag(tag).fetchSemanticsNodes().map { it.boundsInRoot } } + contentRoots
-        // Draw the window ourselves: captureToImage waits for a new frame, which never comes
-        // while the clock is frozen
-        val root = rule.runOnIdle {
-            val view = rule.activity.window.decorView
-            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(android.graphics.Canvas(it)) }
-        }
-        val crop: Bitmap = if (rects.isEmpty()) root else {
-            // boundsInRoot is in px; the margin is 8 dp
-            val margin = 8f * rule.density.density
-            val left = floor(rects.minOf { it.left } - margin).toInt().coerceIn(0, root.width - 1)
-            val top = floor(rects.minOf { it.top } - margin).toInt().coerceIn(0, root.height - 1)
-            val right = ceil(rects.maxOf { it.right } + margin).toInt().coerceIn(left + 1, root.width)
-            val bottom = ceil(rects.maxOf { it.bottom } + margin).toInt().coerceIn(top + 1, root.height)
-            Bitmap.createBitmap(root, left, top, right - left, bottom - top)
-        }
-        crop.captureRoboImage(path)
+        h.islandCrop().captureRoboImage(path)
     }
 
     private companion object {

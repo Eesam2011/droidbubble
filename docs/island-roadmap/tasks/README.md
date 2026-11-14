@@ -176,7 +176,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 ### Phase 4 + 6: Layout polish and signature motion ([file](phase-4-6-layout-and-motion-polish.md))
 | ID | Title | Status |
 |---|---|---|
-| VD0.1 | Owner checkpoint screenshot set | todo |
+| VD0.1 | Owner checkpoint screenshot set | done (89 states on a grey photo, plus black and white variants; FPS, weather and network left out because they were removed) |
 | V1.1 | CutoutCalibration reader and CameraGeometry | todo |
 | V1.2 | Settings become fine-tune deltas, with migration | todo |
 | V1.3 | Apply calibration (cameraZone, window) | todo |

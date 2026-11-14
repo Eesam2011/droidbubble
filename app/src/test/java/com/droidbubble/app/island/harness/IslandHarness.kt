@@ -3,7 +3,13 @@ package com.droidbubble.app.island.harness
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.platform.LocalDensity
@@ -26,6 +32,8 @@ import com.droidbubble.app.island.IslandOverlayRoot
 import com.droidbubble.app.island.IslandTestTags
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * Renders the real island overlay ([IslandOverlayRoot]) under Robolectric and drives it: settle,
@@ -47,15 +55,29 @@ class IslandHarness(
      * Renders the island. With [fontScale], the island sees that font scale, the way the service
      * passes the phone's font size through `LocalDensity` (`IslandOverlayService`).
      */
-    fun setContent(settings: MutableState<IslandSettings>, fontScale: MutableFloatState? = null) {
+    fun setContent(
+        settings: MutableState<IslandSettings>,
+        fontScale: MutableFloatState? = null,
+        backdrop: Brush? = null,
+    ) {
         rule.setContent {
-            if (fontScale == null) {
-                IslandOverlayRoot(settings = settings.value)
+            if (backdrop == null) {
+                Island(settings, fontScale)
             } else {
-                val density = LocalDensity.current
-                CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.floatValue)) {
-                    IslandOverlayRoot(settings = settings.value)
-                }
+                // The wallpaper behind the island (VD0.1 checkpoints): keylines and scrims are judged on it
+                Box(Modifier.fillMaxSize().background(backdrop)) { Island(settings, fontScale) }
+            }
+        }
+    }
+
+    @Composable
+    private fun Island(settings: MutableState<IslandSettings>, fontScale: MutableFloatState?) {
+        if (fontScale == null) {
+            IslandOverlayRoot(settings = settings.value)
+        } else {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.floatValue)) {
+                IslandOverlayRoot(settings = settings.value)
             }
         }
     }
@@ -96,6 +118,39 @@ class IslandHarness(
                 bitmap.recycle()
             }
         }
+    }
+
+    /**
+     * Draws the window and crops it to the island's union bounds (pill, bubble, cards and their
+     * content roots) plus 8 dp, so window size changes don't create noise in screenshots.
+     */
+    fun islandCrop(): Bitmap {
+        // Every node of each tag: dual mode has two cards (and a pill plus a bubble)
+        // plus the content roots: card 2 overflows card 1's node and only carries its content tag
+        val contentRoots = rule.onAllNodes(
+            SemanticsMatcher("island content root") { node ->
+                node.config.getOrNull(SemanticsProperties.TestTag)?.let { tag ->
+                    IslandTestTags.CONTENT_SLOTS.any { tag.startsWith("island_${it}_") }
+                } == true
+            },
+            useUnmergedTree = true
+        ).fetchSemanticsNodes().map { it.boundsInRoot }
+        val rects = listOf(IslandTestTags.PILL, IslandTestTags.BUBBLE, IslandTestTags.CARD)
+            .flatMap { tag -> rule.onAllNodesWithTag(tag).fetchSemanticsNodes().map { it.boundsInRoot } } + contentRoots
+        // Draw the window ourselves: captureToImage waits for a new frame, which never comes
+        // while the clock is frozen
+        val root = rule.runOnIdle {
+            val view = rule.activity.window.decorView
+            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+        }
+        if (rects.isEmpty()) return root
+        // boundsInRoot is in px; the margin is 8 dp
+        val margin = 8f * rule.density.density
+        val left = floor(rects.minOf { it.left } - margin).toInt().coerceIn(0, root.width - 1)
+        val top = floor(rects.minOf { it.top } - margin).toInt().coerceIn(0, root.height - 1)
+        val right = ceil(rects.maxOf { it.right } + margin).toInt().coerceIn(left + 1, root.width)
+        val bottom = ceil(rects.maxOf { it.bottom } + margin).toInt().coerceIn(top + 1, root.height)
+        return Bitmap.createBitmap(root, left, top, right - left, bottom - top)
     }
 
     fun onState(block: () -> Unit) {

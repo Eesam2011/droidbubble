@@ -106,6 +106,16 @@ android {
         // ./gradlew :app:testDebugUnitTest --tests "*IslandCharacterizationTest" -Pisland.record=true
         unitTests.all { test ->
             test.systemProperty("island.record", project.findProperty("island.record")?.toString() ?: "false")
+            // Owner checkpoint image set (VD0.1): -Pcheckpoint=CP1..CP6|all, plus -Pcheckpoint.record=true
+            // to re-record the committed baseline. Without -Pcheckpoint, CheckpointScreens is skipped.
+            project.findProperty("checkpoint")?.let { test.systemProperty("island.checkpoint", it.toString()) }
+            project.findProperty("checkpoint.record")?.let { test.systemProperty("island.checkpoint.record", it.toString()) }
+            test.systemProperty(
+                "island.checkpoint.out",
+                project.layout.buildDirectory.dir("outputs/roborazzi/checkpoints").get().asFile.absolutePath
+            )
+            // A checkpoint run must re-render even when no source changed
+            if (project.hasProperty("checkpoint")) test.outputs.upToDateWhen { false }
             // ~330 Robolectric tests in one JVM outgrew the default 512 MB; a fresh JVM every 100
             // classes keeps the heap from climbing across the whole run
             test.maxHeapSize = "1536m"
