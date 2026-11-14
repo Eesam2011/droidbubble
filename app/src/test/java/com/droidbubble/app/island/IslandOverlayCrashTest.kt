@@ -140,8 +140,9 @@ class IslandOverlayCrashTest {
     }
 
     @Test
-    fun heldPress_blocksAutoCollapse_releaseCollapsesAfter3s() {
-        // B8.5: never collapse while a finger is down; collapse 3 s after it lifts
+    fun heldPress_blocksAutoCollapse_releaseCollapsesAfterTheMediaTimeout() {
+        // B8.5: never collapse while a finger is down; collapse after the timeout once it lifts
+        // (F3.6: an open media card waits 8 s)
         onState {
             IslandStateManager.updateMedia(song)
             IslandStateManager.expand(null)
@@ -151,10 +152,10 @@ class IslandOverlayCrashTest {
         settle(5000)
         assertTrue("still expanded while held", IslandStateManager.isExpanded.value)
         rule.onAllNodesWithTag(IslandTestTags.CARD)[0].performTouchInput { up() }
-        settle(1500)
-        assertTrue("not yet 3 s after release", IslandStateManager.isExpanded.value)
+        settle(7000)
+        assertTrue("not yet 8 s after release", IslandStateManager.isExpanded.value)
         settle(2000)
-        assertFalse("collapsed 3 s after release", IslandStateManager.isExpanded.value)
+        assertFalse("collapsed 8 s after release", IslandStateManager.isExpanded.value)
     }
 
     @Test

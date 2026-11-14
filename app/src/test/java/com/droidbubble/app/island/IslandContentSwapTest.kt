@@ -100,7 +100,8 @@ class IslandContentSwapTest {
         assertTrue("one message once settled", count() == 1)
     }
 
-    private fun pillChildren(p: IslandPriority) = rule.onAllNodesWithTag(IslandTestTags.content("pill", p)).fetchSemanticsNodes().size
+    // The pill is clickable, so its children merge into it: read the unmerged tree
+    private fun pillChildren(p: IslandPriority) = rule.onAllNodesWithTag(IslandTestTags.content("pill", p), useUnmergedTree = true).fetchSemanticsNodes().size
 
     /** M3.4: in the pill, a message from another app transitions instead of cutting. */
     @Test

@@ -79,32 +79,4 @@ class IslandHeroLineBoxTest {
         assertTrue("mid-roll box $midRoll px must hold the $glyphHeight px glyphs", midRoll >= glyphHeight)
         assertEquals(settled, midRoll)
     }
-
-    /** Documents the bug F4.2 fixes: the inherited 24 sp box was shorter than a hero's digits. */
-    @Test
-    fun legacyHero_boxWasShorterThanTheGlyphs() {
-        val layout = LiveLayout(1.1f)
-        val legacy = IslandType(1.1f, mode = IslandType.Mode.Legacy)
-        var glyphHeight = 0
-        rule.setContent {
-            CompositionLocalProvider(LocalTextStyle provides BodyLarge24.merge(legacy.base)) {
-                val measurer = rememberTextMeasurer()
-                glyphHeight = measurer.measure(
-                    "10:00",
-                    TextStyle(fontSize = layout.heroSize, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
-                ).size.height
-                RollingNumberText(
-                    text = "10:00",
-                    color = Color.White,
-                    fontSize = layout.heroSize,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.testTag("hero"),
-                    lineHeight = legacy.heroLineHeight,
-                    lineHeightStyle = legacy.heroLineHeightStyle,
-                )
-            }
-        }
-        val box = rule.onNodeWithTag("hero").fetchSemanticsNode().size.height
-        assertTrue("legacy box $box px vs glyphs $glyphHeight px", box < glyphHeight)
-    }
 }

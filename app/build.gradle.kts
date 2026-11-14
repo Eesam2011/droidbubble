@@ -106,6 +106,10 @@ android {
         // ./gradlew :app:testDebugUnitTest --tests "*IslandCharacterizationTest" -Pisland.record=true
         unitTests.all { test ->
             test.systemProperty("island.record", project.findProperty("island.record")?.toString() ?: "false")
+            // ~330 Robolectric tests in one JVM outgrew the default 512 MB; a fresh JVM every 100
+            // classes keeps the heap from climbing across the whole run
+            test.maxHeapSize = "1536m"
+            test.setForkEvery(100)
         }
     }
 
