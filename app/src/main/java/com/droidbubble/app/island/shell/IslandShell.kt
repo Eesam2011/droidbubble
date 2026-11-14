@@ -328,7 +328,7 @@ internal fun IslandShell(
     val scene = remember(sceneInputs, settings, sceneEnv) { deriveIslandScene(sceneInputs, settings, sceneEnv) }
     // Locked with "hide on lock screen": the window is gone too (F1.4)
     if (scene.mode == IslandMode.OFF) return
-    val card1Key = contentKeyFor(scene, sceneInputs, Slot.PRIMARY)
+    val primaryKey = contentKeyFor(scene, sceneInputs, Slot.PRIMARY)
     val isRecording = scene.visible.isRecording
     val isProgress = scene.visible.isProgress
     val isNotification = scene.visible.isNotification
@@ -1184,7 +1184,7 @@ internal fun IslandShell(
                                     // blurs out) while the card springs to its new height; updates under
                                     // the same key (a tick, the media position) change in place
                                     val card1Payload = Card1Payload(
-                                        key = card1Key,
+                                        key = primaryKey,
                                         media = currentMedia,
                                         notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
                                         height = card1ContentHeight
@@ -1968,8 +1968,15 @@ internal fun IslandShell(
                         ) {
                             // Switching activity: old content shrinks and blurs out while the new one
                             // springs in sharp, instead of swapping instantly
+                            // M3.4: keyed on the activity, not just its priority, so a message from
+                            // another app transitions too; same-key updates change in place
                             AnimatedContent(
-                                targetState = primaryPriority,
+                                targetState = CompactPayload(
+                                    key = primaryKey,
+                                    media = currentMedia,
+                                    notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif
+                                ),
+                                contentKey = { it.key },
                                 transitionSpec = {
                                     (fadeIn(motion.tween(MotionTween.COMPACT_SWAP_FADE_IN)) +
                                         scaleIn(initialScale = 0.85f, animationSpec = motion.spring(motion.compactSwapScale))) togetherWith
@@ -1980,7 +1987,8 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier.fillMaxSize(),
                                 label = "compactContentSwap"
-                            ) { shownPriority ->
+                            ) { shown ->
+                                val shownPriority = shown.key.priority
                                 Box(
                                     modifier = Modifier
                                         .testTag(IslandTestTags.content("pill", shownPriority))
@@ -1988,7 +1996,7 @@ internal fun IslandShell(
                                         .graphicsLayer {
                                             // Only the leaving activity blurs, with the swap's squash
                                             // and the pill's width change; the new one stays sharp
-                                            renderEffect = if (shownPriority != primaryPriority) steppedBlurEffect(
+                                            renderEffect = if (shown.key != primaryKey) steppedBlurEffect(
                                                 maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillMorphSpeed()), 12.dp.toPx()
                                             ) else null
                                         },
@@ -1996,8 +2004,8 @@ internal fun IslandShell(
                                 ) {
                                     CompactContent(
                                         priority = shownPriority,
-                                        media = currentMedia,
-                                        notification = if (shownPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+                                        media = shown.media,
+                                        notification = shown.notification,
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
@@ -2098,6 +2106,14 @@ private data class Card1Payload(
     val media: MediaInfo?,
     val notification: NotificationInfo?,
     val height: Dp,
+)
+
+/** M3.4: what the pill shows, frozen per [ContentKey] so leaving content keeps its own data. */
+@Immutable
+private data class CompactPayload(
+    val key: ContentKey,
+    val media: MediaInfo?,
+    val notification: NotificationInfo?,
 )
 
 /** M3.3: incoming card content grows from 92% (03 §6), the same as [IslandChoreography.incomingScale]. */

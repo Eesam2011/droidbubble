@@ -100,6 +100,39 @@ class IslandContentSwapTest {
         assertTrue("one message once settled", count() == 1)
     }
 
+    private fun pillChildren(p: IslandPriority) = rule.onAllNodesWithTag(IslandTestTags.content("pill", p)).fetchSemanticsNodes().size
+
+    /** M3.4: in the pill, a message from another app transitions instead of cutting. */
+    @Test
+    fun pill_messageFromAnotherApp_transitions() {
+        rule.runOnIdle { IslandStateManager.updateNotification(IslandFixtures.message("a", "First")) }
+        h.advanceFrozen(1500)
+        assertTrue("the pill shows the message", pillChildren(IslandPriority.POP_NOTIFICATION) == 1)
+        rule.runOnIdle { IslandStateManager.updateNotification(IslandFixtures.message("b", "Second")) }
+        var overlapped = 0
+        repeat(30) {
+            h.advanceFrozen(16)
+            val c = pillChildren(IslandPriority.POP_NOTIFICATION)
+            assertTrue("frame $it: something is showing", c >= 1)
+            if (c == 2) overlapped++
+        }
+        assertTrue("old and new overlap for a few frames ($overlapped)", overlapped >= 3)
+        h.advanceFrozen(1000)
+        assertTrue("one message once settled", pillChildren(IslandPriority.POP_NOTIFICATION) == 1)
+    }
+
+    /** M3.4: a new message in the same conversation doesn't animate the pill's container. */
+    @Test
+    fun pill_sameConversationUpdate_doesNotTransition() {
+        rule.runOnIdle { IslandStateManager.updateNotification(IslandFixtures.message("a", "First")) }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.updateNotification(IslandFixtures.message("a", "Second")) }
+        repeat(20) {
+            h.advanceFrozen(16)
+            assertTrue("frame $it: one child only", pillChildren(IslandPriority.POP_NOTIFICATION) == 1)
+        }
+    }
+
     @Test
     fun sameConversationUpdate_doesNotTransition() {
         rule.runOnIdle {

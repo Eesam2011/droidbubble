@@ -157,7 +157,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; device checked at 0.7×, 1×, 2× and 10×: content waits for the shape, leaves blurred) |
 | M3.2 | Staggers in progress, not wall-clock time | done (device checked at 0.7×, 1×, 2× and 10×: card 2 after card 1, bubble after the pill, parentheses at 60%; no jank regression vs the pre-M2.5 build) |
 | M3.3 | Expanded content keyed per activity | done (crossfade on a new key, same-key updates in place; new mid-frame motion_call_replaces_media__64ms; device check pending, phone not connected) |
-| M3.4 | Compact content keyed per activity | todo |
+| M3.4 | Compact content keyed per activity | done (pill keyed on ContentKey; tests written, not run yet; device check pending) |
 | M4.1 | `Modifier.islandGestures` and release resolver | done |
 | M4.2 | Card sideways fling-out or spring-back | todo |
 | M4.3 | Card swipe-up tucks, with velocity hand-off | todo |
