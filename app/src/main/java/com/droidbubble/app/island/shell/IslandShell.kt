@@ -1775,7 +1775,7 @@ internal fun IslandShell(
                                     imageVector = IslandIcons.Unlocked,
                                     contentDescription = "Unlocked",
                                     tint = Color.White,
-                                    modifier = Modifier.size(19.dp)
+                                    modifier = Modifier.size(IslandTokens.Glyph.Compact)
                                 )
                             }
 
@@ -1798,7 +1798,7 @@ internal fun IslandShell(
                                                 scaleX = unlockCheckmarkScale
                                                 scaleY = unlockCheckmarkScale
                                             }
-                                            .size(19.dp)
+                                            .size(IslandTokens.Glyph.Compact)
                                     )
                                 }
                             }
@@ -1820,7 +1820,7 @@ internal fun IslandShell(
                                     imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) IslandIcons.Wifi else IslandIcons.Bluetooth,
                                     contentDescription = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth",
                                     tint = Color.White,
-                                    modifier = Modifier.size(19.dp)
+                                    modifier = Modifier.size(IslandTokens.Glyph.Compact)
                                 )
                             }
 
@@ -1843,7 +1843,7 @@ internal fun IslandShell(
                                                 scaleX = bluetoothCheckmarkScale
                                                 scaleY = bluetoothCheckmarkScale
                                             }
-                                            .size(19.dp)
+                                            .size(IslandTokens.Glyph.Compact)
                                     )
                                 }
                             }
@@ -1888,7 +1888,7 @@ internal fun IslandShell(
                                                 transformOrigin = TransformOrigin.Center
                                             }
                                         }
-                                        .size(19.dp)
+                                        .size(IslandTokens.Glyph.Compact)
                                 )
                             }
 

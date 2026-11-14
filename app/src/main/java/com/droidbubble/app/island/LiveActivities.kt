@@ -535,7 +535,7 @@ fun LiveRoundButton(
     accent: Color,
     size: Dp,
     style: LiveButtonStyle = LiveButtonStyle.SOLID,
-    iconScale: Float = 0.46f,
+    iconScale: Float = IslandTokens.Glyph.ControlRatio,
     onClick: () -> Unit
 ) {
     val container = when (style) {
@@ -555,7 +555,7 @@ fun LiveRoundButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(imageVector = icon, contentDescription = contentDescription, tint = iconColor, modifier = Modifier.size(size * iconScale))
+        Icon(imageVector = icon, contentDescription = contentDescription, tint = iconColor, modifier = Modifier.size(size * iconScale).opticalCenter(icon))
     }
 }
 
@@ -1314,10 +1314,15 @@ fun TimerRingIcon(notification: NotificationInfo, size: Dp, color: Color) {
 
 /** Leading icon of the compact pill for a live activity. */
 @Composable
-fun LiveActivityCompactIcon(kind: LiveActivityKind, notification: NotificationInfo) {
+fun LiveActivityCompactIcon(
+    kind: LiveActivityKind,
+    notification: NotificationInfo,
+    glyph: Dp = IslandTokens.Glyph.Compact,
+    art: Dp = IslandTokens.Glyph.CompactArt,
+) {
     val accent = LiveActivityColors.accentFor(kind)
     when (kind) {
-        LiveActivityKind.CALL -> Icon(IslandIcons.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(18.dp))
+        LiveActivityKind.CALL -> Icon(IslandIcons.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(glyph))
         LiveActivityKind.RECORDING -> LiveWaveform(
             color = accent,
             active = notification.liveTimerBaseMs > 0L,
@@ -1325,30 +1330,30 @@ fun LiveActivityCompactIcon(kind: LiveActivityKind, notification: NotificationIn
             modifier = Modifier.width(26.dp).height(16.dp)
         )
         LiveActivityKind.TIMER -> if (notification.liveTimerCountDown || notification.liveTimerBaseMs <= 0L) {
-            TimerRingIcon(notification = notification, size = 18.dp, color = accent)
+            TimerRingIcon(notification = notification, size = glyph, color = accent)
         } else {
-            TimerClockIcon(baseMs = notification.liveTimerBaseMs, countDown = false, size = 18.dp, color = accent)
+            TimerClockIcon(baseMs = notification.liveTimerBaseMs, countDown = false, size = glyph, color = accent)
         }
         LiveActivityKind.STOPWATCH -> if (notification.liveTimerBaseMs > 0L) {
-            TimerClockIcon(baseMs = notification.liveTimerBaseMs, countDown = notification.liveTimerCountDown, size = 18.dp, color = accent)
+            TimerClockIcon(baseMs = notification.liveTimerBaseMs, countDown = notification.liveTimerCountDown, size = glyph, color = accent)
         } else {
-            Icon(IslandIcons.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            Icon(IslandIcons.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
         }
         LiveActivityKind.ALERT -> Icon(
             if (isTimerAlert(notification)) IslandIcons.Timer else IslandIcons.Alarm,
             contentDescription = null,
             tint = accent,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(glyph)
         )
-        LiveActivityKind.ALARM -> Icon(IslandIcons.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
+        LiveActivityKind.ALARM -> Icon(IslandIcons.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
         LiveActivityKind.TRACKING -> NotificationAvatar(
             notification = notification,
-            size = 20.dp,
+            size = art,
             showAppBadge = false,
-            fallback = { Icon(IslandIcons.Delivery, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp)) }
+            fallback = { Icon(IslandIcons.Delivery, contentDescription = null, tint = accent, modifier = Modifier.size(glyph)) }
         )
-        LiveActivityKind.SPORTS -> Icon(IslandIcons.Sports, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
-        LiveActivityKind.NONE -> Icon(IslandIcons.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+        LiveActivityKind.SPORTS -> Icon(IslandIcons.Sports, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
+        LiveActivityKind.NONE -> Icon(IslandIcons.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(glyph).opticalCenter(IslandIcons.Mic))
     }
 }
 

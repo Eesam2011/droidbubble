@@ -473,14 +473,14 @@ fun AuxiliaryBubbleContent(
         IslandPriority.POP_NOTIFICATION -> {
             val liveKind = liveActivityKind(notification)
             if (notification != null && liveKind == LiveActivityKind.RECORDING) {
-                Icon(IslandIcons.Mic, contentDescription = "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(17.dp))
+                Icon(IslandIcons.Mic, contentDescription = "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Mic))
             } else if (notification != null && liveKind != LiveActivityKind.NONE) {
-                LiveActivityCompactIcon(liveKind, notification)
+                LiveActivityCompactIcon(liveKind, notification, glyph = IslandTokens.Glyph.Bubble, art = IslandTokens.Glyph.BubbleArt)
             } else if (notification != null && notification.liveTimerBaseMs > 0L) {
                 TimerClockIcon(
                     baseMs = notification.liveTimerBaseMs,
                     countDown = notification.liveTimerCountDown,
-                    size = 18.dp,
+                    size = IslandTokens.Glyph.Bubble,
                     color = IslandTokens.AccentOrange
                 )
             } else if (notification?.avatarBitmap != null) {
@@ -491,7 +491,7 @@ fun AuxiliaryBubbleContent(
                     bitmap = notification.iconBitmap.asImageBitmap(),
                     contentDescription = "Notification Icon",
                     modifier = Modifier
-                        .size(18.dp)
+                        .size(IslandTokens.Glyph.BubbleArt)
                         .clip(CircleShape)
                 )
             } else {
@@ -499,7 +499,7 @@ fun AuxiliaryBubbleContent(
                     imageVector = IslandIcons.Notification,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Notification)
                 )
             }
         }
@@ -551,7 +551,7 @@ fun AuxiliaryBubbleContent(
                     trackKey = mediaTrackKey(media),
                     contentDescription = "Media Art",
                     modifier = Modifier
-                        .size(18.dp)
+                        .size(IslandTokens.Glyph.BubbleArt)
                         .clip(CircleShape)
                 )
             } else {
@@ -581,7 +581,7 @@ fun AuxiliaryBubbleContent(
                     imageVector = IslandIcons.Flashlight,
                     contentDescription = "Flashlight",
                     tint = Color.White,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(IslandTokens.Glyph.Bubble)
                 )
             }
         }
@@ -654,7 +654,7 @@ fun CompactContent(
             when (priority) {
                 IslandPriority.CALL -> Icon(
                     IslandIcons.Call, contentDescription = "Active call",
-                    tint = LiveActivityColors.CallGreen, modifier = Modifier.size(18.dp)
+                    tint = LiveActivityColors.CallGreen, modifier = Modifier.size(IslandTokens.Glyph.Compact)
                 )
                 IslandPriority.SCREEN_RECORDING -> {
                     PulsingRecordingDot()
@@ -683,7 +683,7 @@ fun CompactContent(
                             imageVector = IslandIcons.Flashlight,
                             contentDescription = "Flashlight",
                             tint = Color.White,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(IslandTokens.Glyph.Compact)
                         )
                     }
                 }
@@ -696,7 +696,7 @@ fun CompactContent(
                         TimerClockIcon(
                             baseMs = notification.liveTimerBaseMs,
                             countDown = notification.liveTimerCountDown,
-                            size = 18.dp,
+                            size = IslandTokens.Glyph.Compact,
                             color = IslandTokens.AccentOrange
                         )
                     } else if (notification?.avatarBitmap != null || notification?.iconBitmap != null) {
@@ -704,14 +704,14 @@ fun CompactContent(
                             notification = notification,
                             edgeReach = if (isCompactDual) IslandTokens.SpaceSm else horizontalInset,
                             // A contact photo fills the pill's end; a bare app icon stays icon-sized
-                            maxDiameter = if (notification.avatarBitmap != null) Dp.Infinity else 20.dp
+                            maxDiameter = if (notification.avatarBitmap != null) Dp.Infinity else IslandTokens.Glyph.CompactArt
                         )
                     } else {
                         Icon(
                             imageVector = IslandIcons.Notification,
                             contentDescription = null,
                             tint = IslandTokens.ControlLight,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(IslandTokens.Glyph.Compact).opticalCenter(IslandIcons.Notification)
                         )
                     }
                 }
@@ -723,7 +723,7 @@ fun CompactContent(
                                 bitmap = notification.iconBitmap.asImageBitmap(),
                                 contentDescription = "Download Icon",
                                 modifier = Modifier
-                                    .size(18.dp)
+                                    .size(IslandTokens.Glyph.CompactArt)
                                     .clip(CircleShape)
                             )
                         } else {
@@ -731,7 +731,7 @@ fun CompactContent(
                                 imageVector = IslandIcons.Download,
                                 contentDescription = null,
                                 tint = IslandTokens.ControlLight,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(IslandTokens.Glyph.Compact).opticalCenter(IslandIcons.Download)
                             )
                         }
                         if (!isCompactDual) {
@@ -755,14 +755,14 @@ fun CompactContent(
                         trackKey = mediaTrackKey(media),
                         contentDescription = "Media Art",
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(IslandTokens.Glyph.CompactArt)
                             .clip(RoundedCornerShape(5.dp)),
                         placeholder = {
                             Icon(
                                 imageVector = IslandIcons.MusicNote,
                                 contentDescription = null,
                                 tint = IslandTokens.TextSecondary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(IslandTokens.Glyph.Compact)
                             )
                         }
                     )
@@ -1482,7 +1482,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         imageVector = IslandIcons.SkipPrevious,
                         contentDescription = "Previous",
                         tint = controlsTint,
-                        modifier = Modifier.size(prevNextIcon)
+                        modifier = Modifier.size(prevNextIcon).opticalCenter(IslandIcons.SkipPrevious)
                     )
                 }
 
@@ -1509,7 +1509,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                             imageVector = if (playing) IslandIcons.Pause else IslandIcons.Play,
                             contentDescription = "Play/Pause",
                             tint = playButtonIconTint,
-                            modifier = Modifier.size(playBtnIcon)
+                            modifier = Modifier.size(playBtnIcon).opticalCenter(if (playing) IslandIcons.Pause else IslandIcons.Play)
                         )
                     }
                 }
@@ -1524,7 +1524,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         imageVector = IslandIcons.SkipNext,
                         contentDescription = "Next",
                         tint = controlsTint,
-                        modifier = Modifier.size(prevNextIcon)
+                        modifier = Modifier.size(prevNextIcon).opticalCenter(IslandIcons.SkipNext)
                     )
                 }
 
@@ -1660,7 +1660,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                                 imageVector = IslandIcons.Notification,
                                 contentDescription = null,
                                 tint = IslandTokens.ActionPrimaryContainer,
-                                modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))
+                                modifier = Modifier.size(iconSize * IslandTokens.Glyph.HeaderRatio).opticalCenter(IslandIcons.Notification)
                             )
                         }
                     )
@@ -1894,7 +1894,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
                             imageVector = IslandIcons.Download,
                             contentDescription = null,
                             tint = IslandTokens.ActionPrimaryContainer,
-                            modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))
+                            modifier = Modifier.size(m.iconSize * IslandTokens.Glyph.HeaderRatio).opticalCenter(IslandIcons.Download)
                         )
                     }
                 }

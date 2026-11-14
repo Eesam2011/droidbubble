@@ -36,6 +36,22 @@ object IslandTokens {
     /** Corner radius the collapsed pill morphs toward (the squircle caps it at half the height). */
     val CompactCornerRadius: Dp = 22.dp
 
+    /** Icon sizes (V7.2): two glyph sizes in the pill and bubble, and ratios inside cards. */
+    object Glyph {
+        /** Every glyph in the pill and the alert pills. */
+        val Compact: Dp = 18.dp
+        /** Pictures in the pill (album art, app icons; the cap for a bare app icon). */
+        val CompactArt: Dp = 20.dp
+        /** Every glyph in the split bubble. */
+        val Bubble: Dp = 16.dp
+        /** Pictures in the bubble. */
+        val BubbleArt: Dp = 18.dp
+        /** A card header glyph is this fraction of its tile: 24 dp in a 40 dp tile, as before. */
+        const val HeaderRatio = 0.6f
+        /** A control glyph is this fraction of its round button. */
+        const val ControlRatio = 0.46f
+    }
+
     // ---- Surfaces ----
     val CardBackground = Color.Black
     val SurfaceMuted = Color(0xFF212121)   // icon tiles, reply input

@@ -27,6 +27,9 @@ import androidx.compose.material.icons.rounded.SportsSoccer
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -69,4 +72,31 @@ object IslandIcons {
     /** Mirrors in right-to-left layouts, so the arrow points the way text flows. */
     val Send: ImageVector get() = Icons.AutoMirrored.Rounded.Send
     val Close: ImageVector get() = Icons.Rounded.Close
+
+    /**
+     * How far to shift a glyph so its ink sits on the centre of its box (V7.2), as fractions of
+     * the glyph size (+x right, +y down). Measured from each glyph's ink centroid (see
+     * GlyphCentroidProbe); only glyphs whose box is visibly framed (a round button, a tile, the
+     * bubble) are listed, the rest draw as designed.
+     */
+    private val opticalShift: Map<String, Pair<Float, Float>> = mapOf(
+        "Rounded.PlayArrow" to (0.013f to 0f),
+        "Rounded.SkipNext" to (0.022f to 0f),
+        "Rounded.SkipPrevious" to (-0.022f to 0f),
+        "Rounded.Download" to (0f to 0.019f),
+        "Rounded.Notifications" to (0f to -0.024f),
+        "Rounded.Mic" to (0f to 0.042f),
+    )
+
+    fun opticalShiftOf(icon: ImageVector): Pair<Float, Float>? = opticalShift[icon.name]
+}
+
+/**
+ * Draws [icon] shifted so it looks centred in its box ([IslandIcons.opticalShiftOf]). A draw-phase
+ * translate: no layout change, sub-pixel exact, and not mirrored in right-to-left layouts, because
+ * the glyphs themselves aren't.
+ */
+fun Modifier.opticalCenter(icon: ImageVector): Modifier {
+    val (fx, fy) = IslandIcons.opticalShiftOf(icon) ?: return this
+    return drawWithContent { translate(size.width * fx, size.height * fy) { this@drawWithContent.drawContent() } }
 }
