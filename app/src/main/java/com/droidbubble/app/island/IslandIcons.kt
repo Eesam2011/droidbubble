@@ -33,6 +33,7 @@ object IslandIcons {
     val Unlocked: ImageVector get() = IslandGlyphs.LockOpen
     val Bluetooth: ImageVector get() = IslandGlyphs.Bluetooth
     val Wifi: ImageVector get() = IslandGlyphs.Wifi
+    val Charging: ImageVector get() = IslandGlyphs.Bolt
     val RingerOn: ImageVector get() = IslandGlyphs.Notifications
     val RingerSilent: ImageVector get() = IslandGlyphs.NotificationsOff
     val RingerVibrate: ImageVector get() = IslandGlyphs.Vibration
@@ -69,6 +70,7 @@ object IslandIcons {
         val Unlocked: ImageVector get() = IslandGlyphs.Small.LockOpen
         val Bluetooth: ImageVector get() = IslandGlyphs.Small.Bluetooth
         val Wifi: ImageVector get() = IslandGlyphs.Small.Wifi
+        val Charging: ImageVector get() = IslandGlyphs.Small.Bolt
         val RingerOn: ImageVector get() = IslandGlyphs.Small.Notifications
         val RingerSilent: ImageVector get() = IslandGlyphs.Small.NotificationsOff
         val RingerVibrate: ImageVector get() = IslandGlyphs.Small.Vibration

@@ -25,7 +25,7 @@ BASE = "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsrounded"
 # Kotlin name -> Material Symbols name. The island catalogue (island/IslandIcons.kt) maps meanings
 # onto these.
 ISLAND = {
-    "Alarm": "alarm", "Bluetooth": "bluetooth", "Call": "call", "CallEnd": "call_end", "Check": "check",
+    "Alarm": "alarm", "Bluetooth": "bluetooth", "Bolt": "bolt", "Call": "call", "CallEnd": "call_end", "Check": "check",
     "Close": "close", "Download": "download", "FlashlightOn": "flashlight_on", "LocalShipping": "local_shipping",
     "LockOpen": "lock_open", "Mic": "mic", "MusicNote": "music_note", "Notifications": "notifications",
     "NotificationsOff": "notifications_off", "Pause": "pause", "PlayArrow": "play_arrow", "Repeat": "repeat",

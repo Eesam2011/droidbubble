@@ -1,5 +1,7 @@
 package com.droidbubble.app.island.shell
 
+import com.droidbubble.app.island.icon.LayeredIcon
+import androidx.compose.ui.geometry.Size
 import com.droidbubble.app.island.icon.DynamicIconVisibility
 import com.droidbubble.app.island.icon.IconEffect
 import com.droidbubble.app.island.icon.iconEffect
@@ -497,7 +499,8 @@ internal fun IslandShell(
 
     val chargingPct = charging?.percentage ?: 0
     val targetChargingFraction = if (isCharging) (chargingPct.toFloat() / 100f).coerceIn(0f, 1f) else 0f
-    val animatedChargingProgress by animateFloatAsState(
+    // I3.3: read in the fill's draw phase only, so its 750 ms rise doesn't recompose the shell
+    val animatedChargingProgress = animateFloatAsState(
         targetValue = targetChargingFraction,
         animationSpec = motion.tween(if (isCharging) MotionTween.CHARGING_FILL else MotionTween.CHARGING_DRAIN),
         label = "chargingProgress"
@@ -1625,20 +1628,24 @@ internal fun IslandShell(
                                 .background(IslandTokens.ChargingFillDark)
                         )
 
+                        // I3.3: same fill, its width read in the draw phase (it was a layout argument)
                         Box(
                             modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(fraction = animatedChargingProgress.coerceIn(0.001f, 1f))
-                                .align(Alignment.CenterStart)
+                                .fillMaxSize()
                                 .graphicsLayer { alpha = chargingContentAlpha }
-                                .background(
-                                    Brush.horizontalGradient(
-                                        colors = listOf(
-                                            IslandTokens.ChargingFillFrom,
-                                            IslandTokens.ChargingFillTo
-                                        )
+                                .drawBehind {
+                                    val w = size.width * animatedChargingProgress.value.coerceIn(0.001f, 1f)
+                                    val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+                                    drawRect(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(IslandTokens.ChargingFillFrom, IslandTokens.ChargingFillTo),
+                                            startX = if (rtl) size.width else 0f,
+                                            endX = if (rtl) size.width - w else w,
+                                        ),
+                                        topLeft = Offset(if (rtl) size.width - w else 0f, 0f),
+                                        size = Size(w, size.height),
                                     )
-                                )
+                                }
                         )
                     }
 
@@ -1663,10 +1670,24 @@ internal fun IslandShell(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Left: Wattage (e.g. "33W") or "Charging" to save extreme space
-                            Box(
+                            Row(
                                 modifier = Modifier.weight(1f),
-                                contentAlignment = Alignment.CenterStart
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                // I3.3: a bolt that bounces as charging starts and fills with the %
+                                run {
+                                    val chargeStart = IslandStateManager.iconSignals.collectAsState().value.chargeStart
+                                    val pct = rememberUpdatedState(charging?.percentage ?: 100)
+                                    LayeredIcon(
+                                        IslandIcons.Compact.Charging,
+                                        IslandTokens.ChargingGreen,
+                                        modifier = Modifier.iconEffect(IconEffect.Bounce(), trigger = chargeStart),
+                                        size = IslandTokens.Glyph.Compact - ChargingBolt.SHRINK,
+                                        layers = ChargingBolt.LAYERS,
+                                        level = { pct.value / 100f },
+                                    )
+                                    Spacer(Modifier.width(ChargingBolt.GAP))
+                                }
                                 Text(
                                     text = chargingLabel,
                                     color = IslandTokens.ChargingGreen,
@@ -2037,3 +2058,13 @@ private const val RESISTED_SWIPE_FRACTION = 0.18f
 
 /** I2.2: the check starts drawing this far into its spring, after the pill has begun to appear. */
 private const val CHECK_DELAY_FRACTION = 0.3f
+
+/** I3.3: the charging pill's bolt (owner approved, 2026-11-15). */
+internal object ChargingBolt {
+    /** The bolt is the compact glyph size minus this. */
+    val SHRINK = 4.dp
+    /** Space between the bolt and the wattage. */
+    val GAP = 3.dp
+    /** Bands the bolt fills in, bottom up. */
+    const val LAYERS = 4
+}

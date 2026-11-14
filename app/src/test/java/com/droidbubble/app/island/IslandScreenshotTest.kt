@@ -70,6 +70,9 @@ class IslandScreenshotTest {
 
     @Test fun downloadPill() = shot("download_pill") { IslandStateManager.updateProgress(IslandFixtures.progress(40)) }
 
+    /** I3.3: the torch glyph lit to its brightness, here 2 of 4 steps. */
+    @Test fun flashlightPillHalf() = shot("flashlight_pill_half") { IslandStateManager.updateFlashlightState(true, level = 2, maxLevel = 4) }
+
     @Test fun dualPill() = shot("dual_pill") {
         IslandStateManager.updateMedia(IslandFixtures.song)
         IslandStateManager.updateNotification(IslandFixtures.message())

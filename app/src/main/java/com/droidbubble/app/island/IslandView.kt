@@ -162,6 +162,9 @@ import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.icon.IconEffect
 import com.droidbubble.app.island.icon.iconEffect
 import com.droidbubble.app.island.icon.SlashOverlay
+import com.droidbubble.app.island.icon.DynamicIconVisibility
+import com.droidbubble.app.island.icon.LayeredIcon
+import com.droidbubble.app.island.icon.VariableMode
 import com.droidbubble.app.island.icon.MorphIcon
 import com.droidbubble.app.island.icon.MorphShapes
 import com.droidbubble.app.island.motion.rememberMotionTier
@@ -597,12 +600,17 @@ fun AuxiliaryBubbleContent(
                             shape = CircleShape
                         )
                 )
-                Icon(
-                    imageVector = IslandIcons.Compact.Flashlight,
-                    contentDescription = "Flashlight",
-                    tint = Color.White,
-                    modifier = Modifier.size(IslandTokens.Glyph.Bubble)
-                )
+                val torchLevelState = IslandStateManager.flashlightLevel.collectAsState()
+                val torchMaxState = IslandStateManager.maxFlashlightLevel.collectAsState()
+                DynamicIconVisibility(visible = true, appearOnEnter = true) {
+                    LayeredIcon(
+                        IslandIcons.Compact.Flashlight,
+                        Color.White,
+                        contentDescription = "Flashlight",
+                        size = IslandTokens.Glyph.Bubble,
+                        level = { torchLevel(torchLevelState.value, torchMaxState.value) },
+                    )
+                }
             }
         }
         else -> Unit
@@ -699,12 +707,15 @@ fun CompactContent(
                                     shape = CircleShape
                                 )
                         )
-                        Icon(
-                            imageVector = IslandIcons.Compact.Flashlight,
-                            contentDescription = "Flashlight",
-                            tint = Color.White,
-                            modifier = Modifier.size(IslandTokens.Glyph.Compact)
-                        )
+                        // I3.3: the torch appears as it turns on; its glyph lights with the brightness level
+                        DynamicIconVisibility(visible = true, appearOnEnter = true) {
+                            LayeredIcon(
+                                IslandIcons.Compact.Flashlight,
+                                Color.White,
+                                contentDescription = "Flashlight",
+                                level = { torchLevel(flashlightLevel, maxFlashlightLevel) },
+                            )
+                        }
                     }
                 }
 
@@ -753,11 +764,14 @@ fun CompactContent(
                                     .clip(CircleShape)
                             )
                         } else {
-                            Icon(
-                                imageVector = IslandIcons.Compact.Download,
-                                contentDescription = null,
-                                tint = IslandTokens.ControlLight,
-                                modifier = Modifier.size(IslandTokens.Glyph.Compact).opticalCenter(IslandIcons.Compact.Download)
+                            // I3.3: the download glyph fills with the progress; unknown progress scans
+                            val fraction = rememberUpdatedState(notification?.progressFraction ?: 0f)
+                            LayeredIcon(
+                                IslandIcons.Compact.Download,
+                                IslandTokens.ControlLight,
+                                level = { fraction.value },
+                                mode = if (notification?.isIndeterminate == true) VariableMode.Iterative else VariableMode.Level,
+                                reversing = true,
                             )
                         }
                         if (!isCompactDual) {
@@ -2221,3 +2235,9 @@ fun bubbleNumeralFits(labelWidth: Dp, digitHeight: Dp, ring: Dp): Boolean {
     val inner = (ring - BUBBLE_RING_STROKE * 2 - 1.dp).value
     return kotlin.math.hypot(labelWidth.value, digitHeight.value) <= inner
 }
+
+/**
+ * I3.3: the torch glyph's lit fraction. A torch without brightness steps ([max] 1 or less) is
+ * always fully lit, exactly as before.
+ */
+fun torchLevel(level: Int, max: Int): Float = if (max <= 1) 1f else (level.toFloat() / max).coerceIn(0f, 1f)
