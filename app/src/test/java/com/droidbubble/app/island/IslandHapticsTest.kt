@@ -1,12 +1,16 @@
 package com.droidbubble.app.island
 
 import android.view.HapticFeedbackConstants
+import android.view.HapticFeedbackConstants as H
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** F3.3: the haptics switch is always respected, and Legacy maps each event to what it felt like before. */
+/**
+ * F3.3: the haptics switch is always respected, and Legacy maps each event to what it felt like before.
+ * F3.4: Droid, the default, follows 05 §6.
+ */
 class IslandHapticsTest {
 
     private val performed = ArrayList<Int>()
@@ -27,7 +31,55 @@ class IslandHapticsTest {
         h.perform(IslandHapticEvent.TAP_EXPAND)
         on = true
         h.perform(IslandHapticEvent.TAP_EXPAND)
-        assertEquals(listOf(HapticFeedbackConstants.CONTEXT_CLICK), performed)
+        assertEquals(listOf(HapticFeedbackConstants.VIRTUAL_KEY), performed)
+    }
+
+    @Test
+    fun droidIsTheDefault() {
+        haptics(map = HapticMap.Droid).perform(IslandHapticEvent.TAP_EXPAND)
+        IslandHaptics(perform = { performed += it }, enabled = { true }, sdk = 34).perform(IslandHapticEvent.TAP_EXPAND)
+        assertEquals(performed[0], performed[1])
+    }
+
+    /** 05 §6 / F3.4 table: event → (API 34+, API 30–33, API 29). */
+    @Test
+    fun droid_matchesTheSpecTable() {
+        val table = mapOf(
+            IslandHapticEvent.TAP_EXPAND to listOf(H.VIRTUAL_KEY, H.VIRTUAL_KEY, H.VIRTUAL_KEY),
+            IslandHapticEvent.RESTORE to listOf(H.VIRTUAL_KEY, H.VIRTUAL_KEY, H.VIRTUAL_KEY),
+            IslandHapticEvent.COLLAPSE to listOf(H.CLOCK_TICK, H.CLOCK_TICK, H.CLOCK_TICK),
+            IslandHapticEvent.LONG_PRESS to listOf(H.LONG_PRESS, H.LONG_PRESS, H.LONG_PRESS),
+            IslandHapticEvent.THRESHOLD_CROSSED to listOf(H.GESTURE_THRESHOLD_ACTIVATE, H.CLOCK_TICK, H.CLOCK_TICK),
+            IslandHapticEvent.GESTURE_COMMIT to listOf(H.GESTURE_END, H.GESTURE_END, H.CONTEXT_CLICK),
+            IslandHapticEvent.DISMISS to listOf(H.GESTURE_END, H.GESTURE_END, H.CONTEXT_CLICK),
+            IslandHapticEvent.MINIMISE to listOf(H.GESTURE_END, H.GESTURE_END, H.CONTEXT_CLICK),
+            IslandHapticEvent.HIDE to listOf(H.GESTURE_END, H.GESTURE_END, H.CONTEXT_CLICK),
+            IslandHapticEvent.TOGGLE_ON to listOf(H.TOGGLE_ON, H.CONTEXT_CLICK, H.CONTEXT_CLICK),
+            IslandHapticEvent.TOGGLE_OFF to listOf(H.TOGGLE_OFF, H.CONTEXT_CLICK, H.CONTEXT_CLICK),
+            IslandHapticEvent.SEGMENT_TICK to listOf(H.SEGMENT_TICK, H.CLOCK_TICK, H.CLOCK_TICK),
+            IslandHapticEvent.SEGMENT_FREQUENT_TICK to listOf(H.SEGMENT_FREQUENT_TICK, null, null),
+            IslandHapticEvent.CONFIRM to listOf(H.CONFIRM, H.CONFIRM, H.KEYBOARD_TAP),
+            IslandHapticEvent.REJECT to listOf(H.REJECT, H.REJECT, H.LONG_PRESS),
+            IslandHapticEvent.NECK_SNAP to listOf(H.SEGMENT_FREQUENT_TICK, H.CLOCK_TICK, H.CLOCK_TICK),
+            IslandHapticEvent.MERGE to listOf(H.SEGMENT_FREQUENT_TICK, H.CLOCK_TICK, H.CLOCK_TICK),
+            IslandHapticEvent.SYSTEM_ALERT_CHARGING to listOf(null, null, null),
+            IslandHapticEvent.SYSTEM_ALERT_RINGER to listOf(null, null, null),
+            IslandHapticEvent.IDLE_TAP to listOf(H.CONFIRM, H.CONFIRM, H.KEYBOARD_TAP),
+        )
+        assertEquals("every event is in the table", IslandHapticEvent.entries.toSet(), table.keys)
+        for ((event, expected) in table) {
+            for ((sdks, constant) in listOf(listOf(34, 36), listOf(30, 33), listOf(29)).zip(expected)) {
+                for (sdk in sdks) assertEquals("$event at API $sdk", constant, HapticMap.Droid.constantFor(event, sdk))
+            }
+        }
+    }
+
+    @Test
+    fun droid_systemAlertsAreSilent() {
+        val h = haptics(map = HapticMap.Droid)
+        h.perform(IslandHapticEvent.SYSTEM_ALERT_CHARGING)
+        h.perform(IslandHapticEvent.SYSTEM_ALERT_RINGER)
+        assertTrue(performed.isEmpty())
     }
 
     @Test

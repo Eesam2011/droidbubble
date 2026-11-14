@@ -35,21 +35,58 @@ fun interface HapticMap {
                 IslandHapticEvent.NECK_SNAP, IslandHapticEvent.MERGE -> null
             }
         }
+
+        /**
+         * Android's own haptic meanings (F3.4, 05 §6): each kind of action feels different, and
+         * passive system events (charging, ringer switch) stay silent. Newer constants fall back
+         * to the nearest older one on API 29–33.
+         */
+        val Droid = HapticMap { event, sdk ->
+            val api30 = sdk >= Build.VERSION_CODES.R
+            val api34 = sdk >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            when (event) {
+                IslandHapticEvent.TAP_EXPAND, IslandHapticEvent.RESTORE -> HapticFeedbackConstants.VIRTUAL_KEY
+                IslandHapticEvent.COLLAPSE -> HapticFeedbackConstants.CLOCK_TICK
+                IslandHapticEvent.LONG_PRESS -> HapticFeedbackConstants.LONG_PRESS
+                IslandHapticEvent.THRESHOLD_CROSSED ->
+                    if (api34) HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE else HapticFeedbackConstants.CLOCK_TICK
+                // A gesture that went through: dismiss, minimise, hide, shade
+                IslandHapticEvent.GESTURE_COMMIT, IslandHapticEvent.DISMISS, IslandHapticEvent.MINIMISE,
+                IslandHapticEvent.HIDE ->
+                    if (api30) HapticFeedbackConstants.GESTURE_END else HapticFeedbackConstants.CONTEXT_CLICK
+                IslandHapticEvent.TOGGLE_ON ->
+                    if (api34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.CONTEXT_CLICK
+                IslandHapticEvent.TOGGLE_OFF ->
+                    if (api34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CONTEXT_CLICK
+                IslandHapticEvent.SEGMENT_TICK ->
+                    if (api34) HapticFeedbackConstants.SEGMENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+                IslandHapticEvent.SEGMENT_FREQUENT_TICK ->
+                    if (api34) HapticFeedbackConstants.SEGMENT_FREQUENT_TICK else null
+                IslandHapticEvent.CONFIRM, IslandHapticEvent.IDLE_TAP ->
+                    if (api30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.KEYBOARD_TAP
+                IslandHapticEvent.REJECT ->
+                    if (api30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
+                IslandHapticEvent.NECK_SNAP, IslandHapticEvent.MERGE ->
+                    if (api34) HapticFeedbackConstants.SEGMENT_FREQUENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+                IslandHapticEvent.SYSTEM_ALERT_CHARGING, IslandHapticEvent.SYSTEM_ALERT_RINGER -> null
+            }
+        }
     }
 }
 
 /**
- * The one place island haptics go through (F3.3). Nothing vibrates when the app's haptics switch
+ * The one place island haptics go through (F3.3), with Android's meanings by default (F3.4;
+ * [HapticMap.Legacy] is kept for A/B checks). Nothing vibrates when the app's haptics switch
  * is off. It only uses `performHapticFeedback`, so the phone's own "touch feedback" setting and
  * vibration strength always apply: no raw vibrator patterns.
  */
 class IslandHaptics(
     private val perform: (constant: Int) -> Unit,
     private val enabled: () -> Boolean,
-    private val map: HapticMap = HapticMap.Legacy,
+    private val map: HapticMap = HapticMap.Droid,
     private val sdk: Int = Build.VERSION.SDK_INT,
 ) {
-    constructor(view: View, enabled: () -> Boolean, map: HapticMap = HapticMap.Legacy) :
+    constructor(view: View, enabled: () -> Boolean, map: HapticMap = HapticMap.Droid) :
         this({ constant -> view.performHapticFeedback(constant) }, enabled, map)
 
     fun perform(event: IslandHapticEvent) {
