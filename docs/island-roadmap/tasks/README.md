@@ -160,7 +160,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M3.4 | Compact content keyed per activity | done (pill keyed on ContentKey; tests written, not run yet; device check pending) |
 | M4.1 | `Modifier.islandGestures` and release resolver | done |
 | M4.2 | Card sideways fling-out or spring-back | done (code only; not built or tested yet; device check pending) |
-| M4.3 | Card swipe-up tucks, with velocity hand-off | todo |
+| M4.3 | Card swipe-up tucks, with velocity hand-off | done (code only; not built or tested yet; device check pending) |
 | M4.4 | Pill: down expands, further opens the shade, inward minimizes | todo |
 | M4.5 | Back and predictive back collapse | todo |
 | M5.1 | Resolve the motion tier | doing (code and tests done; device check pending: "Remove animations" and Battery Saver switch the tier live) |

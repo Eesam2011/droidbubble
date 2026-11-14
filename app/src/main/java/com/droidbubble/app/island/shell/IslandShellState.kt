@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.droidbubble.app.island.IslandGeometry
+import com.droidbubble.app.island.gesture.rubberBand
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -73,6 +74,85 @@ class IslandShellState(initial: IslandGeometry, initialX: Dp) {
         body.snapTo(target)
         x.snapTo(targetX.value)
     }
+
+    // M4.3: a finger's velocity waiting for the next retarget (a tuck or an expand by gesture).
+    // Not snapshot state: only read by Follow's effects, never in composition.
+    private var handOffVelocity: IslandGeometry? = null
+    private var handOffAtNanos = 0L
+
+    /**
+     * The next retarget (see [Follow]) starts with [velocity] instead of the body's own: a gesture
+     * hands its speed to the spring it triggers. Forgotten if no retarget comes within
+     * [HAND_OFF_TTL_NANOS], so a refused gesture never pushes a later, unrelated morph.
+     */
+    fun handOff(velocity: IslandGeometry, nowNanos: Long = System.nanoTime()) {
+        handOffVelocity = velocity
+        handOffAtNanos = nowNanos
+    }
+
+    /** The waiting hand-off velocity, if still fresh; taking it clears it. */
+    fun takeHandOff(nowNanos: Long = System.nanoTime()): IslandGeometry? {
+        val v = handOffVelocity ?: return null
+        handOffVelocity = null
+        return if (nowNanos - handOffAtNanos <= HAND_OFF_TTL_NANOS) v else null
+    }
+
+    /**
+     * M4.3: a drag displaces the body from [base] (the shape when the drag began) by [dy]; see
+     * [dragGeometry]. Snaps, so the shape is exactly under the finger; the target is untouched and
+     * a release springs back to it or on to a new one.
+     */
+    suspend fun dragBy(base: IslandGeometry, dy: Dp, minHeight: Dp, band: Dp) {
+        body.snapTo(dragGeometry(base, dy, minHeight, band))
+    }
+
+    /** M4.3: lets go of a drag: springs to [target] starting with [velocity] (from [gestureVelocity] or a single axis). */
+    suspend fun release(target: IslandGeometry, spec: AnimationSpec<IslandGeometry>, velocity: IslandGeometry) {
+        handOffVelocity = null
+        body.animateTo(target, spec, velocity)
+    }
+}
+
+/** A hand-off older than this is dropped (the gesture's retarget never came). */
+const val HAND_OFF_TTL_NANOS = 500_000_000L
+
+/** A finger faster than this (dp per second) is handed to the spring at this speed. */
+const val MAX_HAND_OFF_DP_PER_SEC = 6000f
+
+/** Pulling the card down only gives a little: its band is this fraction of the band upward. */
+const val DOWN_DRAG_BAND_FRACTION = 0.33f
+
+private val ZeroGeometry = IslandGeometry(0.dp, 0.dp, 0.dp, 0.dp)
+
+/**
+ * M4.3, pure: the body under a vertical drag of [dy] from [base], rubber-banded over [band]. Up
+ * (negative) shortens it from the bottom, never below [minHeight], as if tucking back into the
+ * pill; down lowers its top a little (a shorter band), and is only a give: it never commits.
+ */
+fun dragGeometry(base: IslandGeometry, dy: Dp, minHeight: Dp, band: Dp): IslandGeometry =
+    if (dy.value < 0f) {
+        val banded = rubberBand(dy.value, band.value)
+        base.copy(height = (base.height + banded.dp).coerceAtLeast(minOf(minHeight, base.height)))
+    } else {
+        base.copy(top = base.top + rubberBand(dy.value, band.value * DOWN_DRAG_BAND_FRACTION).dp)
+    }
+
+/**
+ * M4.3, pure: a finger's vertical speed [velocityY] (dp per second) as the body's velocity along its
+ * morph from [from] to [to]: every value moves in proportion, scaled so the height changes at the
+ * finger's speed. Only speed in the direction of the morph carries over; against it, nothing.
+ */
+fun gestureVelocity(velocityY: Float, from: IslandGeometry, to: IslandGeometry): IslandGeometry {
+    val dh = (to.height - from.height).value
+    if (abs(dh) < 0.5f) return ZeroGeometry
+    val v = velocityY.coerceIn(-MAX_HAND_OFF_DP_PER_SEC, MAX_HAND_OFF_DP_PER_SEC)
+    val f = (v / dh).coerceAtLeast(0f)
+    return IslandGeometry(
+        width = (to.width - from.width) * f,
+        height = (to.height - from.height) * f,
+        corner = (to.corner - from.corner) * f,
+        top = (to.top - from.top) * f,
+    )
 }
 
 /** A morph this fast (width + height, dp per second) counts as full speed for stretch and blur. */
@@ -98,6 +178,7 @@ fun IslandShellState.Follow(
     spec: AnimationSpec<IslandGeometry>,
     xSpec: AnimationSpec<Float>,
 ) {
-    LaunchedEffect(target) { animateBodyTo(target, spec) }
+    // A gesture's hand-off (M4.3, M4.4) replaces the body's own velocity on this retarget
+    LaunchedEffect(target) { animateBodyTo(target, spec, takeHandOff() ?: body.velocity) }
     LaunchedEffect(targetX) { animateXTo(targetX, xSpec) }
 }

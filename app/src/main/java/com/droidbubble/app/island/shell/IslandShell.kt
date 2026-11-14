@@ -190,6 +190,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.*
 import com.droidbubble.app.island.IslandStateManager.RingerMode
+import com.droidbubble.app.island.gesture.GestureThresholds
+import com.droidbubble.app.island.gesture.IslandGestureResult
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
@@ -838,6 +840,42 @@ internal fun IslandShell(
         else -> false
     }
 
+    // M4.3: a swipe up from card 1's pill zone tucks the island back. While dragging the body
+    // follows the finger (rubber-banded, from its shape when the drag began); a tuck hands the
+    // finger's velocity to the collapse, a short pull springs back with it. Not on the flashlight
+    // card, whose brightness slider is vertical.
+    val latestCard1Target by rememberUpdatedState(shellTargetCard1)
+    val card1DragBase = remember { arrayOfNulls<IslandGeometry>(1) }
+    val cardDragBand = GestureThresholds().rubberBandLength
+    val card1Vertical = if (primaryPriority == IslandPriority.FLASHLIGHT) null else CardVertical(
+        fromTopPx = with(windowDensity) { (settings.heightDp.dp + IslandTokens.Shell.PillZoneExtra).toPx() },
+        onDrag = { dyPx ->
+            val base = card1DragBase[0] ?: shell.geometry.also { card1DragBase[0] = it }
+            val dy = with(windowDensity) { dyPx.toDp() }
+            coroutineScope.launch { shell.dragBy(base, dy, minHeight = card1Closed.height, band = cardDragBand) }
+        },
+        onRelease = { result ->
+            card1DragBase[0] = null
+            if (result is IslandGestureResult.Tuck) {
+                haptics.perform(IslandHapticEvent.COLLAPSE)
+                shell.handOff(gestureVelocity(result.velocityY / windowDensity.density, shell.geometry, card1Closed))
+                IslandStateManager.collapse()
+            } else {
+                val vy = ((result as? IslandGestureResult.Cancel)?.velocity?.y ?: 0f) / windowDensity.density
+                val target = latestCard1Target
+                // Back along the edge that moved: the bottom after a pull up, the top after a pull down
+                val v = if (shell.geometry.height < target.height) {
+                    IslandGeometry(0.dp, vy.dp, 0.dp, 0.dp)
+                } else {
+                    IslandGeometry(0.dp, 0.dp, 0.dp, vy.dp)
+                }
+                coroutineScope.launch {
+                    shell.release(target, motion.spring(motion.interactive, IslandGeometry.VisibilityThreshold), v)
+                }
+            }
+        },
+    )
+
     // Liquid glass blur (M2.5): the cards' on-screen rects go to the overlay service from their
     // layout callbacks, and again whenever the fade-in strengths or the corner change, so the
     // blur windows move, grow and fade in with the cards. Nothing here runs on recomposition.
@@ -997,30 +1035,8 @@ internal fun IslandShell(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(animatedCardSpacing),
-                    modifier = if (isExpanded && primaryPriority != IslandPriority.FLASHLIGHT) {
-                        // Swipe up to collapse only from the pill zone at the top of the island
-                        // (where the pill morphed from), never from card content such as the
-                        // media slider, buttons or the second card
-                        Modifier.pointerInput(settings.heightDp) {
-                            val pillZonePx = (settings.heightDp.dp + IslandTokens.Shell.PillZoneExtra).toPx()
-                            var fromPillZone = false
-                            var collapsed = false
-                            detectVerticalDragGestures(
-                                onDragStart = { start ->
-                                    fromPillZone = start.y <= pillZonePx
-                                    collapsed = false
-                                },
-                                onVerticalDrag = { change, dragAmount ->
-                                    if (fromPillZone && !collapsed && dragAmount < -IslandTokens.Gesture.LegacySwipeUpPx) {
-                                        change.consume()
-                                        collapsed = true
-                                        haptics.perform(IslandHapticEvent.COLLAPSE)
-                                        IslandStateManager.collapse()
-                                    }
-                                }
-                            )
-                        }
-                    } else Modifier
+                    // M4.3: the swipe up to tuck lives on card 1 itself (its pill zone), with the
+                    // sideways swipe, in one detector
                 ) {
                     // Card 1: Primary Expanded Card
                     if (card1Shown && (expandProgress > 0.001f || isExpanded)) {
@@ -1069,6 +1085,7 @@ internal fun IslandShell(
                                     offscreenPx = cardOffscreenPx,
                                     onDismiss = { dismissCard(primaryPriority) },
                                     onTuck = { IslandStateManager.collapse() },
+                                    vertical = card1Vertical,
                                 ),
                             contentAlignment = Alignment.Center
                         ) {

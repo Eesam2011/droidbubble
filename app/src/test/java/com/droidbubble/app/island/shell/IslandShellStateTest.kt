@@ -87,4 +87,60 @@ class IslandShellStateTest {
         shell.body.animateTo(pill, collapse, IslandGeometry(0.dp, (-8000).dp, 0.dp, (-8000).dp)) { minHeight = minOf(minHeight, value.height.value) }
         assertTrue("the fling carried the body past the pill ($minHeight)", minHeight < pill.height.value)
     }
+
+    // ---- M4.3: drag and velocity hand-off ----
+
+    @Test
+    fun dragUp_shortensFromTheBottom_rubberBanded_neverBelowTheFloor() {
+        val up = dragGeometry(card, (-40).dp, minHeight = 36.dp, band = 120.dp)
+        assertEquals(card.top, up.top)
+        assertEquals(card.width, up.width)
+        val shortened = card.height.value - up.height.value
+        assertTrue("follows less than the finger ($shortened dp of 40)", shortened in 1f..39.9f)
+        val far = dragGeometry(card, (-10_000).dp, minHeight = 200.dp, band = 120.dp)
+        assertEquals(200f, far.height.value, 0.01f)
+    }
+
+    @Test
+    fun dragDown_lowersTheTop_withAShortBand() {
+        val down = dragGeometry(card, 400.dp, minHeight = 36.dp, band = 120.dp)
+        assertEquals(card.height, down.height)
+        val dropped = down.top.value - card.top.value
+        assertTrue("a small give ($dropped dp)", dropped > 0f && dropped < 120f * DOWN_DRAG_BAND_FRACTION)
+    }
+
+    @Test
+    fun gestureVelocity_movesEveryValueAlongTheMorph_atTheFingersHeightSpeed() {
+        val closed = IslandGeometry(0.dp, 36.dp, 18.dp, 12.dp)
+        // Swipe up at 1000 dp/s from the card toward the pill
+        val v = gestureVelocity(-1000f, card, closed)
+        assertEquals(-1000f, v.height.value, 0.5f)
+        val f = 1000f / (card.height.value - closed.height.value)
+        assertEquals((closed.width.value - card.width.value) * f, v.width.value, 0.5f)
+        assertEquals((closed.top.value - card.top.value) * f, v.top.value, 0.5f)
+        // Against the morph (moving down while tucking): nothing carries over
+        assertEquals(0f, gestureVelocity(800f, card, closed).height.value, 0.001f)
+        // Absurd flings are capped
+        assertEquals(-MAX_HAND_OFF_DP_PER_SEC, gestureVelocity(-50_000f, card, closed).height.value, 0.5f)
+    }
+
+    @Test
+    fun handOff_isTakenOnce_andExpires() {
+        val shell = IslandShellState(card, 0.dp)
+        val v = IslandGeometry(0.dp, (-900).dp, 0.dp, 0.dp)
+        shell.handOff(v, nowNanos = 0L)
+        assertEquals(v, shell.takeHandOff(nowNanos = 100_000_000L))
+        assertEquals(null, shell.takeHandOff(nowNanos = 100_000_000L))
+        shell.handOff(v, nowNanos = 0L)
+        assertEquals("stale after the TTL", null, shell.takeHandOff(nowNanos = HAND_OFF_TTL_NANOS + 1))
+    }
+
+    @Test
+    fun release_springsBackToTheTarget() = runBlocking(StepClock()) {
+        val shell = IslandShellState(card, 0.dp)
+        shell.dragBy(card, (-30).dp, minHeight = 36.dp, band = 120.dp)
+        assertTrue(shell.geometry.height < card.height)
+        shell.release(card, spec, IslandGeometry(0.dp, (-400).dp, 0.dp, 0.dp))
+        assertEquals(card, shell.geometry)
+    }
 }

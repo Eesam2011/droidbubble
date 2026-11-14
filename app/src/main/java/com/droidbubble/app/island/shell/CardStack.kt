@@ -104,7 +104,21 @@ internal fun cardReleaseFor(result: IslandGestureResult, kind: CardSwipeKind): C
 }
 
 /**
- * Card [offsetX] (px) follows sideways drags on this card (M4.2).
+ * M4.3: card 1's vertical drag. Only drags that start in the top [fromTopPx] (the pill zone, where
+ * the pill morphed from) are taken, never from card content such as the media slider or buttons.
+ *
+ * @param onDrag the drag so far, px (negative is up)
+ * @param onRelease [IslandGestureResult.Tuck] or [IslandGestureResult.Cancel]
+ */
+internal class CardVertical(
+    val fromTopPx: Float,
+    val onDrag: (dyPx: Float) -> Unit,
+    val onRelease: (IslandGestureResult) -> Unit,
+)
+
+/**
+ * Card [offsetX] (px) follows sideways drags on this card (M4.2), and with [vertical] the card
+ * also takes swipes up from its pill zone (M4.3). One detector, so the two never fight.
  *
  * @param offscreenPx how far the card must travel to be off screen
  * @param onDismiss removes the card from the store once it has left; false if nothing was
@@ -119,6 +133,7 @@ internal fun Modifier.cardSwipe(
     offscreenPx: () -> Float,
     onDismiss: () -> Boolean,
     onTuck: () -> Unit,
+    vertical: CardVertical? = null,
 ): Modifier = if (!enabled) this else this.composed {
     val motion = LocalIslandMotion.current
     val haptics = LocalIslandHaptics.current
@@ -131,24 +146,41 @@ internal fun Modifier.cardSwipe(
     val latestOffscreen by rememberUpdatedState(offscreenPx)
     val latestOnDismiss by rememberUpdatedState(onDismiss)
     val latestOnTuck by rememberUpdatedState(onTuck)
+    val latestVertical by rememberUpdatedState(vertical)
     val lastRawX = remember { floatArrayOf(0f) }
+    // The axis the current drag locked to (set by its first onDrag, before any release)
+    val draggingVertically = remember { booleanArrayOf(false) }
 
     islandGestures(
         surface = GestureSurface.EXPANDED_CARD,
         thresholds = thresholds,
         canDismiss = { latestKind != CardSwipeKind.TUCK },
         isRtl = isRtl,
-        claims = { axis, _ -> axis == Axis.HORIZONTAL },
-        onDrag = { _, offset ->
-            lastRawX[0] = offset.x
-            val x = cardDragX(offset.x, latestKind, latestPriority, bandPx)
-            scope.launch { offsetX.snapTo(x) }
+        claims = { axis, start ->
+            axis == Axis.HORIZONTAL || latestVertical?.let { start.y <= it.fromTopPx } == true
+        },
+        onDrag = { axis, offset ->
+            draggingVertically[0] = axis == Axis.VERTICAL
+            if (axis == Axis.VERTICAL) {
+                latestVertical?.onDrag?.invoke(offset.y)
+            } else {
+                lastRawX[0] = offset.x
+                val x = cardDragX(offset.x, latestKind, latestPriority, bandPx)
+                scope.launch { offsetX.snapTo(x) }
+            }
         },
         // Threshold haptic while dragging (05 §6), only where letting go would do something
-        onThresholdCrossed = { _, crossed ->
-            if (crossed && latestKind != CardSwipeKind.INERT) haptics.perform(IslandHapticEvent.THRESHOLD_CROSSED)
+        onThresholdCrossed = { axis, crossed ->
+            if (crossed && (axis == Axis.VERTICAL || latestKind != CardSwipeKind.INERT)) {
+                haptics.perform(IslandHapticEvent.THRESHOLD_CROSSED)
+            }
         },
-        onRelease = { result ->
+        onRelease = release@{ result ->
+            if (draggingVertically[0]) {
+                draggingVertically[0] = false
+                latestVertical?.onRelease?.invoke(result)
+                return@release
+            }
             val springBack = motion.spring<Float>(motion.interactive)
             when (val release = cardReleaseFor(result, latestKind)) {
                 is CardRelease.FlingOut -> {
