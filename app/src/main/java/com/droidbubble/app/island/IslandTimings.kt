@@ -3,16 +3,26 @@ package com.droidbubble.app.island
 import android.content.Context
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
+import com.droidbubble.app.model.IslandPriority
 
 /**
  * Every island timeout, in one place (F3.5). Each one goes through Android's "Time to take
  * action" accessibility setting ([AccessibilityManager.getRecommendedTimeoutMillis]), so people
  * who need longer get longer. With that setting at its default the values are exactly these.
+ * F3.6 (05 R6): an open card stays long enough to read, media longest, and a ringing call or
+ * alarm stays until it is answered or stopped.
  */
 class IslandTimings(private val recommend: (originalMs: Int, flags: Int) -> Int) {
 
-    /** An expanded card folds back after this long without a touch. */
-    val autoCollapse: Long get() = scaled(3_000, CONTROLS or TEXT)
+    /**
+     * How long an expanded card stays open without a touch, for the card that is open.
+     * Null means it stays until the user closes it: a ringing call or alarm ([isAlarm]).
+     */
+    fun autoCollapseFor(priority: IslandPriority, isAlarm: Boolean): Long? = when {
+        isAlarm -> null
+        priority == IslandPriority.MEDIA -> scaled(8_000, CONTROLS or TEXT)
+        else -> scaled(6_000, CONTROLS or TEXT)
+    }
 
     /** "Auto-dismiss notifications": how long a message stays. */
     val notificationAuto: Long get() = scaled(3_000, TEXT)

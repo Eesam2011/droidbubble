@@ -129,7 +129,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F3.3 | IslandHaptics (1:1, toggle respected) | doing (code and tests done; device check pending) |
 | F3.4 | Retune haptic meanings | done (Droid map is the default, Legacy kept; device feel check pending) |
 | F3.5 | IslandTimings with recommended timeout | doing (code and tests done; device check pending) |
-| F3.6 | Retune timings | todo |
+| F3.6 | Retune timings | done (open card 6 s, media 8 s, ringing call or alarm stays; tests not run yet; device feel check pending) |
 | F4.1 | IslandType roles reproducing today exactly | done |
 | F4.2 | Explicit line heights and Trim | todo |
 | F4.3 | Harmonize the scales | todo |

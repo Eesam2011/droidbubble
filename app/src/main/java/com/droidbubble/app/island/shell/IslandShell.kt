@@ -901,20 +901,25 @@ internal fun IslandShell(
         }
     }
 
-    // Auto-collapse: an expanded island folds back after 3s without any touch on it
-    // (never while a finger is down or while typing a reply).
+    // Auto-collapse: an expanded island folds back after a while without any touch on it
+    // (F3.6: 6 s, media 8 s; never while a finger is down, while typing a reply, or while a call or
+    // alarm rings).
     // B8.5: touches reach this loop through a channel (pressed / released, sent only when that
     // changes), so composition never reads touch state and a slider drag doesn't recompose the root.
     val touchPresses = remember { Channel<Boolean>(Channel.CONFLATED) }
     val isCallRinging = currentNotif?.isIncomingCall == true
-    LaunchedEffect(isExpanded, isKeyboardFocused, isCallRinging) {
-        if (!isExpanded || isKeyboardFocused || isCallRinging) return@LaunchedEffect
+    val isAlarmRinging = currentNotif?.isAlert == true
+    // Read on each wait, so a card change doesn't restart the loop and lose a held finger
+    val openCard = rememberUpdatedState(expandedPriority ?: primaryPriority)
+    LaunchedEffect(isExpanded, isKeyboardFocused, isCallRinging, isAlarmRinging) {
+        if (!isExpanded || isKeyboardFocused || isCallRinging || isAlarmRinging) return@LaunchedEffect
         var pressed = false
         while (true) {
             if (pressed) {
                 pressed = touchPresses.receive()
             } else {
-                val next = withTimeoutOrNull(IslandStateManager.timings.autoCollapse) { touchPresses.receive() }
+                val timeout = IslandStateManager.timings.autoCollapseFor(openCard.value, isAlarm = false) ?: return@LaunchedEffect
+                val next = withTimeoutOrNull(timeout) { touchPresses.receive() }
                 if (next == null) {
                     IslandStateManager.collapse()
                     return@LaunchedEffect
