@@ -82,6 +82,12 @@ data class IslandSettings(
      * Off by default; only a debug build shows the switch.
      */
     val envelopeWindowTrial: Boolean = false,
+    /**
+     * M4.5: Back (and predictive back) collapses the expanded island. The window takes key focus
+     * while expanded for it, which closes a keyboard open in the app below. Off until the device
+     * check; only a debug build shows the switch.
+     */
+    val backCollapses: Boolean = false,
 ) {
     val isNotch: Boolean get() = islandStyle == STYLE_NOTCH
 

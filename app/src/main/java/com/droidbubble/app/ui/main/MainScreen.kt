@@ -1029,6 +1029,13 @@ fun MainScreen(
                         onCheckedChange = { on -> viewModel.updateSettings { it.copy(envelopeWindowTrial = on) } }
                     )
                 }
+                // M4.5: Back collapses the island, off until the device check
+                item {
+                    BackCollapsesSwitch(
+                        checked = settings.backCollapses,
+                        onCheckedChange = { on -> viewModel.updateSettings { it.copy(backCollapses = on) } }
+                    )
+                }
             }
 
             item {

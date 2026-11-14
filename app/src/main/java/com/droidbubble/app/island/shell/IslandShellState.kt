@@ -106,6 +106,11 @@ class IslandShellState(initial: IslandGeometry, initialX: Dp) {
         body.snapTo(dragGeometry(base, dy, minHeight, band))
     }
 
+    /** M4.5: the predictive-back preview at [progress]: a small shrink from [expanded] toward [compact] (see [backPreviewGeometry]). */
+    suspend fun previewBack(progress: Float, compact: IslandGeometry, expanded: IslandGeometry) {
+        body.snapTo(backPreviewGeometry(progress, compact, expanded))
+    }
+
     /** M4.3: lets go of a drag: springs to [target] starting with [velocity] (from [gestureVelocity] or a single axis). */
     suspend fun release(target: IslandGeometry, spec: AnimationSpec<IslandGeometry>, velocity: IslandGeometry) {
         handOffVelocity = null

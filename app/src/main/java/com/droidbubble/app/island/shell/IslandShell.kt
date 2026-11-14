@@ -840,6 +840,9 @@ internal fun IslandShell(
         else -> false
     }
 
+    // M4.5: predictive back previews a small shrink toward the pill; Back collapses (BackPreview.kt)
+    BackPreview(shell = shell, isExpanded = isExpanded, closed = card1Closed, open = shellTargetCard1)
+
     // M4.4: the pill body under the finger (px), rubber-banded; it springs home on release (Pill.kt)
     val pillDragX = remember { Animatable(0f) }
     val pillDragY = remember { Animatable(0f) }

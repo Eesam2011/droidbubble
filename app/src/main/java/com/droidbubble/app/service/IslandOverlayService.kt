@@ -58,6 +58,7 @@ import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandOverlayRoot
 import com.droidbubble.app.service.window.EnvelopeWindow
 import com.droidbubble.app.service.window.OutsideTapCollapser
+import com.droidbubble.app.service.window.OverlayBackHandler
 import com.droidbubble.app.service.window.OverlayWindowController
 import com.droidbubble.app.service.window.ShrinkOnSettle
 import com.droidbubble.app.service.window.WindowState
@@ -501,12 +502,16 @@ class IslandOverlayService : Service() {
     private var windowSize: WindowState = WindowState.Gone
     private var keyboardFocused = false
     private var boosting = false
+    // M4.5: Back collapses the expanded island (with IslandSettings.backCollapses on)
+    private var expandedNow = false
+    private var backHandler: OverlayBackHandler? = null
 
     /** Sends the window what the size, the keyboard and the refresh boost ask for, in one update. */
     private fun pushWindow() = traced("db.pushWindow") {
         windowController?.apply(
             windowSize.copy(
-                focusable = keyboardFocused,
+                // M4.5: also focusable while expanded with "Back collapses" on, so Back reaches the island
+                focusable = overlayFocusable(keyboardFocused, expandedNow, currentSettings.backCollapses),
                 preferredRefreshRate = if (boosting && maxRefreshRate > 60f) maxRefreshRate else 0f,
             )
         )
@@ -667,6 +672,8 @@ class IslandOverlayService : Service() {
 
         composeView = view
         syncOutsideTap()
+        backHandler?.detach()
+        backHandler = OverlayBackHandler(view, active = { expandedNow && currentSettings.backCollapses }).also { it.attach() }
 
         overlayJobs.forEach { it.cancel() }
         overlayJobs.clear()
@@ -708,9 +715,11 @@ class IslandOverlayService : Service() {
                     boostRefreshRate()
                     startMorphHold()
                 }
+                expandedNow = scene.isExpanded
                 updateWindowState(scene.isExpanded)
                 // The boost rides on the resize above; if the size didn't change it goes alone
                 pushWindow()
+                backHandler?.sync()
             }
         }
 
@@ -754,6 +763,9 @@ class IslandOverlayService : Service() {
                     syncGlassPanes(settings.liquidGlassCards)
                     syncOutsideTap()
                     updateWindowState(IslandStateManager.isExpanded.value)
+                    // M4.5: "Back collapses" switched: focus and the Back callback follow at once
+                    pushWindow()
+                    backHandler?.sync()
                 }
             }
         }
@@ -997,6 +1009,9 @@ class IslandOverlayService : Service() {
         IslandStateManager.glassPaneListener = null
         glassPaneWindows?.dismiss()
         glassPaneWindows = null
+        backHandler?.detach()
+        backHandler = null
+        expandedNow = false
         composeView?.let { view ->
             try {
                 windowManager?.removeView(view)

@@ -60,5 +60,12 @@ class SettingsRepositoryTest {
         awaitStored(repository) { !it.showLiveActivities }
         viewModel.updateSettings { it.copy(showLiveActivities = true) }
         awaitStored(repository) { it.showLiveActivities }
+
+        // M4.5: "Back collapses" is off until the device check, and round-trips
+        assertFalse(runBlocking { repository.settingsFlow.first() }.backCollapses)
+        runBlocking { repository.updateSettings { it.copy(backCollapses = true) } }
+        assertTrue(runBlocking { repository.settingsFlow.first() }.backCollapses)
+        runBlocking { repository.updateSettings { it.copy(backCollapses = false) } }
+        assertFalse(runBlocking { repository.settingsFlow.first() }.backCollapses)
     }
 }

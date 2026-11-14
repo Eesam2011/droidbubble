@@ -101,3 +101,11 @@ private val MORPH_MARGIN_DP = IslandTokens.Shell.WindowSideMargin.value
  * lowest damping the settings allow, scaled by the island's animation speed.
  */
 fun morphHoldMs(animationSpeed: Float): Long = kotlin.math.round(1200f / animationSpeed.coerceIn(0.3f, 3f)).toLong()
+
+/**
+ * M4.5: whether the overlay window takes key focus. While a reply is typed (the keyboard), and,
+ * with "Back collapses" on, while the island is expanded so that Back reaches it instead of the
+ * app below. Known trade-off: taking focus closes a keyboard open in the app below.
+ */
+fun overlayFocusable(keyboardFocused: Boolean, expanded: Boolean, backCollapses: Boolean): Boolean =
+    keyboardFocused || (expanded && backCollapses)
