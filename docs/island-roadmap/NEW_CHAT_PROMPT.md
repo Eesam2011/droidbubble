@@ -38,26 +38,26 @@ You are the orchestrator for the Droidbubble island roadmap in docs/island-roadm
 
 ## Per-phase prompts (use one at a time, in this order)
 
-Every phase prompt starts with the same **shared rules** block, then a phase block. Paste both.
+Every phase prompt starts with the same **shared rules** block, then a phase block. Paste both. Each phase is done by the main agent in that chat, one task after another, with no subagents.
 
 **Shared rules (paste first, every time):**
 ```
-You are the orchestrator for one phase of the Droidbubble island roadmap (docs/island-roadmap/).
+You are doing one whole phase of the Droidbubble island roadmap (docs/island-roadmap/)
+yourself, in this chat. Do not launch subagents or parallel sessions: work through the
+phase's tasks one by one, in order.
 Rules for this chat:
 - Read docs/island-roadmap/PLAN.md §0 (polish, don't redesign: keep the current look and
   squircle corners; Apple is a reference, not a clone) and §6 (definition of done), plus
   docs/island-roadmap/tasks/README.md.
 - Read this phase's task file fully and follow its "Execution order" section.
 - Check that every task this phase depends on is marked done in tasks/README.md. If not, stop and tell me.
-- Launch subagents, one task per agent. Tasks that touch different files may run in
-  parallel, each in its own git worktree. Never let two agents edit the same file at once
-  (especially IslandView.kt, IslandOverlayService.kt, NotificationReceiverService.kt,
-  MainScreen.kt).
-- Each agent: read its task entry and the research it cites, verify file:line anchors,
-  implement, run the listed tests, check acceptance criteria, report what it verified and
-  what still needs a device check.
-- After each task: review the diff, set Status to done in tasks/README.md, tell me which
-  branches are ready to merge. Don't merge or push without my OK.
+- For each task: read its entry and the research it cites, verify the file:line anchors
+  against the current code, implement it, run the listed tests, and check the acceptance
+  criteria. Then set its Status to done in tasks/README.md and commit it as one commit
+  on the current branch.
+- After each task, tell me in a line what you verified and what still needs a device check.
+  Then continue with the next task.
+- Don't push without my OK.
 - Stop and ask me whenever a task needs a design decision, a device check, or would
   change how the island looks.
 ```
@@ -66,10 +66,20 @@ Rules for this chat:
 ```
 Phase: 0–1. Task file: docs/island-roadmap/tasks/phase-0-1-safety-and-fixes.md
 (S1.1–S5.3, then B1.1–B11.3).
-First confirm the staged island-polish work on main is committed.
 Ask me before starting: D5 (live activities on by default), D6 (swipe-right no longer
 hides), and whether to keep adb debug control for B1.1.
-Do all of Phase 0 (S) before any Phase 1 (B) task. It is the safety net; don't skip it.
+
+Step 1, before the tasks: clean out unused features.
+- Compare the current code with the previous commits (git log, and git diff against the
+  commit before the island-polish merge) and search the code.
+- Find every feature that is unused, dead, hidden or unreachable. Examples: settings with
+  no UI or never read, toggles that do nothing, removed features whose code is still
+  there (FPS), "Coming soon" sections, dead receivers, dead tokens and functions.
+- Also find any feature that appears or disappears on its own, unexpectedly.
+- Show me the list (feature, where, why it's unused) and wait for my OK on each item.
+  Then remove the approved ones, run the tests, and commit.
+
+Step 2: do all of Phase 0 (S) before any Phase 1 (B) task. It is the safety net; don't skip it.
 ```
 
 ### Chat 2: Phase 2–3, foundations and one living shape
@@ -83,12 +93,10 @@ M1.3, M1.4, M5.3).
 Follow the file's order: M1.1 and M2.1–M2.4 before M1.3/M1.4.
 ```
 
-### Chat 3: Phase 5, dynamic icons (can run alongside chat 4 if no file overlap)
+### Chat 3: Phase 5, dynamic icons
 ```
 Phase: 5. Task file: docs/island-roadmap/tasks/phase-5-dynamic-icons.md (I0.1–I4.2).
 Ask me before I3.3: should a small bolt icon be added to the charging pill?
-Tasks that edit IslandView.kt or LiveActivities.kt must not run at the same time as any
-other chat editing those files.
 Show me a screen recording of each effect in the I4.1 catalogue for tuning.
 ```
 
