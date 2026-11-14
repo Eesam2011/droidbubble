@@ -382,14 +382,14 @@ class LiveLayout(scale: Float, fontScale: Float = 1f) {
     val heroSize = type.hero
     val heroSmallSize = type.heroSmall
     val labelSize = type.secondary
-    val titleSize = type.title(IslandType.Card.LIVE)
+    val titleSize = type.title
     val captionSize = type.caption
 
     // F4.2: each role's line box, and the hero box that never cuts a rolling digit
     val heroLineHeight = type.heroLineHeight
     val heroSmallLineHeight = type.heroSmallLineHeight
     val labelLineHeight = type.secondaryLineHeight
-    val titleLineHeight = type.titleLineHeight(IslandType.Card.LIVE)
+    val titleLineHeight = type.titleLineHeight
     val captionLineHeight = type.captionLineHeight
     val heroLineHeightStyle = type.heroLineHeightStyle
 

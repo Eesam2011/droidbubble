@@ -1328,7 +1328,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     )
 
     val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
-    val titleSize = type.title(IslandType.Card.MEDIA)
+    val titleSize = type.title
     val artistSize = type.secondary
     val sliderGapTop = (IslandTokens.SpaceSm * scale).coerceIn(4.dp, 10.dp)
     val sliderGapBottom = (IslandTokens.SpaceXs * scale).coerceIn(2.dp, 8.dp)
@@ -1353,7 +1353,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
             subtitle = media?.artist?.ifBlank { "Unknown Artist" } ?: "Unknown Artist",
             titleSize = titleSize,
             subtitleSize = artistSize,
-            titleLineHeight = type.titleLineHeight(IslandType.Card.MEDIA),
+            titleLineHeight = type.titleLineHeight,
             subtitleLineHeight = type.secondaryLineHeight,
             subtitleSpacing = 3.dp,
             titleMarquee = true,

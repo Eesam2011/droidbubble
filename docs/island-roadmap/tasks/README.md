@@ -132,7 +132,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F3.6 | Retune timings | done (open card 6 s, media 8 s, ringing call or alarm stays; tests not run yet; device feel check pending) |
 | F4.1 | IslandType roles reproducing today exactly | done |
 | F4.2 | Explicit line heights and Trim | done (code only; not built or tested yet; screenshots to review) |
-| F4.3 | Harmonize the scales | todo |
+| F4.3 | Harmonize the scales | done (code only; not built or tested yet; screenshots to review) |
 | F4.4 | NumericSlot | done |
 | F5.1 | WindowSpec and OverlayWindowController | doing (code and tests done; device check pending: one relayout at expand start in a Perfetto trace) |
 | F5.2 | Grow the window before animating | doing (code and tests done; device check pending: no clipped first frames at 120 Hz) |

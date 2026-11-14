@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.sp
  *
  * [Mode.Trimmed] (F4.2, the default) gives every role its own line height (01 §6) and trims the
  * box to the glyphs with `LineHeightStyle(Center, Trim.Both)`. Expanded line heights scale with
- * their size. [Mode.Legacy] is the F4.1 reproduction of the old look: line heights are not set,
- * so text keeps the 24 sp line box it inherits from Material's bodyLarge.
+ * their size. [Mode.Legacy] keeps the old line boxes: line heights are not set, so text keeps
+ * the 24 sp line box it inherits from Material's bodyLarge. (Sizes are the same in both modes.)
  */
 @Immutable
 class IslandType(
@@ -30,9 +30,6 @@ class IslandType(
     val mode: Mode = Mode.Trimmed,
 ) {
     enum class Mode { Legacy, Trimmed }
-
-    /** Card families whose title size still differs today. F4.3 merges them. */
-    enum class Card { NOTIFICATION, PROGRESS, MEDIA, LIVE }
 
     private val s = expandedScale
 
@@ -79,12 +76,12 @@ class IslandType(
 
     // ---- Expanded cards: scale with expandedScale ----
 
-    /** A card's title (the sender, the song, the activity name). */
-    fun title(card: Card): TextUnit = when (card) {
-        Card.LIVE -> (16 * s).coerceIn(13.5f, 18f).sp
-        else -> (17 * s).coerceIn(14f, 19f).sp
-    }
-    fun titleLineHeight(card: Card): TextUnit = lh(title(card), if (card == Card.LIVE) 16f else 17f, 20f)
+    /**
+     * Every card's title (the sender, the song, the activity name). F4.3: one size for all cards,
+     * 17.6 sp at the default scale 1.1 (the notification, progress and media titles were 18.7).
+     */
+    val title: TextUnit = (16 * s).coerceIn(13.5f, 18f).sp
+    val titleLineHeight: TextUnit = lh(title, 16f, 20f)
 
     /** The line under a title: the app name, the artist, a live activity's label. */
     val secondary: TextUnit = (13 * s).coerceIn(11.5f, 15f).sp
@@ -108,29 +105,29 @@ class IslandType(
     val heroLineHeight: TextUnit = lh(hero, 38f, 44f)
     val heroSmallLineHeight: TextUnit = lh(heroSmall, 28f, 32f)
 
-    // ---- Expanded, not scaled yet (F4.3 scales them) ----
+    // ---- Expanded views that ignored the scale until F4.3: they now scale like the rest ----
 
-    /** A suggested reply chip (an eyebrow-sized label, so eyebrow's 16 sp line). */
-    val replyChip: TextUnit = 12.sp
-    val replyChipLineHeight: TextUnit = fixed(16f)
+    /** A suggested reply chip: the caption size, with an eyebrow's 16 sp line. */
+    val replyChip: TextUnit = caption
+    val replyChipLineHeight: TextUnit = lh(replyChip, 12f, 16f)
 
-    /** The reply field and its placeholder (body's 20 sp line). */
-    val replyInput: TextUnit = 14.sp
-    val replyInputLineHeight: TextUnit = fixed(20f)
+    /** The reply field and its placeholder (body's line ratio). */
+    val replyInput: TextUnit = (14 * s).coerceIn(12f, 16f).sp
+    val replyInputLineHeight: TextUnit = lh(replyInput, 14f, 20f)
 
-    /** The media card's elapsed and total time: tabular digits, so the seek bar never shifts. Caption's 14 sp line. */
+    /** The media card's elapsed and total time: tabular digits, so the seek bar never shifts. Caption's line ratio. */
     val timeLabel: TextStyle = TextStyle(
-        fontSize = 11.sp,
+        fontSize = (11 * s).coerceIn(9.5f, 12.5f).sp,
         fontWeight = FontWeight.SemiBold,
         fontFeatureSettings = "tnum",
-        lineHeight = fixed(14f),
+        lineHeight = if (trimmed) ((11 * s).coerceIn(9.5f, 12.5f) * 14f / 11f).sp else TextUnit.Unspecified,
     )
 
-    /** The empty card's title (title's 20 sp line), caption and button (caption's 14 sp line). */
-    val idleTitle: TextUnit = 15.sp
-    val idleCaption: TextUnit = 12.sp
-    val idleTitleLineHeight: TextUnit = fixed(20f)
-    val idleCaptionLineHeight: TextUnit = fixed(14f)
+    /** The empty card's title (the body size, body's line), and its caption and button (the caption role). */
+    val idleTitle: TextUnit = body
+    val idleCaption: TextUnit = caption
+    val idleTitleLineHeight: TextUnit = lh(idleTitle, 15f, 20f)
+    val idleCaptionLineHeight: TextUnit = captionLineHeight
 
     fun withScale(scale: Float): IslandType = if (scale == expandedScale) this else IslandType(scale, fontScale, mode)
 
