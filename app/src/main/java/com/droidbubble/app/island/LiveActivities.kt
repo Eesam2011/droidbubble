@@ -732,10 +732,11 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
         }
         if (notification.isIncomingCall) {
             Spacer(modifier = Modifier.width(layout.buttonGap))
-            // I3.2: the answer button bounces gently every 2.4 s, half a beat after the handset swings
+            // I3.2: the answer button bounces gently every 2.4 s, half a beat after the handset
+            // swings. It starts after the second swing, so the card is at rest when it opens
             var answerNudge by remember { mutableIntStateOf(0) }
             LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(CALL_REPEAT_MS / 2)
+                kotlinx.coroutines.delay(CALL_REPEAT_MS + CALL_REPEAT_MS / 2)
                 while (true) {
                     answerNudge++
                     kotlinx.coroutines.delay(CALL_REPEAT_MS)
