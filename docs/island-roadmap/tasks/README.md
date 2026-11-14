@@ -227,7 +227,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I1.4 | Variable color (LayeredIcon) | done (bands cut the real V7 glyph, so no hand-drawn layer paths; signal-bars step dropped, that view was removed earlier; tests pass; device check in I4.1) |
 | I2.1 | Morph toolkit and play↔pause | done (media button and recorder/timer pause buttons morph; at rest the real Material glyphs draw, so S2 is unchanged; check later on the phone: 10 taps never show a broken shape, crisp at 1–1.6× card scale) |
 | I2.2 | Checkmark draw-on and slash overlay | done (unlock and connection checks draw on; ringer Ring↔Silent draws the slash, to or from Vibrate replaces; settled glyphs unchanged, S2 unchanged; check later on the phone: lock/unlock, earbuds, ringer switch) |
-| I2.3 | Flashlight and mic morphs | todo |
+| I2.3 | Flashlight and mic morphs | done (torch off from the card draws the slash first; bubble mic slashed while paused; `MuteGlyph` ready for A3.2; tests pass; check later on the phone: torch off from the card and from QS) |
 | I3.1 | Icon event counters | done (`IslandStateManager.iconSignals`; tests pass) |
 | I3.2 | Wire bounce, wiggle, pulse, appear and replace | todo |
 | I3.3 | Wire charging, download, network and flashlight | todo |

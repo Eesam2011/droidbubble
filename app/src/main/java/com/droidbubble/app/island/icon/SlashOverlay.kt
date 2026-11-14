@@ -4,11 +4,16 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -28,6 +33,8 @@ private val SLASH_TO = Offset(20.4f, 20.4f)
 private const val SLASH_WIDTH = 2.2f
 /** The gap cut on either side of the slash, as a multiple of its width. */
 private const val SLASH_GAP = 1.5f
+/** [SlashOverlay]'s `onSlashed` fires once the slash has drawn this much of its length. */
+const val SLASHED_AT = 0.6f
 
 /**
  * The "magic replace" between a glyph and its "off" form (I2.2): [content] stays, and only the
@@ -43,14 +50,23 @@ fun SlashOverlay(
     slashTint: Color,
     modifier: Modifier = Modifier,
     slashedGlyph: (@Composable () -> Unit)? = null,
+    /** Called once each time the slash, drawing on, passes [SLASHED_AT] of its length. */
+    onSlashed: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val motion = LocalIslandMotion.current
     val reduced = motion.tier == MotionTier.REDUCED
     val progress = remember { Animatable(if (slashed) 1f else 0f) }
+    val latestOnSlashed = rememberUpdatedState(onSlashed)
     LaunchedEffect(slashed) {
         val target = if (slashed) 1f else 0f
         if (progress.value == target) return@LaunchedEffect
+        if (slashed && latestOnSlashed.value != null) {
+            launch {
+                snapshotFlow { progress.value >= SLASHED_AT }.first { it }
+                latestOnSlashed.value?.invoke()
+            }
+        }
         progress.animateTo(
             target,
             if (reduced) TweenSpec(IslandMotion.Symbol.REDUCED_FADE_MS, 0, LinearEasing) else motion.spring(IslandMotion.Symbol.draw),
@@ -85,5 +101,21 @@ fun SlashOverlay(
                     },
             ) { content() }
         }
+    }
+}
+
+/**
+ * The microphone with its mute slash (I2.3), ready for the call controls (phase 7, A3.2), which
+ * add the mute button. [muted] draws the slash on.
+ */
+@Composable
+fun MuteGlyph(muted: Boolean, tint: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = com.droidbubble.app.island.IslandTokens.Glyph.Compact) {
+    SlashOverlay(slashed = muted, slashTint = tint, modifier = modifier) {
+        androidx.compose.material3.Icon(
+            com.droidbubble.app.island.IslandIcons.Compact.Mic,
+            contentDescription = if (muted) "Muted" else "Microphone on",
+            tint = tint,
+            modifier = Modifier.size(size),
+        )
     }
 }

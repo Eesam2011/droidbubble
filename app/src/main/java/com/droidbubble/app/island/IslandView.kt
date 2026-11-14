@@ -161,6 +161,7 @@ import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.icon.IconEffect
 import com.droidbubble.app.island.icon.iconEffect
+import com.droidbubble.app.island.icon.SlashOverlay
 import com.droidbubble.app.island.icon.MorphIcon
 import com.droidbubble.app.island.icon.MorphShapes
 import com.droidbubble.app.island.motion.rememberMotionTier
@@ -477,7 +478,11 @@ fun AuxiliaryBubbleContent(
         IslandPriority.POP_NOTIFICATION -> {
             val liveKind = liveActivityKind(notification)
             if (notification != null && liveKind == LiveActivityKind.RECORDING) {
-                Icon(IslandIcons.Compact.Mic, contentDescription = "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Compact.Mic))
+                // I2.3: the mic is slashed while the recorder is paused
+                val paused = remember(notification) { liveActivityControls(notification).isPaused }
+                SlashOverlay(slashed = paused, slashTint = LiveActivityColors.RecordingRed) {
+                    Icon(IslandIcons.Compact.Mic, contentDescription = if (paused) "Recording paused" else "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Compact.Mic))
+                }
             } else if (notification != null && liveKind != LiveActivityKind.NONE) {
                 LiveActivityCompactIcon(liveKind, notification, glyph = IslandTokens.Glyph.Bubble, art = IslandTokens.Glyph.BubbleArt)
             } else if (notification != null && notification.liveTimerBaseMs > 0L) {
@@ -937,6 +942,8 @@ fun ExpandedFlashlightView(
     scale: Float = 1.0f
 ) {
     val haptics = LocalIslandHaptics.current
+    // I2.3: tapping the torch draws the slash first; the torch turns off as it completes
+    var turningOff by remember { mutableStateOf(false) }
 
     // Current brightness level 1..4
     var currentLevel by remember(level) { mutableIntStateOf(level.coerceIn(1, 4)) }
@@ -1161,17 +1168,23 @@ fun ExpandedFlashlightView(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
-                    haptics.perform(IslandHapticEvent.TOGGLE_OFF)
-                    onTurnOff()
+                    if (!turningOff) {
+                        haptics.perform(IslandHapticEvent.TOGGLE_OFF)
+                        turningOff = true
+                    }
                 },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = IslandIcons.Flashlight,
-                contentDescription = "Turn off flashlight",
-                tint = Color.White,
-                modifier = Modifier.size(46.dp)
-            )
+            // I2.3: the slash draws across the torch, and the torch turns off once it is most of
+            // the way (not after a delay), so the slash finishes as the card leaves
+            SlashOverlay(slashed = turningOff, slashTint = Color.White, onSlashed = onTurnOff) {
+                Icon(
+                    imageVector = IslandIcons.Flashlight,
+                    contentDescription = "Turn off flashlight",
+                    tint = Color.White,
+                    modifier = Modifier.size(46.dp)
+                )
+            }
         }
     }
 }
