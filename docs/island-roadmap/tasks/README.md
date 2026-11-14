@@ -117,31 +117,31 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F1.1 | Lift arbitration into a pure `deriveIslandScene` | done |
 | F1.2 | Composable consumes the scene | done |
 | F1.3 | Target geometry as a pure function (`IslandGeometry`) | done |
-| F1.4 | Window consumes the scene | doing (code and tests done; device check pending) |
-| F1.5 | One `StateFlow<IslandScene>` per process | doing (code and tests done; device check pending: rapid notification bursts still resize the window). The view still collects its leaf flows; M2.7 narrows them |
+| F1.4 | Window consumes the scene | done (code and tests pass; check later on the phone) |
+| F1.5 | One `StateFlow<IslandScene>` per process | done (code and tests pass; check later on the phone: a burst of notifications resizes the window once, not per notification) |
 | F2.1 | Literal ratchet test | done |
 | F2.2 | Color literals into IslandTokens (exact) | done |
-| F2.3 | Merge near-duplicate colors | done (code only; not built or tested yet; screenshots to review) |
+| F2.3 | Merge near-duplicate colors | done (owner kept the look; screenshots re-recorded, full suite passes) |
 | F2.4 | Shell geometry tokens | done |
-| F2.5 | Presentation dp hygiene, file by file | done (code only; not built or tested yet; screenshots to review) |
+| F2.5 | Presentation dp hygiene, file by file | done (pixel-identical; full suite passes) |
 | F3.1 | IslandMotion: formula, tokens, tiers, impulse and loop | done |
 | F3.2 | Route every inline spec through IslandMotion | done |
-| F3.3 | IslandHaptics (1:1, toggle respected) | doing (code and tests done; device check pending) |
+| F3.3 | IslandHaptics (1:1, toggle respected) | done (code and tests pass; check later on the phone: each haptic fires once, and the haptics switch silences them) |
 | F3.4 | Retune haptic meanings | done (Droid map is the default, Legacy kept; device feel check pending) |
-| F3.5 | IslandTimings with recommended timeout | doing (code and tests done; device check pending) |
-| F3.6 | Retune timings | done (open card 6 s, media 8 s, ringing call or alarm stays; tests not run yet; device feel check pending) |
+| F3.5 | IslandTimings with recommended timeout | done (code and tests pass; check later on the phone: Android's "Time to take action" setting lengthens the timeouts) |
+| F3.6 | Retune timings | done (open card 6 s, media 8 s, ringing call or alarm stays; tests pass; check later: how it feels on the phone) |
 | F4.1 | IslandType roles reproducing today exactly | done |
-| F4.2 | Explicit line heights and Trim | done (code only; not built or tested yet; screenshots to review) |
-| F4.3 | Harmonize the scales | done (code only; not built or tested yet; screenshots to review) |
+| F4.2 | Explicit line heights and Trim | done (owner kept the look; screenshots and bounds golden re-recorded, full suite passes) |
+| F4.3 | Harmonize the scales | done (owner kept the look; screenshots re-recorded, full suite passes) |
 | F4.4 | NumericSlot | done |
-| F5.1 | WindowSpec and OverlayWindowController | doing (code and tests done; device check pending: one relayout at expand start in a Perfetto trace) |
-| F5.2 | Grow the window before animating | doing (code and tests done; device check pending: no clipped first frames at 120 Hz) |
-| F5.3 | Shrink on settle everywhere, including hide | doing (code and tests done; device check pending: hide and the last notification ending show the full shrink) |
-| F5.4 | Envelope window trial behind a flag | done (behind flag, default off; the envelope, window and settings tests pass, the full suite and screenshot tests not run yet; device trial pending on Pixel, Samsung and Xiaomi) |
+| F5.1 | WindowSpec and OverlayWindowController | done (code and tests pass; check later: one window relayout at expand start in a Perfetto trace) |
+| F5.2 | Grow the window before animating | done (code and tests pass; check later on the phone: no clipped first frames at 120 Hz) |
+| F5.3 | Shrink on settle everywhere, including hide | done (code and tests pass; check later on the phone: hide and the last notification ending show the full shrink) |
+| F5.4 | Envelope window trial behind a flag | done (behind a debug-only flag, default off; tests pass; check later: the device trial) |
 | F6.1 | Apply Decision D1 (minSdk or guards) | done (D1 = no: API gates in `IslandApi`) |
 | F6.2 | Compose compiler reports and stability config | done |
-| F6.3 | Baseline profile | doing (code written; Gradle configures and the plugin tasks exist, but the compile builds were not run yet; profile generation needs a device: `bash tools/gradle-locked.sh :app:generateBaselineProfile`, see `baselineprofile/README.md`; then check P90 with `IslandFirstExpandBenchmark`) |
-| F6.4 | Release signing | doing (wiring done and tested with a throwaway key; the owner creates the real keystore) |
+| F6.3 | Baseline profile | done (module and generator compile; check later: generate the profile with the phone connected, `bash tools/gradle-locked.sh :app:generateBaselineProfile`, see `baselineprofile/README.md`, then compare with `IslandFirstExpandBenchmark`) |
+| F6.4 | Release signing | doing (wiring done and tested with a throwaway key; waiting on the owner to create the real keystore) |
 | M1.1 | IslandShellState (Animatable geometry + x) | done |
 | M1.2 | Continuity test harness | done |
 | M1.3 | Expand starts from the pill | parked (owner: one-body morph felt less smooth on review; two bodies kept. Work saved in `parked/M1.3-one-body.patch`) |
@@ -157,15 +157,21 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; device checked at 0.7×, 1×, 2× and 10×: content waits for the shape, leaves blurred) |
 | M3.2 | Staggers in progress, not wall-clock time | done (device checked at 0.7×, 1×, 2× and 10×: card 2 after card 1, bubble after the pill, parentheses at 60%; no jank regression vs the pre-M2.5 build) |
 | M3.3 | Expanded content keyed per activity | done (crossfade on a new key, same-key updates in place; new mid-frame motion_call_replaces_media__64ms; device check pending, phone not connected) |
-| M3.4 | Compact content keyed per activity | done (pill keyed on ContentKey; tests written, not run yet; device check pending) |
+| M3.4 | Compact content keyed per activity | done (pill keyed on ContentKey; tests pass; check later on the phone) |
 | M4.1 | `Modifier.islandGestures` and release resolver | done |
 | M4.2 | Card sideways fling-out or spring-back | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M4.3 | Card swipe-up tucks, with velocity hand-off | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M4.4 | Pill: down expands, further opens the shade, inward minimizes | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M4.5 | Back and predictive back collapse | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
-| M5.1 | Resolve the motion tier | doing (code and tests done; device check pending: "Remove animations" and Battery Saver switch the tier live) |
+| M5.1 | Resolve the motion tier | done (code and tests pass; check later on the phone: "Remove animations" and Battery Saver switch the tier live) |
 | M5.2 | Apply Reduced and Efficient everywhere | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M5.3 | "Eager in, calm out" retune | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+
+**Checks left for later (phase 2–3).** The code and tests for these are done; they need the phone or the owner:
+- On the phone: F1.4, F1.5 (one resize per notification burst), F3.3 (haptics), F3.5 ("Time to take action"), F3.6 (6 s / 8 s feel), F5.1 (Perfetto: one relayout), F5.2 (no clipped first frames at 120 Hz), F5.3 (full shrink on hide), F5.4 (envelope trial, debug flag), M3.3 and M3.4 (crossfades), M5.1 (tier switches live).
+- With the phone connected: F6.3, generate the baseline profile and run `IslandFirstExpandBenchmark`.
+- The owner: F6.4, create the release keystore.
+- Parked or reverted by the owner, not to be redone without a new decision: M1.3–M1.5, M2.6, M2.7, M4.2–M4.5, M5.2, M5.3.
 
 ### Phase 4 + 6: Layout polish and signature motion ([file](phase-4-6-layout-and-motion-polish.md))
 | ID | Title | Status |

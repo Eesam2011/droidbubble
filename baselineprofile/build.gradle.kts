@@ -26,7 +26,7 @@ android {
     }
 
     // The island journeys, shared with :macrobenchmark
-    sourceSets.getByName("main").java.srcDir("../macrobenchmark/src/journeys/java")
+    sourceSets.getByName("main").kotlin.srcDir("../macrobenchmark/src/journeys/java")
 
     targetProjectPath = ":app"
 }
