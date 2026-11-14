@@ -16,6 +16,7 @@ lifecycleViewmodelNav3 = "2.10.0"
 datastore = "1.1.2"
 material3 = "1.5.0-alpha04"
 roborazzi = "1.77.0"
+# androidx.benchmark: the macrobenchmark library and the baseline profile plugin ship together
 benchmarkMacro = "1.5.0"
 
 [libraries]
@@ -50,6 +51,7 @@ androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecy
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-test = { id = "com.android.test", version.ref = "androidGradlePlugin" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmarkMacro" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }

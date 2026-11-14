@@ -33,6 +33,9 @@ android {
         }
     }
 
+    // The island journeys, shared with :baselineprofile (F6.3)
+    sourceSets.getByName("main").java.srcDir("src/journeys/java")
+
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
 }

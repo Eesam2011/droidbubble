@@ -140,7 +140,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F5.4 | Envelope window trial behind a flag | todo |
 | F6.1 | Apply Decision D1 (minSdk or guards) | done (D1 = no: API gates in `IslandApi`) |
 | F6.2 | Compose compiler reports and stability config | done |
-| F6.3 | Baseline profile | todo |
+| F6.3 | Baseline profile | doing (code written; Gradle configures and the plugin tasks exist, but the compile builds were not run yet; profile generation needs a device: `bash tools/gradle-locked.sh :app:generateBaselineProfile`, see `baselineprofile/README.md`; then check P90 with `IslandFirstExpandBenchmark`) |
 | F6.4 | Release signing | doing (wiring done and tested with a throwaway key; the owner creates the real keystore) |
 | M1.1 | IslandShellState (Animatable geometry + x) | done |
 | M1.2 | Continuity test harness | done |
