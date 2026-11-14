@@ -1,5 +1,7 @@
 package com.droidbubble.app.island
 
+import com.droidbubble.app.island.motion.IslandMotion
+import com.droidbubble.app.island.motion.MotionTier
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
 import android.graphics.Bitmap
@@ -530,6 +532,9 @@ fun FlippingCoverArt(
     // True during the first half of a flip, while the old cover is still facing the viewer
     var isTurningAway by remember { mutableStateOf(false) }
     val rotation = remember { Animatable(0f) }
+    // I3.4, Reduced motion: the old cover fading out over the new one instead of a turn
+    var fadingArt by remember { mutableStateOf<Bitmap?>(null) }
+    val fade = remember { Animatable(0f) }
     val latestArt by rememberUpdatedState(art)
     val scope = rememberCoroutineScope()
 
@@ -539,12 +544,22 @@ fun FlippingCoverArt(
         shownKey = trackKey
         // Separate scope so a late art update can't cancel the flip halfway through
         scope.launch {
+            if (motion.tier == MotionTier.REDUCED) {
+                rotation.snapTo(0f)
+                fadingArt = shownArt
+                shownArt = latestArt
+                fade.snapTo(1f)
+                fade.animateTo(0f, motion.tween(MotionTween.ART_FLIP_OUT))
+                fadingArt = null
+                return@launch
+            }
+            // I3.4: both halves follow the island's speed, like every symbol effect
             isTurningAway = true
-            rotation.animateTo(90f, motion.tween(MotionTween.ART_FLIP_OUT))
+            rotation.animateTo(90f, motion.tween(MotionTween.ART_FLIP_OUT.millis, MotionTween.ART_FLIP_OUT.easing))
             shownArt = latestArt
             isTurningAway = false
             rotation.snapTo(-90f)
-            rotation.animateTo(0f, motion.spring(motion.artFlipIn))
+            rotation.animateTo(0f, motion.spring(IslandMotion.Symbol.replace))
         }
     }
     LaunchedEffect(art) {
@@ -570,6 +585,15 @@ fun FlippingCoverArt(
             )
         } else {
             placeholder()
+        }
+        val old = fadingArt
+        if (old != null) {
+            Image(
+                bitmap = old.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }
+            )
         }
     }
 }

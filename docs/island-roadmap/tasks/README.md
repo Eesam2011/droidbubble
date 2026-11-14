@@ -231,7 +231,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I3.1 | Icon event counters | done (`IslandStateManager.iconSignals`; tests pass) |
 | I3.2 | Wire bounce, wiggle, pulse, appear and replace | done (same-app bounce + NUDGE tick, ringing call wiggle + answer bounce, alarm wiggle then breathe, recorder mic pulse, connection glyph appear, ringer arrival wiggles replace the keyframe shakes; tests pass; check later on the phone: a WhatsApp burst, a real incoming call, Time's up, earbuds, the ringer switch) |
 | I3.3 | Wire charging, download, network and flashlight | done (owner approved the bolt, the download fill and the torch level, 2026-11-15; charging fill read in the draw phase; network arrows dropped with the network widget; 4 S2 screenshots re-recorded as intended; check later on the phone: plug in, a Play Store download, torch brightness) |
-| I3.4 | Media: cover flip and play-state morph | todo |
+| I3.4 | Media: cover flip and play-state morph | done (flip follows the island speed, turn-in on Symbol.replace; Reduced motion crossfades the covers; play-state morph landed in I2.1; tests pass; check later on the phone: skip tracks 5× fast) |
 | I4.1 | Effect catalogue in the Test panel | doing (catalogue in the Test panel and offline clips in `review/icon-clips/`; waiting on the owner to tune the feel on the phone) |
 | I4.2 | Buttons that fire real events on the island | todo |
 
