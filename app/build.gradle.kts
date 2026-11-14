@@ -114,6 +114,11 @@ android {
                 "island.checkpoint.out",
                 project.layout.buildDirectory.dir("outputs/roborazzi/checkpoints").get().asFile.absolutePath
             )
+            // I4.1: -PiconClips=<dir> renders each icon effect's frames there (IconEffectClips)
+            project.findProperty("iconClips")?.let {
+                test.systemProperty("island.iconClips", it.toString())
+                test.outputs.upToDateWhen { false }
+            }
             // A checkpoint run must re-render even when no source changed
             if (project.hasProperty("checkpoint")) test.outputs.upToDateWhen { false }
             // ~330 Robolectric tests in one JVM outgrew the default 512 MB; a fresh JVM every 100

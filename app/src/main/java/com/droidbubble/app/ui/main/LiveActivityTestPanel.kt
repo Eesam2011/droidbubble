@@ -15,6 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.droidbubble.app.island.motion.MotionTier
+import com.droidbubble.app.model.IslandSettings
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -28,7 +34,9 @@ import com.droidbubble.app.island.LiveActivityTester
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LiveActivityTestPanel(islandRunning: Boolean) {
+fun LiveActivityTestPanel(islandRunning: Boolean, settings: IslandSettings = IslandSettings()) {
+    var showIconEffects by remember { mutableStateOf(false) }
+    var tierOverride by remember { mutableStateOf<MotionTier?>(null) }
     SettingsCardItem(position = GroupPosition.SINGLE) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -63,6 +71,17 @@ fun LiveActivityTestPanel(islandRunning: Boolean) {
                 ) {
                     Text("Clear", fontWeight = FontWeight.Medium)
                 }
+            }
+            // I4.1: preview and tune every icon effect (works with the island off too)
+            OutlinedButton(
+                onClick = { showIconEffects = !showIconEffects },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.padding(top = 12.dp)
+            ) {
+                Text(if (showIconEffects) "Hide icon effects" else "Icon effects", fontWeight = FontWeight.Medium)
+            }
+            if (showIconEffects) {
+                IconEffectCatalog(settings, tierOverride, onTierOverride = { tierOverride = it })
             }
         }
     }

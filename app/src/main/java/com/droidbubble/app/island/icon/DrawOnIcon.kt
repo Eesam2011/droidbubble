@@ -105,7 +105,7 @@ fun DrawOnIcon(
                 }
                 val d = delayFraction.coerceIn(0f, 0.9f)
                 val drawnPart = ((p - d) / (1f - d)).coerceIn(0f, 1f)
-                if (drawnPart <= 0f) return@onDrawBehind
+                if (drawnPart < MIN_VISIBLE_STROKE) return@onDrawBehind
                 partial.reset()
                 measure.getSegment(0f, length * drawnPart, partial, true)
                 scale(box.width / UNIT, box.height / UNIT, pivot = Offset.Zero) {

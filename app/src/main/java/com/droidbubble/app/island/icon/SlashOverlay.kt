@@ -33,6 +33,9 @@ private val SLASH_TO = Offset(20.4f, 20.4f)
 private const val SLASH_WIDTH = 2.2f
 /** The gap cut on either side of the slash, as a multiple of its width. */
 private const val SLASH_GAP = 1.5f
+/** Strokes drawn less than this much of their length aren't drawn (a round cap alone is a dot). */
+internal const val MIN_VISIBLE_STROKE = 0.12f
+
 /** [SlashOverlay]'s `onSlashed` fires once the slash has drawn this much of its length. */
 const val SLASHED_AT = 0.6f
 
@@ -92,7 +95,8 @@ fun SlashOverlay(
                     .drawWithContent {
                         drawContent()
                         val p = if (reduced) (if (slashedGlyph == null) progress.value else 0f) else progress.value
-                        if (p <= 0f) return@drawWithContent
+                        // A slash shorter than its own width would show as a round dot
+                        if (p < MIN_VISIBLE_STROKE) return@drawWithContent
                         val k = size.width / 24f
                         val from = SLASH_FROM * k
                         val end = from + (SLASH_TO * k - from) * p.coerceIn(0f, 1f)

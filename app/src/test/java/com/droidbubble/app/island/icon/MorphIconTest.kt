@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.graphics.shapes.RoundedPolygon
+import androidx.compose.ui.geometry.Offset
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.droidbubble.app.island.motion.MotionTier
 import org.junit.Assert.assertEquals
@@ -16,33 +16,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** I2.1: the play / pause shapes are convex and the morph lands exactly on them. */
-@RunWith(AndroidJUnit4::class)
-@Config(sdk = [35], qualifiers = "w411dp-h891dp-xxhdpi")
+/** I2.1: the play / pause parts stay convex all the way through, and their outlines match the glyphs. Pure JUnit. */
 class MorphShapesTest {
 
-    /** Bounds of the curves themselves, sampled (anchors alone miss the rounded corners' extent). */
-    private fun bounds(cubics: List<androidx.graphics.shapes.Cubic>): FloatArray {
-        val xs = ArrayList<Float>()
-        val ys = ArrayList<Float>()
-        for (c in cubics) for (k in 0..20) {
-            val t = k / 20f
-            val u = 1f - t
-            fun bez(a: Float, b: Float, c2: Float, d: Float) = u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c2 + t * t * t * d
-            xs += bez(c.anchor0X, c.control0X, c.control1X, c.anchor1X)
-            ys += bez(c.anchor0Y, c.control0Y, c.control1Y, c.anchor1Y)
-        }
-        return floatArrayOf(xs.min(), ys.min(), xs.max(), ys.max())
-    }
-
-    private fun isConvex(p: RoundedPolygon): Boolean {
-        val pts = p.cubics.map { it.anchor0X to it.anchor0Y }
+    private fun isConvex(pts: List<Offset>): Boolean {
+        val u = pts.filterIndexed { i, c -> c != pts[(i + pts.size - 1) % pts.size] }
         var sign = 0
-        for (i in pts.indices) {
-            val (ax, ay) = pts[i]
-            val (bx, by) = pts[(i + 1) % pts.size]
-            val (cx, cy) = pts[(i + 2) % pts.size]
-            val cross = (bx - ax) * (cy - by) - (by - ay) * (cx - bx)
+        for (i in u.indices) {
+            val a = u[i]; val b = u[(i + 1) % u.size]; val c = u[(i + 2) % u.size]
+            val cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
             if (kotlin.math.abs(cross) < 1e-4f) continue
             val s = if (cross > 0) 1 else -1
             if (sign == 0) sign = s else if (s != sign) return false
@@ -51,26 +33,29 @@ class MorphShapesTest {
     }
 
     @Test
-    fun partsAreConvex() {
-        for ((a, b) in MorphShapes.PlayPause.parts) {
-            assertTrue(isConvex(a))
-            assertTrue(isConvex(b))
+    fun everyFrame_isConvex_neverFolds() {
+        for ((a, b) in MorphShapes.PlayPause.parts) for (k in -2..12) {
+            val p = k / 10f   // a little past both ends too: the spring overshoots (clamped)
+            val (core, _) = lerpQuad(a, b, p)
+            assertTrue("part at p=$p: $core", isConvex(core))
         }
     }
 
     @Test
-    fun morphEndsMatchTheShapes() {
-        MorphShapes.PlayPause.morphs.forEachIndexed { i, m ->
-            val (a, b) = MorphShapes.PlayPause.parts[i]
-            val at0 = bounds(m.asCubics(0f))
-            val at1 = bounds(m.asCubics(1f))
-            val wantA = bounds(a.cubics)
-            val wantB = bounds(b.cubics)
-            for (k in 0..3) {
-                assertEquals("part $i start [$k]", wantA[k], at0[k], 24f * 0.005f)
-                assertEquals("part $i end [$k]", wantB[k], at1[k], 24f * 0.005f)
-            }
+    fun ends_areTheShapes() {
+        for ((a, b) in MorphShapes.PlayPause.parts) {
+            assertEquals(a.core, lerpQuad(a, b, 0f).first)
+            assertEquals(b.core, lerpQuad(a, b, 1f).first)
         }
+    }
+
+    @Test
+    fun inset_thenRoundedStroke_givesTheOutlineBack() {
+        // A bar 6.3..10.1 inset by 1.5 is 7.8..8.6; stroked 1.5 out each side it is 6.3..10.1 again
+        val bar = MorphShapes.PlayPause.parts[0].second
+        assertEquals(7.8f, bar.core.minOf { it.x }, 1e-3f)
+        assertEquals(8.6f, bar.core.maxOf { it.x }, 1e-3f)
+        assertEquals(6.3f, bar.core.minOf { it.y }, 1e-3f)
     }
 }
 
