@@ -480,7 +480,12 @@ fun AuxiliaryBubbleContent(
             if (notification != null && liveKind == LiveActivityKind.RECORDING) {
                 // I2.3: the mic is slashed while the recorder is paused
                 val paused = remember(notification) { liveActivityControls(notification).isPaused }
-                SlashOverlay(slashed = paused, slashTint = LiveActivityColors.RecordingRed) {
+                // I3.2: and pulses while it records
+                SlashOverlay(
+                    slashed = paused,
+                    slashTint = LiveActivityColors.RecordingRed,
+                    modifier = Modifier.iconEffect(IconEffect.Pulse(), active = !paused),
+                ) {
                     Icon(IslandIcons.Compact.Mic, contentDescription = if (paused) "Recording paused" else "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Compact.Mic))
                 }
             } else if (notification != null && liveKind != LiveActivityKind.NONE) {
@@ -492,24 +497,30 @@ fun AuxiliaryBubbleContent(
                     size = IslandTokens.Glyph.Bubble,
                     color = IslandTokens.AccentOrange
                 )
-            } else if (notification?.avatarBitmap != null) {
-                // The sender's photo fills the split bubble, with the same even ring as the pill
-                CompactContactAvatar(notification = notification, centered = true)
-            } else if (notification?.iconBitmap != null) {
-                Image(
-                    bitmap = notification.iconBitmap.asImageBitmap(),
-                    contentDescription = "Notification Icon",
-                    modifier = Modifier
-                        .size(IslandTokens.Glyph.BubbleArt)
-                        .clip(CircleShape)
-                )
             } else {
-                Icon(
-                    imageVector = IslandIcons.Compact.Notification,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Compact.Notification)
-                )
+                // I3.2: the same app posting again bounces its picture
+                val nudge = IslandStateManager.iconSignals.collectAsState().value.sameAppNudge
+                Box(Modifier.iconEffect(IconEffect.Bounce(), trigger = nudge), contentAlignment = Alignment.Center) {
+                    if (notification?.avatarBitmap != null) {
+                        // The sender's photo fills the split bubble, with the same even ring as the pill
+                        CompactContactAvatar(notification = notification, centered = true)
+                    } else if (notification?.iconBitmap != null) {
+                        Image(
+                            bitmap = notification.iconBitmap.asImageBitmap(),
+                            contentDescription = "Notification Icon",
+                            modifier = Modifier
+                                .size(IslandTokens.Glyph.BubbleArt)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = IslandIcons.Compact.Notification,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(IslandTokens.Glyph.Bubble).opticalCenter(IslandIcons.Compact.Notification)
+                        )
+                    }
+                }
             }
         }
         IslandPriority.PROGRESS -> {
@@ -708,20 +719,26 @@ fun CompactContent(
                             size = IslandTokens.Glyph.Compact,
                             color = IslandTokens.AccentOrange
                         )
-                    } else if (notification?.avatarBitmap != null || notification?.iconBitmap != null) {
-                        CompactContactAvatar(
-                            notification = notification,
-                            edgeReach = if (isCompactDual) IslandTokens.SpaceSm else horizontalInset,
-                            // A contact photo fills the pill's end; a bare app icon stays icon-sized
-                            maxDiameter = if (notification.avatarBitmap != null) Dp.Infinity else IslandTokens.Glyph.CompactArt
-                        )
                     } else {
-                        Icon(
-                            imageVector = IslandIcons.Compact.Notification,
-                            contentDescription = null,
-                            tint = IslandTokens.ControlLight,
-                            modifier = Modifier.size(IslandTokens.Glyph.Compact).opticalCenter(IslandIcons.Compact.Notification)
-                        )
+                        // I3.2: the same app posting again bounces its picture
+                        val nudge = IslandStateManager.iconSignals.collectAsState().value.sameAppNudge
+                        Box(Modifier.iconEffect(IconEffect.Bounce(), trigger = nudge), contentAlignment = Alignment.Center) {
+                            if (notification?.avatarBitmap != null || notification?.iconBitmap != null) {
+                                CompactContactAvatar(
+                                    notification = notification,
+                                    edgeReach = if (isCompactDual) IslandTokens.SpaceSm else horizontalInset,
+                                    // A contact photo fills the pill's end; a bare app icon stays icon-sized
+                                    maxDiameter = if (notification.avatarBitmap != null) Dp.Infinity else IslandTokens.Glyph.CompactArt
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = IslandIcons.Compact.Notification,
+                                    contentDescription = null,
+                                    tint = IslandTokens.ControlLight,
+                                    modifier = Modifier.size(IslandTokens.Glyph.Compact).opticalCenter(IslandIcons.Compact.Notification)
+                                )
+                            }
+                        }
                     }
                 }
 

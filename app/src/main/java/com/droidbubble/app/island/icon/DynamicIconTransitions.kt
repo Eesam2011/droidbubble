@@ -128,9 +128,15 @@ internal fun <T> DynamicIconSwitch(
  * fade. Layout is kept while it shows; the island's shape owns any size change.
  */
 @Composable
-fun DynamicIconVisibility(visible: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun DynamicIconVisibility(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    /** Appear even when first composed visible (a glyph that arrives with its pill). */
+    appearOnEnter: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     val motion = LocalIslandMotion.current
-    val progress = remember { Animatable(if (visible) 1f else 0f) }
+    val progress = remember { Animatable(if (visible && !appearOnEnter) 1f else 0f) }
     var present by remember { mutableStateOf(visible) }
     LaunchedEffect(visible) {
         val reduced = motion.tier == MotionTier.REDUCED

@@ -64,6 +64,7 @@ class IslandHapticsTest {
             IslandHapticEvent.MERGE to listOf(H.SEGMENT_FREQUENT_TICK, H.CLOCK_TICK, H.CLOCK_TICK),
             IslandHapticEvent.SYSTEM_ALERT_CHARGING to listOf(null, null, null),
             IslandHapticEvent.SYSTEM_ALERT_RINGER to listOf(null, null, null),
+            IslandHapticEvent.NUDGE to listOf(H.CLOCK_TICK, H.CLOCK_TICK, H.CLOCK_TICK),
             IslandHapticEvent.IDLE_TAP to listOf(H.CONFIRM, H.CONFIRM, H.KEYBOARD_TAP),
         )
         assertEquals("every event is in the table", IslandHapticEvent.entries.toSet(), table.keys)

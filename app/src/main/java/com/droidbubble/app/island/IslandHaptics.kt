@@ -9,7 +9,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 enum class IslandHapticEvent {
     TAP_EXPAND, COLLAPSE, LONG_PRESS, IDLE_TAP, DISMISS, MINIMISE, RESTORE, HIDE,
     THRESHOLD_CROSSED, GESTURE_COMMIT, TOGGLE_ON, TOGGLE_OFF, SEGMENT_TICK, SEGMENT_FREQUENT_TICK,
-    CONFIRM, REJECT, NECK_SNAP, MERGE, SYSTEM_ALERT_CHARGING, SYSTEM_ALERT_RINGER
+    CONFIRM, REJECT, NECK_SNAP, MERGE, SYSTEM_ALERT_CHARGING, SYSTEM_ALERT_RINGER,
+    /** I3.2: the same app posted again and its icon bounced. */
+    NUDGE,
 }
 
 /** event → `HapticFeedbackConstants`, per Android version. Null means "no haptic". */
@@ -32,7 +34,7 @@ fun interface HapticMap {
                     if (sdk >= Build.VERSION_CODES.R) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
                 // Events that did not exist before the gesture and liquid work: silent in Legacy
                 IslandHapticEvent.THRESHOLD_CROSSED, IslandHapticEvent.SEGMENT_FREQUENT_TICK,
-                IslandHapticEvent.NECK_SNAP, IslandHapticEvent.MERGE -> null
+                IslandHapticEvent.NECK_SNAP, IslandHapticEvent.MERGE, IslandHapticEvent.NUDGE -> null
             }
         }
 
@@ -68,6 +70,8 @@ fun interface HapticMap {
                     if (api30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
                 IslandHapticEvent.NECK_SNAP, IslandHapticEvent.MERGE ->
                     if (api34) HapticFeedbackConstants.SEGMENT_FREQUENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+                // A light tick with the same-app bounce
+                IslandHapticEvent.NUDGE -> HapticFeedbackConstants.CLOCK_TICK
                 IslandHapticEvent.SYSTEM_ALERT_CHARGING, IslandHapticEvent.SYSTEM_ALERT_RINGER -> null
             }
         }

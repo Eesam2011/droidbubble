@@ -1,7 +1,10 @@
 package com.droidbubble.app.island
 
 import com.droidbubble.app.island.icon.IconEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableIntStateOf
 import com.droidbubble.app.island.icon.iconEffect
+import com.droidbubble.app.island.icon.DynamicIcon
 import com.droidbubble.app.island.icon.MorphGlyph
 import com.droidbubble.app.island.icon.MorphIcon
 import com.droidbubble.app.island.icon.MorphShapes
@@ -543,6 +546,7 @@ fun LiveRoundButton(
     iconScale: Float = IslandTokens.Glyph.ControlRatio,
     /** I2.1: draw this morph (at its end shape when true) instead of [icon]. */
     morph: Pair<MorphGlyph, Boolean>? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val container = when (style) {
@@ -555,7 +559,7 @@ fun LiveRoundButton(
         else -> Color.White
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(size)
             .clip(CircleShape)
             .background(container)
@@ -728,11 +732,21 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
         }
         if (notification.isIncomingCall) {
             Spacer(modifier = Modifier.width(layout.buttonGap))
+            // I3.2: the answer button bounces gently every 2.4 s, half a beat after the handset swings
+            var answerNudge by remember { mutableIntStateOf(0) }
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(CALL_REPEAT_MS / 2)
+                while (true) {
+                    answerNudge++
+                    kotlinx.coroutines.delay(CALL_REPEAT_MS)
+                }
+            }
             LiveRoundButton(
                 icon = IslandIcons.Call,
                 contentDescription = "Answer",
                 accent = LiveActivityColors.CallGreen,
-                size = layout.control
+                size = layout.control,
+                modifier = Modifier.iconEffect(IconEffect.Bounce(), trigger = answerNudge)
             ) {
                 sendIslandPendingIntent(context, notification.answerIntent)
                 onCollapse()
@@ -1082,6 +1096,10 @@ private fun AlertPillButton(
     }
 }
 
+/** I3.2: a ringing call's handset and answer button repeat their effect this often. */
+private const val CALL_REPEAT_MS = 2_400L
+private val CALL_WIGGLE = IconEffect.Wiggle(repeatEveryMs = CALL_REPEAT_MS)
+
 private val ALERT_ICON_BREATHE = IconEffect.Breathe(
     minAlpha = 1f,
     scaleFrom = 0.85f,
@@ -1105,7 +1123,10 @@ private fun PulsingAlertIcon(icon: ImageVector, color: Color, size: Dp) {
             tint = color,
             // I1.2: the engine's breathe, read in the layer only (was a per-frame recomposition).
             // Same character as before: 0.85 <-> 1 in size, 520 ms each way, no fading
-            modifier = Modifier.size(size * 0.5f).iconEffect(ALERT_ICON_BREATHE)
+            modifier = Modifier
+                .size(size * 0.5f)
+                .iconEffect(IconEffect.Wiggle(), trigger = IslandStateManager.iconSignals.collectAsState().value.alertStart)
+                .iconEffect(ALERT_ICON_BREATHE)
         )
     }
 }
@@ -1337,7 +1358,13 @@ fun LiveActivityCompactIcon(
 ) {
     val accent = LiveActivityColors.accentFor(kind)
     when (kind) {
-        LiveActivityKind.CALL -> Icon(IslandIcons.Compact.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(glyph))
+        // I3.2: a ringing call's handset swings every 2.4 s until it is answered
+        LiveActivityKind.CALL -> DynamicIcon(
+            IslandIcons.Compact.Call, contentDescription = "Call", tint = accent, size = glyph,
+            effect = if (notification.isIncomingCall) CALL_WIGGLE else null,
+            trigger = IslandStateManager.iconSignals.collectAsState().value.ringStart,
+            active = notification.isIncomingCall,
+        )
         LiveActivityKind.RECORDING -> LiveWaveform(
             color = accent,
             active = notification.liveTimerBaseMs > 0L,
@@ -1354,11 +1381,15 @@ fun LiveActivityCompactIcon(
         } else {
             Icon(IslandIcons.Compact.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
         }
+        // I3.2: Time's up / a ringing alarm swings once as it starts, then breathes while it rings
         LiveActivityKind.ALERT -> Icon(
             if (isTimerAlert(notification)) IslandIcons.Compact.Timer else IslandIcons.Compact.Alarm,
             contentDescription = null,
             tint = accent,
-            modifier = Modifier.size(glyph)
+            modifier = Modifier
+                .size(glyph)
+                .iconEffect(IconEffect.Wiggle(), trigger = IslandStateManager.iconSignals.collectAsState().value.alertStart)
+                .iconEffect(ALERT_ICON_BREATHE)
         )
         LiveActivityKind.ALARM -> Icon(IslandIcons.Compact.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
         LiveActivityKind.TRACKING -> NotificationAvatar(

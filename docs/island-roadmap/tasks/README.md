@@ -229,7 +229,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I2.2 | Checkmark draw-on and slash overlay | done (unlock and connection checks draw on; ringer Ring↔Silent draws the slash, to or from Vibrate replaces; settled glyphs unchanged, S2 unchanged; check later on the phone: lock/unlock, earbuds, ringer switch) |
 | I2.3 | Flashlight and mic morphs | done (torch off from the card draws the slash first; bubble mic slashed while paused; `MuteGlyph` ready for A3.2; tests pass; check later on the phone: torch off from the card and from QS) |
 | I3.1 | Icon event counters | done (`IslandStateManager.iconSignals`; tests pass) |
-| I3.2 | Wire bounce, wiggle, pulse, appear and replace | todo |
+| I3.2 | Wire bounce, wiggle, pulse, appear and replace | done (same-app bounce + NUDGE tick, ringing call wiggle + answer bounce, alarm wiggle then breathe, recorder mic pulse, connection glyph appear, ringer arrival wiggles replace the keyframe shakes; tests pass; check later on the phone: a WhatsApp burst, a real incoming call, Time's up, earbuds, the ringer switch) |
 | I3.3 | Wire charging, download, network and flashlight | todo |
 | I3.4 | Media: cover flip and play-state morph | todo |
 | I4.1 | Effect catalogue in the Test panel | doing (catalogue in the Test panel and offline clips in `review/icon-clips/`; waiting on the owner to tune the feel on the phone) |

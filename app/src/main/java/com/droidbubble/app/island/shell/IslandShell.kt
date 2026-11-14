@@ -1,5 +1,8 @@
 package com.droidbubble.app.island.shell
 
+import com.droidbubble.app.island.icon.DynamicIconVisibility
+import com.droidbubble.app.island.icon.IconEffect
+import com.droidbubble.app.island.icon.iconEffect
 import com.droidbubble.app.island.icon.DrawOnIcon
 import com.droidbubble.app.island.icon.DynamicIconSwitch
 import com.droidbubble.app.island.icon.IconStrokes
@@ -469,53 +472,27 @@ internal fun IslandShell(
         label = "ringerSecondaryScale"
     )
 
-    val bellShakeRotation = remember { Animatable(0f) }
-
+    // I3.2: arriving in Ring swings the bell, arriving in Vibrate shakes it sideways. Spring
+    // wiggles from the icon engine replace the old keyframe shakes; each counter is one arrival
+    var ringArrival by remember { mutableIntStateOf(0) }
+    var vibrateArrival by remember { mutableIntStateOf(0) }
     LaunchedEffect(isRingerMode, activeRingerMode) {
-        if (isRingerMode && activeRingerMode == RingerMode.RING) {
-            haptics.perform(IslandHapticEvent.SYSTEM_ALERT_RINGER)
-            bellShakeRotation.snapTo(0f)
-            val animDuration = motion.scaled(1000)
-            val rotSpec = motion.keyframes<Float> {
-                durationMillis = animDuration
-                0f at 0 using FastOutSlowInEasing
-                -24f at (animDuration * 0.06f).roundToInt() using FastOutSlowInEasing
-                24f at (animDuration * 0.13f).roundToInt() using FastOutSlowInEasing
-                -18f at (animDuration * 0.22f).roundToInt() using FastOutSlowInEasing
-                14f at (animDuration * 0.33f).roundToInt() using FastOutSlowInEasing
-                -10f at (animDuration * 0.46f).roundToInt() using FastOutSlowInEasing
-                6f at (animDuration * 0.60f).roundToInt() using FastOutSlowInEasing
-                -3f at (animDuration * 0.75f).roundToInt() using FastOutSlowInEasing
-                1f at (animDuration * 0.88f).roundToInt() using FastOutSlowInEasing
-                0f at animDuration using FastOutSlowInEasing
+        if (!isRingerMode) return@LaunchedEffect
+        when (activeRingerMode) {
+            RingerMode.RING -> {
+                haptics.perform(IslandHapticEvent.SYSTEM_ALERT_RINGER)
+                ringArrival++
             }
-            bellShakeRotation.animateTo(0f, animationSpec = rotSpec)
-        } else {
-            bellShakeRotation.snapTo(0f)
+            RingerMode.VIBRATE -> vibrateArrival++
+            else -> {}
         }
     }
 
-    val vibrateShakeOffset = remember { Animatable(0f) }
-    LaunchedEffect(isRingerMode, activeRingerMode) {
-        if (isRingerMode && activeRingerMode == RingerMode.VIBRATE) {
-            vibrateShakeOffset.snapTo(0f)
-            val vibDuration = motion.scaled(600)
-            val vibSpec = motion.keyframes<Float> {
-                durationMillis = vibDuration
-                0f at 0 using FastOutSlowInEasing
-                -3f at (vibDuration * 0.08f).roundToInt() using FastOutSlowInEasing
-                3f at (vibDuration * 0.16f).roundToInt() using FastOutSlowInEasing
-                -3f at (vibDuration * 0.25f).roundToInt() using FastOutSlowInEasing
-                3f at (vibDuration * 0.35f).roundToInt() using FastOutSlowInEasing
-                -2f at (vibDuration * 0.48f).roundToInt() using FastOutSlowInEasing
-                2f at (vibDuration * 0.62f).roundToInt() using FastOutSlowInEasing
-                -1f at (vibDuration * 0.78f).roundToInt() using FastOutSlowInEasing
-                0f at vibDuration using FastOutSlowInEasing
-            }
-            vibrateShakeOffset.animateTo(0f, animationSpec = vibSpec)
-        } else {
-            vibrateShakeOffset.snapTo(0f)
-        }
+    // I3.2: a light tick with the same-app bounce
+    val sameAppNudge = IslandStateManager.iconSignals.collectAsState().value.sameAppNudge
+    val firstNudge = remember { sameAppNudge }
+    LaunchedEffect(sameAppNudge) {
+        if (sameAppNudge != firstNudge) haptics.perform(IslandHapticEvent.NUDGE)
     }
 
     val chargingPct = charging?.percentage ?: 0
@@ -1766,12 +1743,15 @@ internal fun IslandShell(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.CenterStart
                             ) {
-                                Icon(
-                                    imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) IslandIcons.Compact.Wifi else IslandIcons.Compact.Bluetooth,
-                                    contentDescription = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(IslandTokens.Glyph.Compact)
-                                )
+                                // I3.2: the glyph appears with the pill, then the check draws on
+                                DynamicIconVisibility(visible = isBluetooth, appearOnEnter = true) {
+                                    Icon(
+                                        imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) IslandIcons.Compact.Wifi else IslandIcons.Compact.Bluetooth,
+                                        contentDescription = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(IslandTokens.Glyph.Compact)
+                                    )
+                                }
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
@@ -1816,8 +1796,8 @@ internal fun IslandShell(
                                             contentDescription = RingerMode.VIBRATE.name,
                                             tint = Color.White,
                                             modifier = Modifier
-                                                .graphicsLayer { translationX = vibrateShakeOffset.value.dp.toPx() }
                                                 .size(IslandTokens.Glyph.Compact)
+                                                .iconEffect(IconEffect.Wiggle(IconEffect.WiggleAxis.Horizontal), trigger = vibrateArrival)
                                         )
                                     } else {
                                         SlashOverlay(
@@ -1837,11 +1817,8 @@ internal fun IslandShell(
                                                 contentDescription = displayRingerMode.name,
                                                 tint = iconTint,
                                                 modifier = Modifier
-                                                    .graphicsLayer {
-                                                        transformOrigin = TransformOrigin(0.5f, 0.0f)
-                                                        rotationZ = bellShakeRotation.value
-                                                    }
                                                     .size(IslandTokens.Glyph.Compact)
+                                                    .iconEffect(IconEffect.Wiggle(), trigger = ringArrival, pivot = TransformOrigin(0.5f, 0f))
                                             )
                                         }
                                     }
