@@ -100,6 +100,10 @@ object IslandTokens {
     val ControlTrack = SurfaceRaised
     /** An icon that can't be used yet (the send button with no text). */
     val IconDisabled = Color(0xFF52525B)
+    /** I1.4: a layered icon's unlit layers draw at this opacity of the tint. */
+    const val LayerInactiveAlpha = 0.25f
+    /** I1.4: in Reduced motion a layered icon's loop holds every layer at this opacity. */
+    const val LayerLoopStillAlpha = 0.6f
 
     // ---- Live activity accents (used through LiveActivityColors) ----
     // F2.3: recording uses [RecordingRed], call uses [AccentGreen] (#34C759 merged, ΔE2000 2.7)

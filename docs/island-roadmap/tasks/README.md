@@ -224,7 +224,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I1.1 | Engine core: bounce and wiggle | done (`island/icon/`; tests pass; no callers yet; device feel check in I4.1) |
 | I1.2 | Pulse, breathe, rotate; draw-phase pulses | done (recording dot and alarm icon on the engine; S2 unchanged, tests pass; check later on the phone: the dot pulse reads as before) |
 | I1.3 | Appear, disappear and replace | done (`DynamicIconSwitch`, `DynamicIconVisibility`; tests pass; no callers until I2.2/I3.2) |
-| I1.4 | Variable color (LayeredIcon) | todo |
+| I1.4 | Variable color (LayeredIcon) | done (bands cut the real V7 glyph, so no hand-drawn layer paths; signal-bars step dropped, that view was removed earlier; tests pass; device check in I4.1) |
 | I2.1 | Morph toolkit and play↔pause | todo |
 | I2.2 | Checkmark draw-on and slash overlay | todo |
 | I2.3 | Flashlight and mic morphs | todo |
