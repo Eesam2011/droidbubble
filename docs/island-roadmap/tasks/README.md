@@ -144,34 +144,34 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F6.4 | Release signing | doing (wiring done and tested with a throwaway key; waiting on the owner to create the real keystore) |
 | M1.1 | IslandShellState (Animatable geometry + x) | done |
 | M1.2 | Continuity test harness | done |
-| M1.3 | Expand starts from the pill | parked (owner: one-body morph felt less smooth on review; two bodies kept. Work saved in `parked/M1.3-one-body.patch`) |
-| M1.4 | One surface for pill and card | parked (needs M1.3) |
-| M1.5 | Notch style on the one body | parked (needs M1.4) |
+| M1.3 | Expand starts from the pill | cancelled (was parked; owner: one-body morph felt less smooth on review; two bodies kept. Work saved in `parked/M1.3-one-body.patch`) |
+| M1.4 | One surface for pill and card | cancelled (was parked; needs M1.3) |
+| M1.5 | Notch style on the one body | cancelled (was parked; needs M1.4) |
 | M2.1 | Extract the shell to `island/shell/` | done (one file, IslandShell.kt; finer splits land with M1.4 and M2.x) |
 | M2.2 | Size and position read in the layout phase | done (recompositions within budget, not yet lower: the shell still reads the geometry in composition until M2.4–M2.7) |
 | M2.3 | Cached squircle surface | done (exact-radius cache: 0.25 dp buckets would shift mid-animation pixels) |
 | M2.4 | Stretch and blur from spring velocity | done (owner approved the mid-frame diff, 2026-11-12) |
 | M2.5 | Glass publishing without SideEffect | done (device: OPPO CPH2631, Android 16, Liquid glass on; the blur follows the card on expand and collapse) |
-| M2.6 | Pill content laid out at final width | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
-| M2.7 | Narrow state reads and recomposition gate | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M2.6 | Pill content laid out at final width | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M2.7 | Narrow state reads and recomposition gate | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; device checked at 0.7×, 1×, 2× and 10×: content waits for the shape, leaves blurred) |
 | M3.2 | Staggers in progress, not wall-clock time | done (device checked at 0.7×, 1×, 2× and 10×: card 2 after card 1, bubble after the pill, parentheses at 60%; no jank regression vs the pre-M2.5 build) |
 | M3.3 | Expanded content keyed per activity | done (crossfade on a new key, same-key updates in place; new mid-frame motion_call_replaces_media__64ms; device check pending, phone not connected) |
 | M3.4 | Compact content keyed per activity | done (pill keyed on ContentKey; tests pass; check later on the phone) |
 | M4.1 | `Modifier.islandGestures` and release resolver | done |
-| M4.2 | Card sideways fling-out or spring-back | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
-| M4.3 | Card swipe-up tucks, with velocity hand-off | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
-| M4.4 | Pill: down expands, further opens the shade, inward minimizes | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
-| M4.5 | Back and predictive back collapse | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.2 | Card sideways fling-out or spring-back | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.3 | Card swipe-up tucks, with velocity hand-off | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.4 | Pill: down expands, further opens the shade, inward minimizes | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.5 | Back and predictive back collapse | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M5.1 | Resolve the motion tier | done (code and tests pass; check later on the phone: "Remove animations" and Battery Saver switch the tier live) |
-| M5.2 | Apply Reduced and Efficient everywhere | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
-| M5.3 | "Eager in, calm out" retune | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M5.2 | Apply Reduced and Efficient everywhere | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M5.3 | "Eager in, calm out" retune | cancelled (was reverted; owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 
 **Checks left for later (phase 2–3).** The code and tests for these are done; they need the phone or the owner:
 - On the phone: F1.4, F1.5 (one resize per notification burst), F3.3 (haptics), F3.5 ("Time to take action"), F3.6 (6 s / 8 s feel), F5.1 (Perfetto: one relayout), F5.2 (no clipped first frames at 120 Hz), F5.3 (full shrink on hide), F5.4 (envelope trial, debug flag), M3.3 and M3.4 (crossfades), M5.1 (tier switches live).
 - With the phone connected: F6.3, generate the baseline profile and run `IslandFirstExpandBenchmark`.
 - The owner: F6.4, create the release keystore.
-- Parked or reverted by the owner, not to be redone without a new decision: M1.3–M1.5, M2.6, M2.7, M4.2–M4.5, M5.2, M5.3.
+- Cancelled by the owner (parked or reverted earlier), not to be redone without a new decision: M1.3–M1.5, M2.6, M2.7, M4.2–M4.5, M5.2, M5.3.
 
 ### Phase 4 + 6: Layout polish and signature motion ([file](phase-4-6-layout-and-motion-polish.md))
 | ID | Title | Status |
