@@ -1021,6 +1021,15 @@ fun MainScreen(
             item {
                 LiveActivityTestPanel(islandRunning = settings.isEnabled && pendingPermissions.none { it.id == "overlay" })
             }
+            // F5.4: the envelope window trial (decision D7), in debug builds only
+            if (com.droidbubble.app.BuildConfig.DEBUG) {
+                item {
+                    EnvelopeWindowTrialSwitch(
+                        checked = settings.envelopeWindowTrial,
+                        onCheckedChange = { on -> viewModel.updateSettings { it.copy(envelopeWindowTrial = on) } }
+                    )
+                }
+            }
 
             item {
                 Spacer(modifier = Modifier.height(32.dp))

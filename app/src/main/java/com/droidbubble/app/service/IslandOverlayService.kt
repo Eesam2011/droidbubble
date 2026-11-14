@@ -56,6 +56,8 @@ import com.droidbubble.app.MainActivity
 import com.droidbubble.app.R
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandOverlayRoot
+import com.droidbubble.app.service.window.EnvelopeWindow
+import com.droidbubble.app.service.window.OutsideTapCollapser
 import com.droidbubble.app.service.window.OverlayWindowController
 import com.droidbubble.app.service.window.ShrinkOnSettle
 import com.droidbubble.app.service.window.WindowState
@@ -510,9 +512,39 @@ class IslandOverlayService : Service() {
         )
     }
 
-    private fun setWindowSize(width: Int, height: Int, touchable: Boolean) {
-        windowSize = WindowState(width, height, touchable)
+    private fun setWindowSize(width: Int, height: Int, touchable: Boolean, watchOutside: Boolean = false) {
+        windowSize = WindowState(width, height, touchable, watchOutside = watchOutside)
         pushWindow()
+    }
+
+    // F5.4 envelope trial: a tap outside the open card's envelope window collapses it
+    private val outsideTapCollapser = OutsideTapCollapser(
+        isExpanded = { IslandStateManager.isExpanded.value },
+        collapse = {
+            composeView?.let { view ->
+                com.droidbubble.app.island.IslandHaptics(view, enabled = { currentSettings.hapticsEnabled })
+                    .perform(com.droidbubble.app.island.IslandHapticEvent.COLLAPSE)
+            }
+            IslandStateManager.collapse()
+        },
+    )
+
+    /** The outside-tap listener exists only while the envelope trial is on; off, the view is as before. */
+    private fun syncOutsideTap() {
+        composeView?.setOnTouchListener(if (currentSettings.envelopeWindowTrial) outsideTapCollapser else null)
+    }
+
+    /**
+     * F5.4: card rects are relative to the island window, and the blur windows are placed in
+     * screen space. The full-screen window starts at the screen's corner; the envelope does not.
+     */
+    private fun glassPanesOnScreen(panes: List<IslandStateManager.GlassPane>): List<IslandStateManager.GlassPane> {
+        if (!currentSettings.envelopeWindowTrial || panes.isEmpty()) return panes
+        val view = composeView ?: return panes
+        val loc = IntArray(2)
+        view.getLocationOnScreen(loc)
+        if (loc[0] == 0 && loc[1] == 0) return panes
+        return panes.map { it.copy(left = it.left + loc[0], top = it.top + loc[1]) }
     }
 
 
@@ -634,6 +666,7 @@ class IslandOverlayService : Service() {
         }
 
         composeView = view
+        syncOutsideTap()
 
         overlayJobs.forEach { it.cancel() }
         overlayJobs.clear()
@@ -658,10 +691,10 @@ class IslandOverlayService : Service() {
         // Card rects go to the blur windows straight from the island's frame (no queue hop); the
         // windows apply them on their own thread, so the island never waits for a pane relayout
         IslandStateManager.glassPaneListener = { panes ->
-            glassPaneWindows?.update(if (currentSettings.liquidGlassCards) panes else emptyList())
+            glassPaneWindows?.update(if (currentSettings.liquidGlassCards) glassPanesOnScreen(panes) else emptyList())
         }
         glassPaneWindows?.update(
-            if (currentSettings.liquidGlassCards) IslandStateManager.glassPanes.value else emptyList()
+            if (currentSettings.liquidGlassCards) glassPanesOnScreen(IslandStateManager.glassPanes.value) else emptyList()
         )
 
         // F1.5: one scene flow drives the window. It emits only when what the island shows
@@ -678,6 +711,13 @@ class IslandOverlayService : Service() {
                 updateWindowState(scene.isExpanded)
                 // The boost rides on the resize above; if the size didn't change it goes alone
                 pushWindow()
+            }
+        }
+
+        // F5.4 envelope trial: a card's measured height changed (new text, the reply field)
+        overlayJobs += serviceScope.launch {
+            IslandStateManager.measuredCardHeights.collect {
+                if (currentSettings.envelopeWindowTrial && IslandStateManager.isExpanded.value) updateWindowState(true)
             }
         }
 
@@ -712,6 +752,7 @@ class IslandOverlayService : Service() {
                     initOverlay()
                 } else {
                     syncGlassPanes(settings.liquidGlassCards)
+                    syncOutsideTap()
                     updateWindowState(IslandStateManager.isExpanded.value)
                 }
             }
@@ -771,7 +812,7 @@ class IslandOverlayService : Service() {
                     if (composeView !== view || glassPaneWindows !== panes) return@create
                     if (view.parent != null) runCatching { windowManager?.removeViewImmediate(view) }
                     addIslandView(view)
-                    panes.update(IslandStateManager.glassPanes.value)
+                    panes.update(glassPanesOnScreen(IslandStateManager.glassPanes.value))
                 }
             }
         } else if (!on && glassPaneWindows != null) {
@@ -872,8 +913,24 @@ class IslandOverlayService : Service() {
             collapseJob?.cancel()
             isCollapsing = false
             wasExpanded = true
-            // Full screen touch area to allow tapping outside to dismiss
-            setWindowSize(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, touchable = true)
+            val envelope = if (currentSettings.envelopeWindowTrial) {
+                EnvelopeWindow.envelopeFor(ws.scene, currentSettings, currentEnv(), IslandStateManager.measuredCardHeights.value)
+            } else null
+            if (envelope != null) {
+                // F5.4 trial: an envelope around the cards; a tap outside arrives as ACTION_OUTSIDE.
+                // While open it only grows, so a card getting shorter is never clipped.
+                val px = envelope.toWindowPx(density)
+                val open = windowSize.watchOutside
+                setWindowSize(
+                    if (open) EnvelopeWindow.grownOnly(windowSize.width, px.width) else px.width,
+                    if (open) EnvelopeWindow.grownOnly(windowSize.height, px.height) else px.height,
+                    touchable = true,
+                    watchOutside = true,
+                )
+            } else {
+                // Full screen touch area to allow tapping outside to dismiss
+                setWindowSize(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, touchable = true)
+            }
         } else {
             val isOccupied = ws.scene.isOccupied
 

@@ -66,6 +66,7 @@ private object PreferencesKeys {
     val SPLIT_STIFFNESS = floatPreferencesKey("split_stiffness")
     val FEATURE_PRIORITIES = stringPreferencesKey("feature_priorities")
     val ISLAND_STYLE = stringPreferencesKey("island_style")
+    val ENVELOPE_WINDOW_TRIAL = booleanPreferencesKey("envelope_window_trial")
 }
 
 /**
@@ -126,7 +127,8 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         splitDamping = this[PreferencesKeys.SPLIT_DAMPING] ?: 0.63f,
         splitStiffness = this[PreferencesKeys.SPLIT_STIFFNESS] ?: 320f,
         islandStyle = IslandSettings.normalizeStyle(this[PreferencesKeys.ISLAND_STYLE]),
-        featurePriorities = parseFeaturePriorities(this[PreferencesKeys.FEATURE_PRIORITIES])
+        featurePriorities = parseFeaturePriorities(this[PreferencesKeys.FEATURE_PRIORITIES]),
+        envelopeWindowTrial = this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] ?: false,
     )
 }
 
@@ -178,6 +180,7 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.SPLIT_STIFFNESS] = s.splitStiffness
     this[PreferencesKeys.FEATURE_PRIORITIES] = s.featurePriorities.joinToString(",")
     this[PreferencesKeys.ISLAND_STYLE] = IslandSettings.normalizeStyle(s.islandStyle)
+    this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] = s.envelopeWindowTrial
 }
 
 class SettingsRepository(private val context: Context) {

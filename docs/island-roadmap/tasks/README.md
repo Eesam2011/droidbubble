@@ -137,7 +137,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F5.1 | WindowSpec and OverlayWindowController | doing (code and tests done; device check pending: one relayout at expand start in a Perfetto trace) |
 | F5.2 | Grow the window before animating | doing (code and tests done; device check pending: no clipped first frames at 120 Hz) |
 | F5.3 | Shrink on settle everywhere, including hide | doing (code and tests done; device check pending: hide and the last notification ending show the full shrink) |
-| F5.4 | Envelope window trial behind a flag | todo |
+| F5.4 | Envelope window trial behind a flag | done (behind flag, default off; the envelope, window and settings tests pass, the full suite and screenshot tests not run yet; device trial pending on Pixel, Samsung and Xiaomi) |
 | F6.1 | Apply Decision D1 (minSdk or guards) | done (D1 = no: API gates in `IslandApi`) |
 | F6.2 | Compose compiler reports and stability config | done |
 | F6.3 | Baseline profile | doing (code written; Gradle configures and the plugin tasks exist, but the compile builds were not run yet; profile generation needs a device: `bash tools/gradle-locked.sh :app:generateBaselineProfile`, see `baselineprofile/README.md`; then check P90 with `IslandFirstExpandBenchmark`) |

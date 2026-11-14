@@ -627,6 +627,12 @@ internal fun IslandShell(
     val progressBaseHeight = remember(currentProgress, settings.expandedScale, notifBaseTextStyle, notifDensity) {
         measureProgressCardHeight(currentProgress, settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
     }
+    // F5.4: the envelope window trial sizes itself around these heights (only while it is on)
+    if (settings.envelopeWindowTrial) {
+        LaunchedEffect(notifBaseHeight, progressBaseHeight) {
+            IslandStateManager.publishMeasuredCardHeights(MeasuredHeights(notifBaseHeight, progressBaseHeight))
+        }
+    }
     // Card 2 starts a beat after card 1: once card 1 is 10% open (M3.2, set below the shell)
     var card2Expanded by remember { mutableStateOf(false) }
 

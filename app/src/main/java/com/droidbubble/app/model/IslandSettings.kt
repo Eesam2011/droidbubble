@@ -75,9 +75,19 @@ data class IslandSettings(
     val splitStiffness: Float = 320f,
     val featurePriorities: List<String> = DEFAULT_FEATURE_PRIORITIES,
     // "PILL": floating capsule around the camera. "NOTCH": attached to the top edge of the screen.
-    val islandStyle: String = STYLE_PILL
+    val islandStyle: String = STYLE_PILL,
+    /**
+     * F5.4 (decision D7): a hidden trial. On, the open card's window is an envelope around the
+     * cards instead of the whole screen, and a tap outside it collapses through ACTION_OUTSIDE.
+     * Off by default; only a debug build shows the switch.
+     */
+    val envelopeWindowTrial: Boolean = false,
 ) {
     val isNotch: Boolean get() = islandStyle == STYLE_NOTCH
+
+    /** The window the open card gets (F5.4). [ExpandWindowStrategy.MATCH_PARENT] unless the trial is on. */
+    val expandWindowStrategy: ExpandWindowStrategy
+        get() = if (envelopeWindowTrial) ExpandWindowStrategy.ENVELOPE else ExpandWindowStrategy.MATCH_PARENT
 
     companion object {
         const val STYLE_PILL = "PILL"
@@ -87,3 +97,6 @@ data class IslandSettings(
         fun normalizeStyle(value: String?): String = if (value == STYLE_NOTCH) STYLE_NOTCH else STYLE_PILL
     }
 }
+
+/** F5.4: the overlay window while a card is open. MATCH_PARENT is the default (decision D7). */
+enum class ExpandWindowStrategy { MATCH_PARENT, ENVELOPE }

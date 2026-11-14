@@ -22,6 +22,8 @@ data class WindowState(
     /** 0 = let the system choose. */
     val preferredRefreshRate: Float = 0f,
     val gravity: Int = Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+    /** F5.4 envelope trial: taps outside the window arrive as ACTION_OUTSIDE. */
+    val watchOutside: Boolean = false,
 ) {
     companion object {
         /** 1×1 and not touchable: the island is not on screen. */
@@ -59,6 +61,7 @@ class OverlayWindowController(
             focusable = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0,
             preferredRefreshRate = params.preferredRefreshRate,
             gravity = params.gravity,
+            watchOutside = params.flags and WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH != 0,
         )
 
     /** Moves the window to [state]. Returns true when an update was sent. */
@@ -68,6 +71,8 @@ class OverlayWindowController(
         else flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         flags = if (state.focusable) flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
         else flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        flags = if (state.watchOutside) flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        else flags and WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH.inv()
         if (params.width == state.width && params.height == state.height && params.flags == flags &&
             params.preferredRefreshRate == state.preferredRefreshRate && params.gravity == state.gravity &&
             params.x == 0 && params.y == 0

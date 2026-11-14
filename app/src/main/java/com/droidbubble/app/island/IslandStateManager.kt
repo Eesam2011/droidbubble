@@ -155,6 +155,15 @@ object IslandStateManager {
         _settledShape.value = shape
     }
 
+    // F5.4 envelope trial: the card heights the view measured from text, so the window can size
+    // an envelope around them. Published only while the trial is on; null until then.
+    private val _measuredCardHeights = MutableStateFlow<com.droidbubble.app.island.scene.MeasuredHeights?>(null)
+    val measuredCardHeights: StateFlow<com.droidbubble.app.island.scene.MeasuredHeights?> = _measuredCardHeights.asStateFlow()
+
+    fun publishMeasuredCardHeights(heights: com.droidbubble.app.island.scene.MeasuredHeights) {
+        _measuredCardHeights.value = heights
+    }
+
     private val _expandedPriority = MutableStateFlow<IslandPriority?>(null)
     val expandedPriority: StateFlow<IslandPriority?> = _expandedPriority.asStateFlow()
 
@@ -824,6 +833,7 @@ object IslandStateManager {
         _expandedPriority.value = null
         _collapseSettled.value = true
         _settledShape.value = null
+        _measuredCardHeights.value = null
         _flashlightSolo.value = false
         _isPopInActive.value = false
         _isKeyboardFocused.value = false
