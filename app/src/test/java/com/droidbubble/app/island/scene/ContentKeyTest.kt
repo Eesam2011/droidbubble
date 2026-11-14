@@ -32,11 +32,11 @@ class ContentKeyTest {
             Triple(scene(CALL), Slot.PRIMARY, ContentKey(CALL, "n:k1")),
             Triple(scene(POP_NOTIFICATION), Slot.PRIMARY, ContentKey(POP_NOTIFICATION, "n:k1")),
             Triple(scene(PROGRESS), Slot.PRIMARY, ContentKey(PROGRESS, "n:p1")),
-            Triple(scene(MEDIA), Slot.PRIMARY, ContentKey(MEDIA, "media:com.music:Song A")),
+            Triple(scene(MEDIA), Slot.PRIMARY, ContentKey(MEDIA, "media:com.music")),
             Triple(scene(SCREEN_RECORDING), Slot.PRIMARY, ContentKey(SCREEN_RECORDING, null)),
             Triple(scene(FLASHLIGHT), Slot.PRIMARY, ContentKey(FLASHLIGHT, null)),
             Triple(scene(IDLE), Slot.PRIMARY, ContentKey(IDLE, null)),
-            Triple(scene(POP_NOTIFICATION, MEDIA), Slot.SECONDARY, ContentKey(MEDIA, "media:com.music:Song A")),
+            Triple(scene(POP_NOTIFICATION, MEDIA), Slot.SECONDARY, ContentKey(MEDIA, "media:com.music")),
             Triple(scene(MEDIA), Slot.SECONDARY, ContentKey(IDLE, null)),
         )
         rows.forEach { (s, slot, want) -> assertEquals("${s.primary}/${s.secondary} $slot", want, contentKeyFor(s, inputs, slot)) }
@@ -56,6 +56,9 @@ class ContentKeyTest {
         assertEquals(before, after)
         val moved = inputs.copy(media = song.copy(positionMs = 42_000, isPlaying = true))
         assertEquals(contentKeyFor(scene(MEDIA), inputs, Slot.PRIMARY), contentKeyFor(scene(MEDIA), moved, Slot.PRIMARY))
+        // The next song in the same player: the card updates in place and the cover flips
+        val nextTrack = inputs.copy(media = song.copy(title = "Song B", artist = "Other"))
+        assertEquals(contentKeyFor(scene(MEDIA), inputs, Slot.PRIMARY), contentKeyFor(scene(MEDIA), nextTrack, Slot.PRIMARY))
     }
 
     @Test
@@ -64,8 +67,9 @@ class ContentKeyTest {
         // Same priority, another app's notification
         val b = contentKeyFor(scene(POP_NOTIFICATION), inputs.copy(notification = notif("k2", "com.other")), Slot.PRIMARY)
         assertNotEquals(a, b)
-        val nextTrack = inputs.copy(media = song.copy(title = "Song B"))
-        assertNotEquals(contentKeyFor(scene(MEDIA), inputs, Slot.PRIMARY), contentKeyFor(scene(MEDIA), nextTrack, Slot.PRIMARY))
+        // Another player app
+        val otherApp = inputs.copy(media = song.copy(packageName = "com.other.music"))
+        assertNotEquals(contentKeyFor(scene(MEDIA), inputs, Slot.PRIMARY), contentKeyFor(scene(MEDIA), otherApp, Slot.PRIMARY))
         assertNotEquals(contentKeyFor(scene(MEDIA), inputs, Slot.PRIMARY), a)
     }
 }

@@ -76,6 +76,20 @@ class IslandContentSwapTest {
         assertCrossfade({ IslandStateManager.updateNotification(IslandFixtures.incomingCall) }, { h.exists(media) }, ::incoming)
     }
 
+    /** Skipping to the next song keeps the same card (only the cover flips), no crossfade. */
+    @Test
+    fun nextSong_updatesInPlace() {
+        rule.runOnIdle { IslandStateManager.updateMedia(IslandFixtures.song) }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.expand(null) }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.updateMedia(IslandFixtures.song.copy(title = "Next song", artist = "Someone else")) }
+        repeat(20) {
+            h.advanceFrozen(16)
+            assertTrue("frame $it: one media card", rule.onAllNodesWithTag(media).fetchSemanticsNodes().size == 1)
+        }
+    }
+
     @Test
     fun messageFromAnotherConversation_crossfades() {
         rule.runOnIdle {

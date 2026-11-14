@@ -8,8 +8,11 @@ import com.droidbubble.app.model.IslandPriority
  * and updates in place when only the data under the same key changes (a timer tick, a new
  * message in the same conversation, the media position).
  *
- * [id] is `n:<notification key>`, `media:<package>:<title>`, or null for activities that only
- * ever have one instance (recording, flashlight). Phase 7's `ActivityId` replaces it later.
+ * [id] is `n:<notification key>`, `media:<package>`, or null for activities that only ever have
+ * one instance (recording, flashlight). Phase 7's `ActivityId` replaces it later.
+ *
+ * Media is keyed on the player app, not the track: skipping to the next song updates the card
+ * in place, so the album cover's own flip plays instead of the whole card crossfading.
  */
 @Immutable
 data class ContentKey(val priority: IslandPriority, val id: String?)
@@ -24,7 +27,7 @@ fun contentKeyFor(scene: IslandScene, inputs: IslandInputs, slot: Slot): Content
     val id = when (priority) {
         IslandPriority.CALL, IslandPriority.POP_NOTIFICATION -> inputs.notification?.key?.let { "n:$it" }
         IslandPriority.PROGRESS -> inputs.progress?.key?.let { "n:$it" }
-        IslandPriority.MEDIA -> inputs.media?.let { "media:${it.packageName}:${it.title}" }
+        IslandPriority.MEDIA -> inputs.media?.let { "media:${it.packageName}" }
         IslandPriority.SCREEN_RECORDING, IslandPriority.FLASHLIGHT, IslandPriority.IDLE -> null
     }
     return ContentKey(priority, id)
