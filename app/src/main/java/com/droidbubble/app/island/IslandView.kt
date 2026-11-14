@@ -676,6 +676,7 @@ fun CompactContent(
     secondaryPriority: IslandPriority? = null,
     horizontalInset: Dp = 10.dp
 ) {
+    RecompositionProbe.onCompactContent?.invoke()
     // Keep showing the last activity while the pill animates away, instead of a generic bell
     val notification = rememberLastNonNull(notification)
     Row(

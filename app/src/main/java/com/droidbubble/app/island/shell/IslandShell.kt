@@ -182,6 +182,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.DpSize
@@ -726,8 +727,10 @@ internal fun IslandShell(
     }
     val animatedCompactWidthRaw by compactWidthState
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
-    // pill retracting); a negative width throws in layout and crashed the island
-    val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
+    // pill retracting); a negative width throws in layout and crashed the island.
+    // M2.6: a derived state, so declaring it doesn't read the width in composition
+    val animatedCompactWidth by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) } }
+    val pillGone by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) <= 0.1.dp } }
     // M1.1: the body's shape and position live in one state holder (Animatables), so later
     // tasks can retarget with a velocity, snap, and read the velocity
     val shell = rememberIslandShellState(shellTargetCard1, shellTargetX)
@@ -774,6 +777,14 @@ internal fun IslandShell(
     val pillShown by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 0.5.dp } }
     val pillFilled by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 2.dp } }
     val pillOutlined by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 8.dp } }
+    // M2.6: more coarse pill flags, so no composition reads the pill's animated width
+    val pillFitsContent by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 24.dp } }
+    val pillWiderThanTall by remember(settings.heightDp) { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > settings.heightDp.dp } }
+    // M2.6: the width the pill's content is laid out at: where the pill is heading, or, while it
+    // shrinks away to nothing, the last width it had, so leaving content is clipped, not squeezed
+    val compactContentWidthHolder = remember { CompactContentWidth() }
+    if (targets.compactWidth > 0.dp) compactContentWidthHolder.width = targets.compactWidth
+    val compactContentWidth = compactContentWidthHolder.width
     val animatedCardSpacing by animateDpAsState(targetValue = targetCardSpacing, animationSpec = sizeAnimSpecDp, label = "cardSpacing")
 
     // F5.3: tell the window when every shape animation (card, pill, bubble, card 2) has come to
@@ -1002,7 +1013,7 @@ internal fun IslandShell(
     }
 
     // Completely idle and collapsed: nothing is visible on screen. Skip rendering the view hierarchy to preserve CPU & battery.
-    if (!isOccupied && !settings.alwaysShowPill && animatedCompactWidth <= 0.1.dp && !isExpanded && expandProgress <= 0.001f) {
+    if (!isOccupied && !settings.alwaysShowPill && pillGone && !isExpanded && expandProgress <= 0.001f) {
         return
     }
 
@@ -1403,14 +1414,16 @@ internal fun IslandShell(
             // Smoothly fade in over the first frames where it is barely a circle emerging from the punch hole,
             // and smoothly fade out when shrinking back into the punch hole.
             // Applies to both single and dual activities!
+            // M2.6: every alpha below is read inside graphicsLayer / draw / layout lambdas, so the
+            // pill's width morph redraws without recomposing; only coarse flags recompose
             val circleThreshold = (settings.heightDp.dp * 0.95f).coerceAtLeast(10.dp)
-            val emergenceProgress = (animatedCompactWidth / circleThreshold).coerceIn(0f, 1f)
-            val compactPillAlpha = emergenceProgress * emergenceProgress * (3f - 2f * emergenceProgress)
-
-            // 1. Auxiliary Circular Island Bubble: Placed on the LAYER BELOW (rendered first so main pill covers it!)
-            // Fixed circular shape & size; emerges and retracts purely along the X axis from the middle of the punch hole (x = 0)
-            if (isDual || animatedBubbleOffsetX > 1.dp) {
-                val bubbleOffsetXPx = with(LocalDensity.current) { animatedBubbleOffsetX.roundToPx() }
+            fun compactPillAlpha(): Float {
+                val emergenceProgress = (compactWidthState.value.coerceAtLeast(0.dp) / circleThreshold).coerceIn(0f, 1f)
+                return emergenceProgress * emergenceProgress * (3f - 2f * emergenceProgress)
+            }
+            // When emerging from the punch hole, the secondary bubble also fades in with the main island
+            // so no opaque circle sits exposed at the punch hole during the initial frames!
+            fun bubbleAlpha(): Float {
                 val baseBubbleAlpha = if (isExpanded) {
                     ((1f - expandProgress * 4f).coerceIn(0f, 1f))
                 } else if (!isOccupied) {
@@ -1418,28 +1431,39 @@ internal fun IslandShell(
                 } else {
                     1f
                 }
-                // When emerging from the punch hole, the secondary bubble also fades in with the main island
-                // so no opaque circle sits exposed at the punch hole during the initial frames!
-                val bubbleAlpha = baseBubbleAlpha * compactPillAlpha
+                return baseBubbleAlpha * compactPillAlpha()
+            }
+            fun bubbleContentAlpha(): Float {
+                val emergedDistance = animatedBubbleOffsetX - (compactMainHalf - bubbleSize / 2f)
+                return ((emergedDistance - bubbleSize * 0.35f) / (bubbleSize * 0.55f)).coerceIn(0f, 1f) * bubbleAlpha()
+            }
+            val bubbleOut by remember { derivedStateOf { animatedBubbleOffsetX > 1.dp } }
+            val bubbleDrawn by remember(isExpanded, isOccupied, settings.heightDp, settings.widthDp) {
+                derivedStateOf { bubbleAlpha() > 0.01f }
+            }
+            val bubbleContentDrawn by remember(isExpanded, isOccupied, settings.heightDp, settings.widthDp) {
+                derivedStateOf { bubbleContentAlpha() > 0.05f }
+            }
+            val bubbleOutlined by remember(settings.widthDp) { derivedStateOf { animatedBubbleOffsetX > compactMainHalf * 0.7f } }
 
-                if (bubbleAlpha > 0.01f) {
-                    val emergedDistance = animatedBubbleOffsetX - (compactMainHalf - bubbleSize / 2f)
-                    val contentAlpha = ((emergedDistance - bubbleSize * 0.35f) / (bubbleSize * 0.55f)).coerceIn(0f, 1f) * bubbleAlpha
-
+            // 1. Auxiliary Circular Island Bubble: Placed on the LAYER BELOW (rendered first so main pill covers it!)
+            // Fixed circular shape & size; emerges and retracts purely along the X axis from the middle of the punch hole (x = 0)
+            if (isDual || bubbleOut) {
+                if (bubbleDrawn) {
                     Box(
                         modifier = Modifier
                             .testTag(IslandTestTags.BUBBLE)
-                            .offset { IntOffset(x = bubbleOffsetXPx, y = 0) }
+                            .offset { IntOffset(x = animatedBubbleOffsetX.roundToPx(), y = 0) }
                             .size(bubbleSize)
                             .graphicsLayer {
-                                alpha = bubbleAlpha
+                                alpha = bubbleAlpha()
                                 scaleX = bubblePressScale
                                 scaleY = bubblePressScale
                             }
                             .clip(CircleShape)
                             .background(Color.Black)
                             .then(
-                                if (settings.showOutline && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
+                                if (settings.showOutline && bubbleOutlined) {
                                     Modifier.border(
                                         width = settings.outlineThicknessDp.dp,
                                         color = secondaryOutlineColor,
@@ -1467,12 +1491,12 @@ internal fun IslandShell(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (contentAlpha > 0.05f) {
+                        if (bubbleContentDrawn) {
                             Box(
                                 modifier = Modifier
                                     .testTag(IslandTestTags.content("bubble", secondaryPriority))
                                     .fillMaxSize()
-                                    .graphicsLayer { alpha = contentAlpha },
+                                    .graphicsLayer { alpha = bubbleContentAlpha() },
                                 contentAlignment = Alignment.Center
                             ) {
                                 AuxiliaryBubbleContent(
@@ -1490,7 +1514,7 @@ internal fun IslandShell(
             // Liquid split: while the secondary bubble separates from the pill, a black "neck" with
             // concave sides joins them and thins until it snaps, like two drops pulling apart.
             // Only drawn during the split itself, so it costs nothing at rest.
-            if (isDual && !isExpanded && animatedBubbleOffsetX > 1.dp && animatedCompactWidth > settings.heightDp.dp) {
+            if (isDual && !isExpanded && bubbleOut && pillWiderThanTall) {
                 val pillH = settings.heightDp.dp
                 val pillRight = animatedCompactWidth / 2f
                 val gap = (animatedBubbleOffsetX - bubbleSize / 2f) - pillRight
@@ -1506,7 +1530,7 @@ internal fun IslandShell(
                         modifier = Modifier
                             .offset { IntOffset(x = neckCenterX.roundToPx(), y = 0) }
                             .size(neckEnd - neckStart, pillH)
-                            .graphicsLayer { alpha = compactPillAlpha }
+                            .graphicsLayer { alpha = compactPillAlpha() }
                     ) {
                         val w = size.width
                         val cy = size.height / 2f
@@ -1534,20 +1558,21 @@ internal fun IslandShell(
             } else {
                 islandShape(settings.heightDp.dp / 2)
             }
-            if (settings.isNotch && animatedCompactWidth > 0.5.dp) {
-                val notchEar = (8.dp * compactPillAlpha).coerceAtLeast(0.dp)
+            if (settings.isNotch && pillShown) {
+                fun notchEar(): Dp = (8.dp * compactPillAlpha()).coerceAtLeast(0.dp)
                 val bridgeHeight = settings.topOffsetDp.dp + settings.heightDp.dp / 2f
                 Canvas(
                     modifier = Modifier
                         .offset { IntOffset(x = 0, y = -settings.topOffsetDp.dp.roundToPx()) }
-                        .size(animatedCompactWidth + notchEar * 2, bridgeHeight)
+                        // M2.6: sized in the layout phase (same as .size(width + ears, bridgeHeight))
+                        .layoutSize(width = { compactWidthState.value.coerceAtLeast(0.dp) + notchEar() * 2 }, height = { bridgeHeight })
                         .graphicsLayer {
-                            alpha = compactPillAlpha
+                            alpha = compactPillAlpha()
                             transformOrigin = TransformOrigin(0.5f, 0f)
                             scaleX = pillPressScale * (1f + swapSquash.value)
                         }
                 ) {
-                    drawPath(notchBridgePath(size.width, size.height, notchEar.toPx()), Color.Black)
+                    drawPath(notchBridgePath(size.width, size.height, notchEar().toPx()), Color.Black)
                 }
             }
 
@@ -1561,7 +1586,7 @@ internal fun IslandShell(
                         .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)
                         .graphicsLayer {
-                            alpha = compactPillAlpha
+                            alpha = compactPillAlpha()
                             // A notch stays attached to the top edge: no bounce away from it.
                             // M5.2: no idle tap bounce in Reduced motion
                             val bounce = motion.allowsBounce
@@ -1576,9 +1601,11 @@ internal fun IslandShell(
                         .then(
                             // Deliberately no pill outline in notch style: the notch is fused to the screen edge
                             if (settings.showOutline && !settings.isNotch && pillOutlined) {
+                                // M2.6: the layer's alpha already fades the outline with the pill;
+                                // it is no longer faded a second time in composition
                                 Modifier.border(
                                     width = settings.outlineThicknessDp.dp,
-                                    color = primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)),
+                                    color = primaryOutlineColor,
                                     shape = compactPillShape
                                 )
                             } else Modifier
@@ -1663,6 +1690,16 @@ internal fun IslandShell(
                     // M3.1: the pill's content is gone by p 0.35, and back below it, either way
                     val compactHidden = userMinimized && !isCharging && !isUnlock && !isBluetooth && !isRingerMode
                     fun compactAlpha(): Float = if (compactHidden) 0f else IslandChoreography.compactAlpha(contentP())
+
+                    // M2.6: the content is laid out once at the width the pill is heading to and is
+                    // revealed (or hidden) by the pill's own clip as it grows and shrinks, instead of
+                    // re-measuring and squeezing on every frame. Settled, the two widths are equal.
+                    Box(
+                        modifier = Modifier
+                            .wrapContentSize(Alignment.Center, unbounded = true)
+                            .requiredSize(compactContentWidth, settings.heightDp.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
 
                     // Background darker green progress bar for charging status:
                     if (isCharging || chargingContentAlpha > 0.01f) {
@@ -1915,7 +1952,7 @@ internal fun IslandShell(
                                 }
                             }
                         }
-                    } else if (!compactHidden && compactContentShown && animatedCompactWidth > 24.dp) {
+                    } else if (!compactHidden && compactContentShown && pillFitsContent) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -1984,6 +2021,7 @@ internal fun IslandShell(
                             }
                         }
                     }
+                    } // M2.6: the final-width content box
                 }
             }
 
@@ -1997,11 +2035,17 @@ internal fun IslandShell(
                 label = "parenthesisAlpha"
             )
 
-            // Fades in a split second earlier as the island begins emerging from the punch hole
-            val parenthesisEmergenceAlpha = (animatedCompactWidth / 14.dp).coerceIn(0f, 1f)
-            val effectiveParenthesisAlpha = parenthesisAlphaAnim * parenthesisEmergenceAlpha
+            // Fades in a split second earlier as the island begins emerging from the punch hole.
+            // M2.6: the pill's width is read only in these lambdas (layout and draw phases)
+            fun pillWidthNow(): Dp = compactWidthState.value.coerceAtLeast(0.dp)
+            fun effectiveParenthesisAlpha(): Float = parenthesisAlphaAnim * (pillWidthNow() / 14.dp).coerceIn(0f, 1f)
+            val parenthesesDrawn by remember(settings.bubbleEffectEnabled) {
+                derivedStateOf { settings.bubbleEffectEnabled && effectiveParenthesisAlpha() > 0.01f && pillWidthNow() > 3.dp }
+            }
 
-            if (settings.bubbleEffectEnabled && effectiveParenthesisAlpha > 0.01f && animatedCompactWidth > 3.dp) {
+            if (parenthesesDrawn) Isolated {
+                // Own restart scope: the shoot below changes the brackets' width while it runs,
+                // which recomposes only this block
                 val parenthesisHeight = (settings.heightDp.dp * 0.52f).coerceIn(16.dp, 21.dp)
                 val extraShootDp = parenthesisExtraShoot.value.coerceAtLeast(0f).dp
                 val parenthesisWidth = 5.0.dp + (extraShootDp * 0.20f)
@@ -2014,21 +2058,23 @@ internal fun IslandShell(
 
                 // Left parenthesis `(`: tips facing right are at centerX + tipOffsetFromCenter.
                 // Sits at islandLeft - parenthesisGap - extraShootDp.
-                val islandLeftDp = -animatedCompactWidth / 2f
-                val leftCenterXPx = with(density) {
+                fun leftCenterXPx(d: Density): Int = with(d) {
+                    val islandLeftDp = -pillWidthNow() / 2f
                     (islandLeftDp - parenthesisGap - extraShootDp - tipOffsetFromCenter).roundToPx()
                 }
 
                 // Right parenthesis `)`: tips facing left are at centerX - tipOffsetFromCenter.
                 // Sits at rightContentEdgeDp + parenthesisGap + extraShootDp.
                 // When emerging, curve shoots out slightly further from the island and settles back.
-                val bubbleRightEdge = animatedBubbleOffsetX + (bubbleSize / 2f)
-                val rightContentEdgeDp = if (!isCharging && !isUnlock && !isBluetooth && !isRingerMode && animatedBubbleOffsetX > 1.dp) {
-                    maxOf(animatedCompactWidth / 2f, bubbleRightEdge)
-                } else {
-                    animatedCompactWidth / 2f
-                }
-                val rightCenterXPx = with(density) {
+                val bubbleCanLead = !isCharging && !isUnlock && !isBluetooth && !isRingerMode
+                fun rightCenterXPx(d: Density): Int = with(d) {
+                    val w = pillWidthNow()
+                    val bubbleRightEdge = animatedBubbleOffsetX + (bubbleSize / 2f)
+                    val rightContentEdgeDp = if (bubbleCanLead && animatedBubbleOffsetX > 1.dp) {
+                        maxOf(w / 2f, bubbleRightEdge)
+                    } else {
+                        w / 2f
+                    }
                     (rightContentEdgeDp + parenthesisGap + extraShootDp + tipOffsetFromCenter).roundToPx()
                 }
 
@@ -2042,8 +2088,8 @@ internal fun IslandShell(
                     strokeWidth = parenthesisStroke,
                     color = bracketColor,
                     modifier = Modifier
-                        .offset { IntOffset(x = leftCenterXPx, y = pYPx) }
-                        .graphicsLayer { alpha = effectiveParenthesisAlpha }
+                        .offset { IntOffset(x = leftCenterXPx(this), y = pYPx) }
+                        .graphicsLayer { alpha = effectiveParenthesisAlpha() }
                 )
 
                 // Right Parenthesis `)`
@@ -2054,8 +2100,8 @@ internal fun IslandShell(
                     strokeWidth = parenthesisStroke,
                     color = bracketColor,
                     modifier = Modifier
-                        .offset { IntOffset(x = rightCenterXPx, y = pYPx) }
-                        .graphicsLayer { alpha = effectiveParenthesisAlpha }
+                        .offset { IntOffset(x = rightCenterXPx(this), y = pYPx) }
+                        .graphicsLayer { alpha = effectiveParenthesisAlpha() }
                 )
             }
         }
@@ -2067,6 +2113,17 @@ private const val CARD2_STARTS_AT = 0.1f
 private const val BUBBLE_EMERGE_AT = 0.95f
 private const val PARENTHESES_SHOOT_AT = 0.6f
 
+/**
+ * M2.6 / M2.7: a restart scope of its own. State read inside [content] recomposes only this block,
+ * not the whole shell (Box, Row and Column are inline, so their content would recompose the
+ * caller). The block still sees its caller's receivers (BoxScope...), and its nodes are placed in
+ * the caller's layout as before.
+ */
+@Composable
+private fun Isolated(content: @Composable () -> Unit) {
+    content()
+}
+
 /** M3.3: what card 1 shows, frozen per [ContentKey] so leaving content keeps its own data and height. */
 @Immutable
 private data class Card1Payload(
@@ -2075,6 +2132,14 @@ private data class Card1Payload(
     val notification: NotificationInfo?,
     val height: Dp,
 )
+
+/**
+ * M2.6: the last non-zero width the pill was heading to. A plain holder, not state: it is only
+ * written while composing, from the targets, and read in the same pass.
+ */
+private class CompactContentWidth {
+    var width: Dp = 0.dp
+}
 
 /** M3.4: what the pill shows, frozen per [ContentKey] so leaving content keeps its own data. */
 @Immutable
