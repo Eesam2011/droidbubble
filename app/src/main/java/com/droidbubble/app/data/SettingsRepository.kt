@@ -67,6 +67,7 @@ private object PreferencesKeys {
     val FEATURE_PRIORITIES = stringPreferencesKey("feature_priorities")
     val ISLAND_STYLE = stringPreferencesKey("island_style")
     val ENVELOPE_WINDOW_TRIAL = booleanPreferencesKey("envelope_window_trial")
+    val SWIPE_RESISTANCE = booleanPreferencesKey("swipe_resistance")
 }
 
 /**
@@ -129,6 +130,7 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         islandStyle = IslandSettings.normalizeStyle(this[PreferencesKeys.ISLAND_STYLE]),
         featurePriorities = parseFeaturePriorities(this[PreferencesKeys.FEATURE_PRIORITIES]),
         envelopeWindowTrial = this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] ?: false,
+        swipeResistance = this[PreferencesKeys.SWIPE_RESISTANCE] ?: true,
     )
 }
 
@@ -181,6 +183,7 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.FEATURE_PRIORITIES] = s.featurePriorities.joinToString(",")
     this[PreferencesKeys.ISLAND_STYLE] = IslandSettings.normalizeStyle(s.islandStyle)
     this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] = s.envelopeWindowTrial
+    this[PreferencesKeys.SWIPE_RESISTANCE] = s.swipeResistance
 }
 
 class SettingsRepository(private val context: Context) {

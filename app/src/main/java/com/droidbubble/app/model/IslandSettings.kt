@@ -82,6 +82,11 @@ data class IslandSettings(
      * Off by default; only a debug build shows the switch.
      */
     val envelopeWindowTrial: Boolean = false,
+    /**
+     * Cards that shouldn't be swiped away by accident (screen recording, and a download in the
+     * second card) move a fraction of the finger. Off: every card follows the finger 1:1.
+     */
+    val swipeResistance: Boolean = true,
 ) {
     val isNotch: Boolean get() = islandStyle == STYLE_NOTCH
 

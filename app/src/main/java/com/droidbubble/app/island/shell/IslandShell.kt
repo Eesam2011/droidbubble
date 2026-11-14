@@ -816,6 +816,9 @@ internal fun IslandShell(
     val cardContainerAlpha = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
 
     var card1OffsetX by remember { mutableFloatStateOf(0f) }
+    // Resisting cards (screen recording, a download in card 2) move this fraction of the finger;
+    // the "Swipe Resistance" accessibility setting turns it off
+    val swipeFraction = if (settings.swipeResistance) RESISTED_SWIPE_FRACTION else 1f
     var card2OffsetX by remember { mutableFloatStateOf(0f) }
 
     val animatedCard1OffsetX by animateFloatAsState(
@@ -1059,7 +1062,7 @@ internal fun IslandShell(
                                 )
                                 .then(
                                     if (isExpanded) {
-                                        Modifier.pointerInput(primaryPriority) {
+                                        Modifier.pointerInput(primaryPriority, settings.swipeResistance) {
                                             detectHorizontalDragGestures(
                                                 onDragEnd = {
                                                     val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
@@ -1099,7 +1102,7 @@ internal fun IslandShell(
                                                 onHorizontalDrag = { _, dragAmount ->
                                                     when (primaryPriority) {
                                                         IslandPriority.SCREEN_RECORDING -> {
-                                                            card1OffsetX += dragAmount * 0.18f
+                                                            card1OffsetX += dragAmount * swipeFraction
                                                         }
                                                         else -> {
                                                             card1OffsetX += dragAmount
@@ -1286,7 +1289,7 @@ internal fun IslandShell(
                                 )
                                 .then(
                                     if (isExpanded && secondaryPriority != null) {
-                                        Modifier.pointerInput(secondaryPriority) {
+                                        Modifier.pointerInput(secondaryPriority, settings.swipeResistance) {
                                             detectHorizontalDragGestures(
                                                 onDragEnd = {
                                                     val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
@@ -1327,7 +1330,7 @@ internal fun IslandShell(
                                                     when (secondaryPriority) {
                                                         IslandPriority.PROGRESS,
                                                         IslandPriority.SCREEN_RECORDING -> {
-                                                            card2OffsetX += dragAmount * 0.18f
+                                                            card2OffsetX += dragAmount * swipeFraction
                                                         }
                                                         else -> {
                                                             card2OffsetX += dragAmount
@@ -2129,3 +2132,6 @@ private data class CompactPayload(
 
 /** M3.3: incoming card content grows from 92% (03 §6), the same as [IslandChoreography.incomingScale]. */
 private const val CARD_SWAP_SCALE_DROP = 0.08f
+
+/** How far a resisting card moves per pixel of finger travel. */
+private const val RESISTED_SWIPE_FRACTION = 0.18f

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Menu
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
@@ -2473,6 +2474,22 @@ fun AccessibilityPage(
                                 Switch(
                                     checked = settings.reduceMotion,
                                     onCheckedChange = { on -> onUpdateSettings { it.copy(reduceMotion = on) } }
+                                )
+                            }
+                        )
+                    }
+                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.swipeResistance) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = { Text("Swipe Resistance", fontWeight = FontWeight.SemiBold) },
+                            supportingContent = { Text("Screen recording and download cards move slower under your finger, so they aren't swiped away by accident. Off: every card follows your finger.") },
+                            leadingContent = {
+                                Icon(Icons.Default.Swipe, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.swipeResistance,
+                                    onCheckedChange = { on -> onUpdateSettings { it.copy(swipeResistance = on) } }
                                 )
                             }
                         )
