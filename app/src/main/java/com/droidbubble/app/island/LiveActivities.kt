@@ -2,6 +2,9 @@ package com.droidbubble.app.island
 
 import com.droidbubble.app.island.icon.IconEffect
 import com.droidbubble.app.island.icon.iconEffect
+import com.droidbubble.app.island.icon.MorphGlyph
+import com.droidbubble.app.island.icon.MorphIcon
+import com.droidbubble.app.island.icon.MorphShapes
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
 import androidx.compose.foundation.Canvas
@@ -538,6 +541,8 @@ fun LiveRoundButton(
     size: Dp,
     style: LiveButtonStyle = LiveButtonStyle.SOLID,
     iconScale: Float = IslandTokens.Glyph.ControlRatio,
+    /** I2.1: draw this morph (at its end shape when true) instead of [icon]. */
+    morph: Pair<MorphGlyph, Boolean>? = null,
     onClick: () -> Unit
 ) {
     val container = when (style) {
@@ -557,7 +562,11 @@ fun LiveRoundButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(imageVector = icon, contentDescription = contentDescription, tint = iconColor, modifier = Modifier.size(size * iconScale).opticalCenter(icon))
+        if (morph != null) {
+            MorphIcon(morph.first, morph.second, iconColor, contentDescription, size = size * iconScale)
+        } else {
+            Icon(imageVector = icon, contentDescription = contentDescription, tint = iconColor, modifier = Modifier.size(size * iconScale).opticalCenter(icon))
+        }
     }
 }
 
@@ -774,6 +783,7 @@ fun LiveRecordingRow(
             LiveRoundButton(
                 icon = if (isPaused) IslandIcons.Play else IslandIcons.Pause,
                 contentDescription = if (isPaused) "Resume" else "Pause",
+                morph = MorphShapes.PlayPause to !isPaused,
                 accent = red,
                 size = layout.control,
                 style = LiveButtonStyle.TINTED,
@@ -858,6 +868,7 @@ fun LiveTimerRow(
             LiveRoundButton(
                 icon = if (isPaused) IslandIcons.Play else IslandIcons.Pause,
                 contentDescription = if (isPaused) "Resume" else "Pause",
+                morph = MorphShapes.PlayPause to !isPaused,
                 accent = accent,
                 size = layout.control,
                 style = LiveButtonStyle.TINTED,

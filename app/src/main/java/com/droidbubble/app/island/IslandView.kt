@@ -161,6 +161,8 @@ import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.icon.IconEffect
 import com.droidbubble.app.island.icon.iconEffect
+import com.droidbubble.app.island.icon.MorphIcon
+import com.droidbubble.app.island.icon.MorphShapes
 import com.droidbubble.app.island.motion.rememberMotionTier
 import com.droidbubble.app.island.shell.Follow
 import com.droidbubble.app.island.shell.IslandShell
@@ -1497,23 +1499,14 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         .clip(CircleShape)
                         .background(playButtonBg)
                 ) {
-                    AnimatedContent(
-                        targetState = media?.isPlaying == true,
-                        transitionSpec = {
-                            (fadeIn(motion.tween(MotionTween.PLAY_PAUSE_IN)) +
-                                scaleIn(initialScale = 0.6f, animationSpec = motion.spring(motion.playPauseScale))) togetherWith
-                                (fadeOut(motion.tween(MotionTween.PLAY_PAUSE_OUT)) +
-                                    scaleOut(targetScale = 0.6f, animationSpec = motion.tween(MotionTween.PLAY_PAUSE_OUT)))
-                        },
-                        label = "playPauseIcon"
-                    ) { playing ->
-                        Icon(
-                            imageVector = if (playing) IslandIcons.Pause else IslandIcons.Play,
-                            contentDescription = "Play/Pause",
-                            tint = playButtonIconTint,
-                            modifier = Modifier.size(playBtnIcon).opticalCenter(if (playing) IslandIcons.Pause else IslandIcons.Play)
-                        )
-                    }
+                    // I2.1: play melts into pause instead of swapping
+                    MorphIcon(
+                        glyph = MorphShapes.PlayPause,
+                        atEnd = media?.isPlaying == true,
+                        tint = playButtonIconTint,
+                        contentDescription = "Play/Pause",
+                        size = playBtnIcon,
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(controlsGap))
