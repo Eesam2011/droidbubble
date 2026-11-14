@@ -135,8 +135,8 @@ class IslandMotionTest {
         check(m.alertBump, 0.55f, 438.6f)
         check(m.press, 0.70f, 987.0f)
         check(m.interactive, 0.90f, 1218.5f)
-        check(m.iconBounce, 0.55f, 438.6f)
-        check(m.iconWiggle, 0.65f, 631.7f)
+        check(m.iconBounce, 0.60f, 322.3f)
+        check(m.iconWiggle, 0.30f, 157.9f)
         val effects = m.effects<Float>() as SpringSpec<Float>
         assertEquals(1600f, effects.stiffness, 0f)
         // The user's curves are never retuned
@@ -183,7 +183,7 @@ class IslandMotionTest {
     fun full_loopsEveryFrame() {
         val loop = motion().loop(LoopToken.PULSE)!!
         assertEquals(0, loop.frameIntervalMillis)
-        assertEquals(1_200, loop.periodMillis)
+        assertEquals(1_300, loop.periodMillis)
         assertTrue(motion().allowsStretch && motion().allowsBlur)
     }
 
@@ -191,6 +191,6 @@ class IslandMotionTest {
     fun impulse_carriesTheVelocity() {
         val i = motion().impulse(motion().iconBounce, 6f)!!
         assertEquals(6f, i.initialVelocity, 0f)
-        assertEquals(0.55f, i.spec.dampingRatio, 0.0001f)
+        assertEquals(0.60f, i.spec.dampingRatio, 0.0001f)
     }
 }

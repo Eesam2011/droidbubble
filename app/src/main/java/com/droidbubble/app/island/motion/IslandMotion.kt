@@ -94,7 +94,12 @@ data class Impulse(val spec: SpringSpec<Float>, val initialVelocity: Float)
 @Immutable
 data class LoopSpec(val periodMillis: Int, val frameIntervalMillis: Int, val easing: Easing)
 
-enum class LoopToken(val periodMillis: Int) { PULSE(1_200), BREATHE(2_400), ROTATE(1_000), EQUALIZER(0) }
+enum class LoopToken(val periodMillis: Int) {
+    PULSE(IslandMotion.Symbol.PULSE_PERIOD_MS),
+    BREATHE(IslandMotion.Symbol.BREATHE_PERIOD_MS),
+    ROTATE(IslandMotion.Symbol.ROTATE_PERIOD_MS),
+    EQUALIZER(0),
+}
 
 /**
  * Every animation spec the island uses, in one place (F3.1). It applies the user's animation
@@ -165,6 +170,41 @@ data class IslandMotion(
     val alertBump: MotionToken.Physical get() = if (droid) DROID_ALERT_BUMP else swapSquashOut
     val iconBounce: MotionToken.Physical get() = DROID_ICON_BOUNCE
     val iconWiggle: MotionToken.Physical get() = DROID_ICON_WIGGLE
+
+    /**
+     * Symbol effects (phase 5, I0.1): the springs and loop periods of the dynamic icons, at speed 1.
+     * Every value is a starting point to tune by eye in the Test panel's icon catalogue (I4.1).
+     * The comments give ζ / k as [toPhysical] converts them.
+     */
+    object Symbol {
+        /** "Something happened": a quick elastic dip and overshoot. ζ 0.60, k 322. */
+        val bounce = MotionToken.Perceptual(duration = 0.35f, bounce = 0.40f)
+        /** "Look here": a loose spring that swings a few times and settles. ζ 0.30, k 158. */
+        val wiggle = MotionToken.Perceptual(duration = 0.50f, bounce = 0.70f)
+        /** One glyph replacing another. ζ 0.85, k 439. */
+        val replace = MotionToken.Perceptual(duration = 0.30f, bounce = 0.15f)
+        /** A shape melting into another (play ↔ pause). */
+        val morph = replace
+        /** A glyph appearing. ζ 0.75, k 322. */
+        val appear = MotionToken.Perceptual(duration = 0.35f, bounce = 0.25f)
+        /** A stroke drawing itself (checkmark, slash). ζ 1.00, k 322. */
+        val draw = MotionToken.Perceptual(duration = 0.35f, bounce = 0f)
+        /** A selected glyph growing (catalogue only). */
+        val scale = MotionToken.Perceptual(duration = 0.30f, bounce = 0.15f)
+
+        /** Pulse: opacity 1 → 0.4 → 1 over one period (the recording dot's 650 ms each way). */
+        const val PULSE_PERIOD_MS = 1_300
+        /** Reduced motion keeps the pulse (it's opacity, not motion) but slows it to this. */
+        const val PULSE_REDUCED_PERIOD_MS = 2_000
+        const val BREATHE_PERIOD_MS = 2_000
+        const val ROTATE_PERIOD_MS = 1_200
+        /** By-layer effects start each layer this much after the previous one. */
+        const val LAYER_STAGGER_MS = 40
+        /** One step of a cumulative or iterative variable-color loop. */
+        const val VARIABLE_STEP_MS = 150
+        /** Reduced motion: a bounce or wiggle becomes a dip in opacity this long. */
+        const val REDUCED_FADE_MS = IslandMotion.REDUCED_FADE_MS
+    }
 
     /**
      * A spring for [token]. Speed-scaled tokens get stiffness × speed².
@@ -259,8 +299,9 @@ data class IslandMotion(
         val DROID_PRESS = MotionToken.Perceptual(0.20f, 0.30f).toPhysical()
         val DROID_INTERACTIVE = MotionToken.Perceptual(0.18f, 0.10f).toPhysical()
         val DROID_EFFECTS = MotionToken.Physical(1f, 1600f)
-        val DROID_ICON_BOUNCE = MotionToken.Perceptual(0.30f, 0.45f).toPhysical()
-        val DROID_ICON_WIGGLE = MotionToken.Perceptual(0.25f, 0.35f).toPhysical()
+        // I0.1: the icon springs are the Symbol tokens (they had no users before phase 5)
+        val DROID_ICON_BOUNCE = Symbol.bounce.toPhysical()
+        val DROID_ICON_WIGGLE = Symbol.wiggle.toPhysical()
 
         fun from(settings: IslandSettings, tier: MotionTier = MotionTier.FULL, profile: Profile = Profile.Legacy) = IslandMotion(
             speed = settings.animationSpeed.coerceIn(0.5f, 2f),
