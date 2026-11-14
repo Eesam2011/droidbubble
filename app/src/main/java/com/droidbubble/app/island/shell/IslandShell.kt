@@ -815,25 +815,27 @@ internal fun IslandShell(
 
     val cardContainerAlpha = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
 
-    var card1OffsetX by remember { mutableFloatStateOf(0f) }
-    var card2OffsetX by remember { mutableFloatStateOf(0f) }
-
-    val animatedCard1OffsetX by animateFloatAsState(
-        targetValue = card1OffsetX,
-        animationSpec = motion.spring(motion.cardDrag),
-        label = "card1OffsetX"
+    // M4.2: the cards' sideways drag (px) on Animatables, so a release hands the finger's velocity
+    // to the spring and a dismissed card flies off without springing back first (CardStack.kt)
+    val card1OffsetX = remember { Animatable(0f) }
+    val card2OffsetX = remember { Animatable(0f) }
+    ResetCardOffsets(
+        isExpanded = isExpanded,
+        primaryKey = primaryKey,
+        secondaryKey = contentKeyFor(scene, sceneInputs, Slot.SECONDARY),
+        card1 = card1OffsetX,
+        card2 = card2OffsetX,
+        cardClosed = { shell.geometry.width <= 0.5.dp && animatedCard2Height <= 0.5.dp },
     )
-    val animatedCard2OffsetX by animateFloatAsState(
-        targetValue = card2OffsetX,
-        animationSpec = motion.spring(motion.cardDrag),
-        label = "card2OffsetX"
-    )
-
-    LaunchedEffect(isExpanded) {
-        if (!isExpanded) {
-            card1OffsetX = 0f
-            card2OffsetX = 0f
-        }
+    val cardOffscreenPx: () -> Float = { rootSize.width.toFloat() }
+    val card1Swipe = cardSwipeKind(primaryPriority, currentNotif)
+    val card2Swipe = cardSwipeKind(secondaryPriority, currentNotif)
+    // The store's own dismissal for each kind of card; false if nothing was removed
+    fun dismissCard(priority: IslandPriority?): Boolean = when (priority) {
+        IslandPriority.MEDIA -> { IslandStateManager.dismissMedia(); true }
+        IslandPriority.POP_NOTIFICATION -> IslandStateManager.clearCurrentNotification()
+        IslandPriority.PROGRESS -> IslandStateManager.dismissProgress()
+        else -> false
     }
 
     // Liquid glass blur (M2.5): the cards' on-screen rects go to the overlay service from their
@@ -1025,7 +1027,7 @@ internal fun IslandShell(
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD)
-                                .offset { IntOffset(animatedCard1OffsetX.roundToInt(), 0) }
+                                .offset { IntOffset(card1OffsetX.value.roundToInt(), 0) }
                                 .layoutSize(width = { shell.geometry.width }, height = { shell.geometry.height })
                                 .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
@@ -1057,58 +1059,16 @@ internal fun IslandShell(
                                         )
                                     } else Modifier
                                 )
-                                .then(
-                                    if (isExpanded) {
-                                        Modifier.pointerInput(primaryPriority) {
-                                            detectHorizontalDragGestures(
-                                                onDragEnd = {
-                                                    val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
-                                                    when (primaryPriority) {
-                                                        IslandPriority.MEDIA -> {
-                                                            if (abs(card1OffsetX) > threshold) {
-                                                                haptics.perform(IslandHapticEvent.DISMISS)
-                                                                IslandStateManager.dismissMedia()
-                                                            }
-                                                        }
-                                                        IslandPriority.POP_NOTIFICATION -> {
-                                                            if (abs(card1OffsetX) > threshold) {
-                                                                if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
-                                                                    // B6.2: a ringing call or alarm tucks back to the pill instead
-                                                                    // of losing its Answer / Stop buttons. Decline and Stop end it.
-                                                                    haptics.perform(IslandHapticEvent.COLLAPSE)
-                                                                    IslandStateManager.collapse()
-                                                                } else {
-                                                                    haptics.perform(IslandHapticEvent.DISMISS)
-                                                                    IslandStateManager.clearCurrentNotification()
-                                                                }
-                                                            }
-                                                        }
-                                                        IslandPriority.PROGRESS -> {
-                                                            if (abs(card1OffsetX) > threshold) {
-                                                                haptics.perform(IslandHapticEvent.DISMISS)
-                                                                IslandStateManager.dismissProgress()
-                                                            }
-                                                        }
-                                                        else -> Unit
-                                                    }
-                                                    card1OffsetX = 0f
-                                                },
-                                                onDragCancel = {
-                                                    card1OffsetX = 0f
-                                                },
-                                                onHorizontalDrag = { _, dragAmount ->
-                                                    when (primaryPriority) {
-                                                        IslandPriority.SCREEN_RECORDING -> {
-                                                            card1OffsetX += dragAmount * 0.18f
-                                                        }
-                                                        else -> {
-                                                            card1OffsetX += dragAmount
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    } else Modifier
+                                // M4.2: follows the finger sideways; flings out, tucks (B6.2: a ringing
+                                // call or alarm keeps its Answer / Stop buttons) or springs back
+                                .cardSwipe(
+                                    enabled = isExpanded,
+                                    offsetX = card1OffsetX,
+                                    kind = card1Swipe,
+                                    priority = primaryPriority,
+                                    offscreenPx = cardOffscreenPx,
+                                    onDismiss = { dismissCard(primaryPriority) },
+                                    onTuck = { IslandStateManager.collapse() },
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1260,7 +1220,7 @@ internal fun IslandShell(
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD2)
-                                .offset { IntOffset(animatedCard2OffsetX.roundToInt(), animatedCard2OffsetY.roundToPx()) }
+                                .offset { IntOffset(card2OffsetX.value.roundToInt(), animatedCard2OffsetY.roundToPx()) }
                                 .layoutSize(width = { shell.geometry.width })
                                 .height(animatedCard2Height)
                                 .onGloballyPositioned { glassCardBounds[1] = it.boundsInWindow(); publishGlass() }
@@ -1284,59 +1244,15 @@ internal fun IslandShell(
                                         )
                                     } else Modifier
                                 )
-                                .then(
-                                    if (isExpanded && secondaryPriority != null) {
-                                        Modifier.pointerInput(secondaryPriority) {
-                                            detectHorizontalDragGestures(
-                                                onDragEnd = {
-                                                    val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
-                                                    when (secondaryPriority) {
-                                                        IslandPriority.MEDIA -> {
-                                                            if (abs(card2OffsetX) > threshold) {
-                                                                haptics.perform(IslandHapticEvent.DISMISS)
-                                                                IslandStateManager.dismissMedia()
-                                                            }
-                                                        }
-                                                        IslandPriority.POP_NOTIFICATION -> {
-                                                            if (abs(card2OffsetX) > threshold) {
-                                                                if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
-                                                                    // B6.2: a ringing call or alarm tucks back to the pill instead
-                                                                    // of losing its Answer / Stop buttons. Decline and Stop end it.
-                                                                    haptics.perform(IslandHapticEvent.COLLAPSE)
-                                                                    IslandStateManager.collapse()
-                                                                } else {
-                                                                    haptics.perform(IslandHapticEvent.DISMISS)
-                                                                    IslandStateManager.clearCurrentNotification()
-                                                                }
-                                                            }
-                                                        }
-                                                        IslandPriority.PROGRESS -> {
-                                                            if (abs(card2OffsetX) > threshold) {
-                                                                haptics.perform(IslandHapticEvent.DISMISS)
-                                                                IslandStateManager.dismissProgress()
-                                                            }
-                                                        }
-                                                        else -> Unit
-                                                    }
-                                                    card2OffsetX = 0f
-                                                },
-                                                onDragCancel = {
-                                                    card2OffsetX = 0f
-                                                },
-                                                onHorizontalDrag = { _, dragAmount ->
-                                                    when (secondaryPriority) {
-                                                        IslandPriority.PROGRESS,
-                                                        IslandPriority.SCREEN_RECORDING -> {
-                                                            card2OffsetX += dragAmount * 0.18f
-                                                        }
-                                                        else -> {
-                                                            card2OffsetX += dragAmount
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    } else Modifier
+                                // M4.2: the same sideways swipe as card 1
+                                .cardSwipe(
+                                    enabled = isExpanded && secondaryPriority != null,
+                                    offsetX = card2OffsetX,
+                                    kind = card2Swipe,
+                                    priority = secondaryPriority,
+                                    offscreenPx = cardOffscreenPx,
+                                    onDismiss = { dismissCard(secondaryPriority) },
+                                    onTuck = { IslandStateManager.collapse() },
                                 )
                         ) {
                             // Subtle ambient gradient background or blurred album art for secondary card if it's the media player or flashlight
