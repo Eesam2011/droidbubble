@@ -1036,6 +1036,14 @@ fun MainScreen(
                         onCheckedChange = { on -> viewModel.updateSettings { it.copy(backCollapses = on) } }
                     )
                 }
+
+                // M5.3: back to the original motion profile, for one release
+                item {
+                    LegacyMotionSwitch(
+                        checked = settings.legacyMotion,
+                        onCheckedChange = { on -> viewModel.updateSettings { it.copy(legacyMotion = on) } }
+                    )
+                }
             }
 
             item {

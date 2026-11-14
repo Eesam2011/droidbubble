@@ -398,11 +398,13 @@ fun IslandOverlayRoot(
     // F3.3: every island haptic goes through here, and none fires with the haptics switch off
     val hapticsEnabled = rememberUpdatedState(settings.hapticsEnabled)
     val haptics = remember(view) { IslandHaptics(view, enabled = { hapticsEnabled.value }) }
-    // F3.1: one motion object, rebuilt only when the speed, a curve or the motion tier (M5.1) changes
+    // F3.1: one motion object, rebuilt only when the speed, a curve, the motion tier (M5.1) or the
+    // profile (M5.3: Droid, or Legacy from the hidden debug switch) changes
     val tier = rememberMotionTier(settings.reduceMotion)
     val motion = remember(
         settings.animationSpeed, settings.expandDamping, settings.expandStiffness,
         settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness, tier,
+        settings.legacyMotion,
     ) { IslandMotion.from(settings, tier) }
     // F4.1: text sizes by role, for the card scale and the phone's font size
     val fontScale = LocalDensity.current.fontScale

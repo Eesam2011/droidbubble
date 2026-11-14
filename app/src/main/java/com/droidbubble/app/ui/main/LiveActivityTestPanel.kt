@@ -96,3 +96,19 @@ fun BackCollapsesSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
         )
     }
 }
+
+/**
+ * M5.3: debug builds only. Brings back the island's original motion (the Legacy profile)
+ * instead of "eager in, calm out". The three curves and the speed are the user's either way.
+ */
+@Composable
+fun LegacyMotionSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    SettingsCardItem(position = GroupPosition.SINGLE) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = { Text("Original motion", fontWeight = FontWeight.SemiBold) },
+            supportingContent = { Text("Debug only. The island closes, merges and fades the way it did before the motion retune.") },
+            trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) }
+        )
+    }
+}

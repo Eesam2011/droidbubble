@@ -653,11 +653,12 @@ internal fun IslandShell(
     // The bubble emerges once the main pill has established itself (M3.2, set below the pill)
     var secondaryBubbleEmerged by remember { mutableStateOf(false) }
 
-    // Out on the user's Split curve (a slight overshoot); back into the punch hole smoothly
+    // Out on the user's Split curve (a slight overshoot); back into the punch hole smoothly, on
+    // the merge token (M5.3: Droid's near-critical merge; Legacy's is the old bubble retract)
     val bubbleOffsetAnimSpec = if (secondaryBubbleEmerged && shouldEmergeSecondary) {
         motion.spring<Dp>(motion.split)
     } else {
-        motion.spring<Dp>(motion.bubbleRetract)
+        motion.spring<Dp>(motion.merge)
     }
 
     // F1.3: every target size comes from one pure function, shared with the window (F1.4)

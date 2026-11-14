@@ -88,6 +88,11 @@ data class IslandSettings(
      * check; only a debug build shows the switch.
      */
     val backCollapses: Boolean = false,
+    /**
+     * M5.3: a hidden switch back to the island's original motion (IslandMotion.Profile.Legacy)
+     * instead of "eager in, calm out". Kept for one release; only a debug build shows it.
+     */
+    val legacyMotion: Boolean = false,
 ) {
     val isNotch: Boolean get() = islandStyle == STYLE_NOTCH
 

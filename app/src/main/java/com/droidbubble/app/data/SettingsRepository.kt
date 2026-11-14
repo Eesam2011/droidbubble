@@ -68,6 +68,7 @@ private object PreferencesKeys {
     val ISLAND_STYLE = stringPreferencesKey("island_style")
     val ENVELOPE_WINDOW_TRIAL = booleanPreferencesKey("envelope_window_trial")
     val BACK_COLLAPSES = booleanPreferencesKey("back_collapses")
+    val LEGACY_MOTION = booleanPreferencesKey("legacy_motion_profile")
 }
 
 /**
@@ -131,6 +132,7 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         featurePriorities = parseFeaturePriorities(this[PreferencesKeys.FEATURE_PRIORITIES]),
         envelopeWindowTrial = this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] ?: false,
         backCollapses = this[PreferencesKeys.BACK_COLLAPSES] ?: false,
+        legacyMotion = this[PreferencesKeys.LEGACY_MOTION] ?: false,
     )
 }
 
@@ -184,6 +186,7 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.ISLAND_STYLE] = IslandSettings.normalizeStyle(s.islandStyle)
     this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] = s.envelopeWindowTrial
     this[PreferencesKeys.BACK_COLLAPSES] = s.backCollapses
+    this[PreferencesKeys.LEGACY_MOTION] = s.legacyMotion
 }
 
 class SettingsRepository(private val context: Context) {

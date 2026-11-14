@@ -117,15 +117,22 @@ data class IslandMotion(
     val appear: MotionToken.Physical,
     /** User curve: the pill appearing, hiding and minimizing, and the bubble splitting off. */
     val split: MotionToken.Physical,
-    val profile: Profile = Profile.Legacy,
+    val profile: Profile = Profile.Droid,
 ) {
-    /** [Legacy]: the values the island shipped with. [Droid]: "eager in, calm out" (M5.3). */
+    /**
+     * [Legacy]: the values the island shipped with. [Droid]: "eager in, calm out" (M5.3), the
+     * default since M5.3. Legacy stays selectable from a hidden debug switch for one release
+     * (`IslandSettings.legacyMotion`). Neither profile ever changes the three user curves.
+     */
     enum class Profile { Legacy, Droid }
 
     private val speedSq = speed * speed
     private val droid get() = profile == Profile.Droid
 
-    /** The card closing: no overshoot, 1.4× the expand stiffness. */
+    /**
+     * The card closing: no overshoot. Droid: 0.38 s critically damped while the user's expand
+     * curve is at its default; otherwise (and in Legacy) 1.4× the expand stiffness.
+     */
     val collapse: MotionToken.Physical
         get() = if (droid && expand == DEFAULT_EXPAND) DROID_COLLAPSE else MotionToken.Physical(1f, expand.stiffness * 1.4f)
 
@@ -136,7 +143,7 @@ data class IslandMotion(
     val bubbleRetract = MotionToken.Physical(0.85f, 380f)
     /** A dragged card following and returning. */
     val cardDrag = MotionToken.Physical(0.76f, 420f)
-    /** The pill and bubble sinking under a finger. Not speed-scaled. */
+    /** The pill and bubble sinking under a finger. Not speed-scaled. Droid: 0.20 s, bounce 0.30. */
     val press: MotionToken.Physical get() = if (droid) DROID_PRESS else MotionToken.Physical(0.6f, 700f, speedScaled = false)
     /** The pill springing back after the swap squash. */
     val swapSquashOut = MotionToken.Physical(0.5f, 380f)
@@ -267,13 +274,17 @@ data class IslandMotion(
         val DROID_DISMISS = MotionToken.Perceptual(0.32f, 0f).toPhysical()
         val DROID_MERGE = MotionToken.Perceptual(0.35f, 0.05f).toPhysical()
         val DROID_ALERT_BUMP = MotionToken.Perceptual(0.30f, 0.45f).toPhysical()
-        val DROID_PRESS = MotionToken.Perceptual(0.20f, 0.30f).toPhysical()
+        // Not speed-scaled, like Legacy's press: finger feedback doesn't slow down with the speed
+        val DROID_PRESS = MotionToken.Perceptual(0.20f, 0.30f).toPhysical().copy(speedScaled = false)
         val DROID_INTERACTIVE = MotionToken.Perceptual(0.18f, 0.10f).toPhysical()
         val DROID_EFFECTS = MotionToken.Physical(1f, 1600f)
         val DROID_ICON_BOUNCE = MotionToken.Perceptual(0.30f, 0.45f).toPhysical()
         val DROID_ICON_WIGGLE = MotionToken.Perceptual(0.25f, 0.35f).toPhysical()
 
-        fun from(settings: IslandSettings, tier: MotionTier = MotionTier.FULL, profile: Profile = Profile.Legacy) = IslandMotion(
+        /** The profile the settings ask for: [Profile.Droid] unless the hidden Legacy switch is on (M5.3). */
+        fun profileFor(settings: IslandSettings): Profile = if (settings.legacyMotion) Profile.Legacy else Profile.Droid
+
+        fun from(settings: IslandSettings, tier: MotionTier = MotionTier.FULL, profile: Profile = profileFor(settings)) = IslandMotion(
             speed = settings.animationSpeed.coerceIn(0.5f, 2f),
             tier = tier,
             expand = MotionToken.Physical(settings.expandDamping, settings.expandStiffness),
