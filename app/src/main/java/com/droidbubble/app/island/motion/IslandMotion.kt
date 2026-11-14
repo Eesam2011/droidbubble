@@ -43,9 +43,7 @@ fun MotionToken.Physical.toPerceptual() =
 
 /**
  * A fixed-length animation (fades, one-shot steps). [speedScaled]: the length and delay are
- * divided by the island's animation speed, like the springs. [reducible]: Reduced motion turns
- * it into a short fade; false for tweens that show time passing (a countdown draining), whose
- * length is their meaning (M5.2).
+ * divided by the island's animation speed, like the springs.
  */
 @Immutable
 data class TweenToken(
@@ -53,7 +51,6 @@ data class TweenToken(
     val easing: Easing = FastOutSlowInEasing,
     val delayMillis: Int = 0,
     val speedScaled: Boolean = true,
-    val reducible: Boolean = true,
 )
 
 /** The island's named tweens (Legacy values, F3.2). */
@@ -83,8 +80,8 @@ object MotionTween {
     val ART_FLIP_OUT = TweenToken(150, FastOutLinearInEasing, speedScaled = false)
     /** The timer clock icon's hand stepping one second. */
     val CLOCK_HAND = TweenToken(280, speedScaled = false)
-    /** A countdown ring draining one second. Kept in Reduced motion: it is a clock, not an effect. */
-    val COUNTDOWN_TICK = TweenToken(1000, LinearEasing, speedScaled = false, reducible = false)
+    /** A countdown ring draining one second. */
+    val COUNTDOWN_TICK = TweenToken(1000, LinearEasing, speedScaled = false)
     /** One digit roll: short enough to always finish before the next second ticks. */
     val ROLL = TweenToken(IslandMotion.ROLL_MS, IslandMotion.ROLL_EASING, speedScaled = false)
 }
@@ -117,22 +114,15 @@ data class IslandMotion(
     val appear: MotionToken.Physical,
     /** User curve: the pill appearing, hiding and minimizing, and the bubble splitting off. */
     val split: MotionToken.Physical,
-    val profile: Profile = Profile.Droid,
+    val profile: Profile = Profile.Legacy,
 ) {
-    /**
-     * [Legacy]: the values the island shipped with. [Droid]: "eager in, calm out" (M5.3), the
-     * default since M5.3. Legacy stays selectable from a hidden debug switch for one release
-     * (`IslandSettings.legacyMotion`). Neither profile ever changes the three user curves.
-     */
+    /** [Legacy]: the values the island shipped with. [Droid]: "eager in, calm out" (M5.3). */
     enum class Profile { Legacy, Droid }
 
     private val speedSq = speed * speed
     private val droid get() = profile == Profile.Droid
 
-    /**
-     * The card closing: no overshoot. Droid: 0.38 s critically damped while the user's expand
-     * curve is at its default; otherwise (and in Legacy) 1.4× the expand stiffness.
-     */
+    /** The card closing: no overshoot, 1.4× the expand stiffness. */
     val collapse: MotionToken.Physical
         get() = if (droid && expand == DEFAULT_EXPAND) DROID_COLLAPSE else MotionToken.Physical(1f, expand.stiffness * 1.4f)
 
@@ -143,7 +133,7 @@ data class IslandMotion(
     val bubbleRetract = MotionToken.Physical(0.85f, 380f)
     /** A dragged card following and returning. */
     val cardDrag = MotionToken.Physical(0.76f, 420f)
-    /** The pill and bubble sinking under a finger. Not speed-scaled. Droid: 0.20 s, bounce 0.30. */
+    /** The pill and bubble sinking under a finger. Not speed-scaled. */
     val press: MotionToken.Physical get() = if (droid) DROID_PRESS else MotionToken.Physical(0.6f, 700f, speedScaled = false)
     /** The pill springing back after the swap squash. */
     val swapSquashOut = MotionToken.Physical(0.5f, 380f)
@@ -204,12 +194,9 @@ data class IslandMotion(
         return TweenSpec(scaled(millis), scaled(delayMillis), easing)
     }
 
-    /**
-     * A named tween. In [MotionTier.REDUCED] it becomes a [REDUCED_FADE_MS] fade with no delay,
-     * unless the token isn't [TweenToken.reducible].
-     */
+    /** A named tween. In [MotionTier.REDUCED] it becomes a [REDUCED_FADE_MS] fade with no delay. */
     fun <T> tween(token: TweenToken): TweenSpec<T> {
-        if (tier == MotionTier.REDUCED && token.reducible) return TweenSpec(REDUCED_FADE_MS, 0, LinearEasing)
+        if (tier == MotionTier.REDUCED) return TweenSpec(REDUCED_FADE_MS, 0, LinearEasing)
         return if (token.speedScaled) {
             TweenSpec(scaled(token.millis), scaled(token.delayMillis), token.easing)
         } else {
@@ -249,11 +236,6 @@ data class IslandMotion(
     val allowsStretch: Boolean get() = tier == MotionTier.FULL
     val allowsBlur: Boolean get() = tier == MotionTier.FULL
     val allowsStaggerDelays: Boolean get() = tier != MotionTier.REDUCED
-    /**
-     * M5.2: overshoot effects (the idle tap bounce, the parentheses shoot, the swap squash, the
-     * cover flip, ringer shakes, ambient pulses). Off in [MotionTier.REDUCED]: nothing bounces.
-     */
-    val allowsBounce: Boolean get() = tier != MotionTier.REDUCED
 
     companion object {
         const val REDUCED_FADE_MS = 150
@@ -274,17 +256,13 @@ data class IslandMotion(
         val DROID_DISMISS = MotionToken.Perceptual(0.32f, 0f).toPhysical()
         val DROID_MERGE = MotionToken.Perceptual(0.35f, 0.05f).toPhysical()
         val DROID_ALERT_BUMP = MotionToken.Perceptual(0.30f, 0.45f).toPhysical()
-        // Not speed-scaled, like Legacy's press: finger feedback doesn't slow down with the speed
-        val DROID_PRESS = MotionToken.Perceptual(0.20f, 0.30f).toPhysical().copy(speedScaled = false)
+        val DROID_PRESS = MotionToken.Perceptual(0.20f, 0.30f).toPhysical()
         val DROID_INTERACTIVE = MotionToken.Perceptual(0.18f, 0.10f).toPhysical()
         val DROID_EFFECTS = MotionToken.Physical(1f, 1600f)
         val DROID_ICON_BOUNCE = MotionToken.Perceptual(0.30f, 0.45f).toPhysical()
         val DROID_ICON_WIGGLE = MotionToken.Perceptual(0.25f, 0.35f).toPhysical()
 
-        /** The profile the settings ask for: [Profile.Droid] unless the hidden Legacy switch is on (M5.3). */
-        fun profileFor(settings: IslandSettings): Profile = if (settings.legacyMotion) Profile.Legacy else Profile.Droid
-
-        fun from(settings: IslandSettings, tier: MotionTier = MotionTier.FULL, profile: Profile = profileFor(settings)) = IslandMotion(
+        fun from(settings: IslandSettings, tier: MotionTier = MotionTier.FULL, profile: Profile = Profile.Legacy) = IslandMotion(
             speed = settings.animationSpeed.coerceIn(0.5f, 2f),
             tier = tier,
             expand = MotionToken.Physical(settings.expandDamping, settings.expandStiffness),

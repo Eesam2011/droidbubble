@@ -146,47 +146,6 @@ class IslandMotionTest {
     }
 
     @Test
-    fun droidIsTheDefault_legacyBehindTheHiddenSwitch() {
-        // M5.3: "eager in, calm out" unless the debug switch asks for the original motion
-        assertEquals(IslandMotion.Profile.Droid, IslandMotion.from(defaults).profile)
-        assertEquals(IslandMotion.Profile.Legacy, IslandMotion.from(defaults.copy(legacyMotion = true)).profile)
-        val legacy = IslandMotion.from(defaults.copy(legacyMotion = true))
-        assertEquals(MotionToken.Physical(1f, 380f * 1.4f), legacy.collapse)
-        assertEquals(MotionToken.Physical(0.6f, 700f, speedScaled = false), legacy.press)
-        assertEquals(legacy.bubbleRetract, legacy.merge)
-    }
-
-    @Test
-    fun droid_neverTouchesTheUserCurvesOrTheSpeed() {
-        for (speed in listOf(0.5f, 0.7f, 2.0f)) {
-            val s = defaults.copy(animationSpeed = speed, expandDamping = 0.7f, expandStiffness = 300f, splitDamping = 0.9f, splitStiffness = 500f)
-            val droid = IslandMotion.from(s)
-            val legacy = IslandMotion.from(s.copy(legacyMotion = true))
-            assertEquals(legacy.speed, droid.speed, 0f)
-            assertEquals(legacy.expand, droid.expand)
-            assertEquals(legacy.appear, droid.appear)
-            assertEquals(legacy.split, droid.split)
-            assertEquals(legacy.spring<Float>(legacy.expand).stiffness, droid.spring<Float>(droid.expand).stiffness, 0f)
-        }
-    }
-
-    @Test
-    fun droidPress_isNotSpeedScaled() {
-        val slow = motion(speed = 0.5f, profile = IslandMotion.Profile.Droid)
-        val fast = motion(speed = 2f, profile = IslandMotion.Profile.Droid)
-        assertFalse(slow.press.speedScaled)
-        assertEquals(slow.spring<Float>(slow.press).stiffness, fast.spring<Float>(fast.press).stiffness, 0f)
-    }
-
-    @Test
-    fun droid_collapseAndMerge_neverOvershoot() {
-        val m = motion(profile = IslandMotion.Profile.Droid)
-        assertEquals(1f, m.collapse.dampingRatio, 0f)
-        assertEquals(1f, m.dismiss.dampingRatio, 0f)
-        assertTrue(m.merge.dampingRatio >= 0.95f - 1e-4f)
-    }
-
-    @Test
     fun droidCollapse_onlyWhileExpandIsAtItsDefault() {
         val custom = IslandMotion.from(defaults.copy(expandStiffness = 300f), profile = IslandMotion.Profile.Droid)
         assertEquals(MotionToken.Physical(1f, 300f * 1.4f), custom.collapse)
@@ -226,38 +185,6 @@ class IslandMotionTest {
         assertEquals(0, loop.frameIntervalMillis)
         assertEquals(1_200, loop.periodMillis)
         assertTrue(motion().allowsStretch && motion().allowsBlur)
-    }
-
-    @Test
-    fun bounce_isOffOnlyInReducedMotion() {
-        // M5.2: idle bounce, parentheses shoot, swap squash, cover flip and pulses
-        assertTrue(motion().allowsBounce)
-        assertTrue(motion(tier = MotionTier.EFFICIENT).allowsBounce)
-        assertFalse(motion(tier = MotionTier.REDUCED).allowsBounce)
-    }
-
-    @Test
-    fun reduced_keepsTheCountdownTickAsAClock() {
-        // M5.2: a countdown ring drains in real seconds even in Reduced motion
-        val m = motion(tier = MotionTier.REDUCED)
-        val tick: TweenSpec<Float> = m.tween(MotionTween.COUNTDOWN_TICK)
-        assertEquals(1000, tick.durationMillis)
-        // Every other named tween is the short fade
-        val roll: TweenSpec<Float> = m.tween(MotionTween.ROLL)
-        assertEquals(IslandMotion.REDUCED_FADE_MS, roll.durationMillis)
-        assertEquals(0, m.tween<Float>(MotionTween.CHARGING_FILL).delay)
-    }
-
-    @Test
-    fun reduced_parenthesesShoot_isNoImpulse() {
-        val m = motion(tier = MotionTier.REDUCED)
-        assertNull(m.impulse(m.parenthesisShoot, 240f))
-        val full = motion(speed = 0.7f)
-        val shoot = full.impulse(full.parenthesisShoot, 240f * full.speed)!!
-        // Full motion: the same spring the shell used before M5.2
-        assertEquals(0.65f, shoot.spec.dampingRatio, 0f)
-        assertEquals(260f * (0.7f * 0.7f), shoot.spec.stiffness, 0f)
-        assertEquals(240f * 0.7f, shoot.initialVelocity, 0f)
     }
 
     @Test

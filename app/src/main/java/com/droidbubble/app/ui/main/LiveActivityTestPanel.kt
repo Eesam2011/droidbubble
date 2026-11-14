@@ -83,32 +83,3 @@ fun EnvelopeWindowTrialSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Un
         )
     }
 }
-
-/** M4.5: Back collapses the island, off until the device check. Debug builds only. */
-@Composable
-fun BackCollapsesSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    SettingsCardItem(position = GroupPosition.SINGLE) {
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = { Text("Back collapses (trial)", fontWeight = FontWeight.SemiBold) },
-            supportingContent = { Text("Debug only. Back closes the open island. It takes focus while open, so a keyboard in the app below closes.") },
-            trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) }
-        )
-    }
-}
-
-/**
- * M5.3: debug builds only. Brings back the island's original motion (the Legacy profile)
- * instead of "eager in, calm out". The three curves and the speed are the user's either way.
- */
-@Composable
-fun LegacyMotionSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    SettingsCardItem(position = GroupPosition.SINGLE) {
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = { Text("Original motion", fontWeight = FontWeight.SemiBold) },
-            supportingContent = { Text("Debug only. The island closes, merges and fades the way it did before the motion retune.") },
-            trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) }
-        )
-    }
-}

@@ -195,7 +195,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
-import com.droidbubble.app.island.motion.LoopToken
 import com.droidbubble.app.island.motion.rememberMotionTier
 import com.droidbubble.app.island.shell.Follow
 import com.droidbubble.app.island.shell.IslandShell
@@ -398,13 +397,11 @@ fun IslandOverlayRoot(
     // F3.3: every island haptic goes through here, and none fires with the haptics switch off
     val hapticsEnabled = rememberUpdatedState(settings.hapticsEnabled)
     val haptics = remember(view) { IslandHaptics(view, enabled = { hapticsEnabled.value }) }
-    // F3.1: one motion object, rebuilt only when the speed, a curve, the motion tier (M5.1) or the
-    // profile (M5.3: Droid, or Legacy from the hidden debug switch) changes
+    // F3.1: one motion object, rebuilt only when the speed, a curve or the motion tier (M5.1) changes
     val tier = rememberMotionTier(settings.reduceMotion)
     val motion = remember(
         settings.animationSpeed, settings.expandDamping, settings.expandStiffness,
         settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness, tier,
-        settings.legacyMotion,
     ) { IslandMotion.from(settings, tier) }
     // F4.1: text sizes by role, for the card scale and the phone's font size
     val fontScale = LocalDensity.current.fontScale
@@ -676,7 +673,6 @@ fun CompactContent(
     secondaryPriority: IslandPriority? = null,
     horizontalInset: Dp = 10.dp
 ) {
-    RecompositionProbe.onCompactContent?.invoke()
     // Keep showing the last activity while the pill animates away, instead of a generic bell
     val notification = rememberLastNonNull(notification)
     Row(
@@ -2059,29 +2055,23 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
 @Composable
 fun PulsingRecordingDot(modifier: Modifier = Modifier) {
     val motion = LocalIslandMotion.current
-    // M5.2: Reduced motion holds the dot still at full strength
-    val alpha: () -> Float = if (motion.loop(LoopToken.PULSE) != null) {
-        val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
-        val pulse = infiniteTransition.animateFloat(
-            initialValue = 0.35f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = motion.tween(MotionTween.RECORDING_PULSE),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "pulse_alpha"
-        )
-        ({ pulse.value })
-    } else {
-        ({ 1f })
-    }
+    val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = motion.tween(MotionTween.RECORDING_PULSE),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
 
     // B8.1: the pulse is read in the layer and draw phases only, so the dot never recomposes
     Box(
         modifier = modifier
             .size(11.dp)
             .graphicsLayer {
-                val a = alpha()
+                val a = alpha
                 scaleX = 1f + a * 0.12f
                 scaleY = 1f + a * 0.12f
                 this.alpha = a
@@ -2097,18 +2087,13 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
  */
 @Composable
 fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.ControlLight) {
-    // M5.2: Reduced motion draws one still frame (taller bars while playing, so playing and
-    // paused still read differently); Efficient (Battery Saver) steps at most every 33 ms
-    val loop = LocalIslandMotion.current.loop(LoopToken.EQUALIZER)
-    val animates = isPlaying && loop != null
-    val frameIntervalMs = (loop?.frameIntervalMillis ?: 0).toLong()
-    OutputAudioBandsEffect(active = animates)
+    OutputAudioBandsEffect(active = isPlaying)
     val idle = remember { floatArrayOf(0.3f, 0.5f, 0.2f) }
     val shown = remember { idle.copyOf() }
     var frame by remember { mutableIntStateOf(0) }
-    LaunchedEffect(isPlaying, animates, frameIntervalMs) {
-        if (!animates) {
-            (if (isPlaying) EQ_STILL_PLAYING else idle).copyInto(shown)
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) {
+            idle.copyInto(shown)
             frame++
             return@LaunchedEffect
         }
@@ -2118,7 +2103,7 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.Contr
         // data itself arrives at 20 Hz or less (AudioLevels).
         val lastBands = FloatArray(shown.size) { -1f }
         while (true) {
-            delay(if (frameIntervalMs > 0L) maxOf(EQ_STEP_LOW_POWER_MS, frameIntervalMs) else EQ_STEP_MS)
+            delay(if (AudioPowerPolicy.lowPower) EQ_STEP_LOW_POWER_MS else EQ_STEP_MS)
             withInfiniteAnimationFrameMillis { now ->
                 val t = (now - start) / 1000f
                 val real = OutputAudioBands.hasSignal
@@ -2157,8 +2142,6 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.Contr
 }
 
 private val EQ_FAKE_SPEED = floatArrayOf(7.0f, 8.3f, 6.0f)
-/** M5.2: the equalizer's still frame while playing in Reduced motion. */
-private val EQ_STILL_PLAYING = floatArrayOf(0.55f, 0.85f, 0.45f)
 private const val EQ_STEP_MS = 33L
 private const val EQ_STEP_LOW_POWER_MS = 66L
 
@@ -2192,15 +2175,11 @@ fun <T : Any> rememberLastNonNull(value: T?): T? {
  * no solid fade, so the blurred screen behind the card still shows through like the other cards.
  */
 @Composable
-internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: () -> Float, glass: Boolean, shape: () -> Shape) {
-    // M2.7: the alpha and the (animated) corner are read in the layer, so a morph doesn't recompose this
+internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, glass: Boolean, shape: Shape) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                this.shape = shape()
-                clip = true
-            }
+            .clip(shape)
     ) {
         Image(
             bitmap = art.asImageBitmap(),
@@ -2212,7 +2191,7 @@ internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: () -> Floa
                 .graphicsLayer {
                     scaleX = 1.35f
                     scaleY = 1.35f
-                    this.alpha = alpha() * (if (glass) 0.42f else 0.75f)
+                    this.alpha = alpha * (if (glass) 0.42f else 0.75f)
                 }
         )
         if (!glass) {

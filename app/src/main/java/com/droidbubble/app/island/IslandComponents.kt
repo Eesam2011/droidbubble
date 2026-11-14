@@ -1,6 +1,5 @@
 package com.droidbubble.app.island
 
-import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
 import android.graphics.Bitmap
@@ -520,7 +519,6 @@ fun mediaTrackKey(media: com.droidbubble.app.model.MediaInfo?): String? =
 /**
  * Album cover that does a 3D card flip when [trackKey] changes (new song). Art that arrives
  * late for the same song swaps in silently. Only animates during the ~0.4s flip itself.
- * Reduced motion (M5.2) fades the old cover out and the new one in instead of flipping.
  */
 @Composable
 fun FlippingCoverArt(
@@ -535,7 +533,6 @@ fun FlippingCoverArt(
     // True during the first half of a flip, while the old cover is still facing the viewer
     var isTurningAway by remember { mutableStateOf(false) }
     val rotation = remember { Animatable(0f) }
-    val fade = remember { Animatable(1f) }
     val latestArt by rememberUpdatedState(art)
     val scope = rememberCoroutineScope()
 
@@ -546,15 +543,6 @@ fun FlippingCoverArt(
         // Separate scope so a late art update can't cancel the flip halfway through
         scope.launch {
             isTurningAway = true
-            if (!motion.allowsBounce) {
-                rotation.snapTo(0f)
-                fade.animateTo(0f, motion.tween(MotionTween.ART_FLIP_OUT))
-                shownArt = latestArt
-                isTurningAway = false
-                fade.animateTo(1f, motion.effects())
-                return@launch
-            }
-            fade.snapTo(1f)
             rotation.animateTo(90f, motion.tween(MotionTween.ART_FLIP_OUT))
             shownArt = latestArt
             isTurningAway = false
@@ -571,7 +559,6 @@ fun FlippingCoverArt(
             .graphicsLayer {
                 rotationY = rotation.value
                 cameraDistance = 12f * density
-                alpha = fade.value
             }
             .then(modifier),
         contentAlignment = Alignment.Center
@@ -612,18 +599,6 @@ fun steppedBlurEffect(strength: Float, maxRadiusPx: Float): RenderEffect? {
         val radius = steps * BLUR_STEP_PX
         BlurEffect(radius, radius, TileMode.Decal)
     }
-}
-
-/**
- * M5.2: a motion blur (content leaving, a swap, a morph), only in the Full motion tier. Reduced
- * and Efficient get null, so the content just fades. Every motion blur in the island goes
- * through here; tests count the effects it hands out ([RecompositionProbe.onMotionBlur]).
- */
-fun IslandMotion.motionBlur(strength: Float, maxRadiusPx: Float): RenderEffect? {
-    if (!allowsBlur) return null
-    val effect = steppedBlurEffect(strength, maxRadiusPx)
-    if (effect != null) RecompositionProbe.onMotionBlur?.invoke()
-    return effect
 }
 
 /**

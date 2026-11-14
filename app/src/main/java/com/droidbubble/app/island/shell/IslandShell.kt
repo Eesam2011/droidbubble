@@ -182,9 +182,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.DpSize
@@ -193,8 +190,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.*
 import com.droidbubble.app.island.IslandStateManager.RingerMode
-import com.droidbubble.app.island.gesture.GestureThresholds
-import com.droidbubble.app.island.gesture.IslandGestureResult
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
@@ -248,16 +243,14 @@ internal fun IslandShell(
     val media by IslandStateManager.activeMedia.collectAsState()
     val notification by IslandStateManager.activeNotification.collectAsState()
     val progressNotification by IslandStateManager.activeProgress.collectAsState()
-    // M2.7: the recording's ticking seconds reach only the views that draw them (liveRecording());
-    // the shell and its scene see the recording without its timer, so a tick never recomposes it
-    val recordingState = IslandStateManager.screenRecordingState.collectAsState()
-    val recording by remember { derivedStateOf { recordingState.value.copy(durationSeconds = 0L) } }
+    val recording by IslandStateManager.screenRecordingState.collectAsState()
     val charging by IslandStateManager.activeCharging.collectAsState()
     val isUnlocked by IslandStateManager.isUnlocked.collectAsState()
     val isBluetoothConnected by IslandStateManager.isBluetoothConnected.collectAsState()
     val activeRingerMode by IslandStateManager.activeRingerMode.collectAsState()
     val isFlashlightOn by IslandStateManager.isFlashlightOn.collectAsState()
-    // M2.7: the flashlight level is read by the flashlight views themselves (liveFlashlightLevel())
+    val flashlightLevel by IslandStateManager.flashlightLevel.collectAsState()
+    val maxFlashlightLevel by IslandStateManager.maxFlashlightLevel.collectAsState()
     val isKeyboardFocused by IslandStateManager.isKeyboardFocused.collectAsState()
     val connectionAlert by IslandStateManager.connectionAlert.collectAsState()
     val foregroundPackage by IslandStateManager.foregroundPackage.collectAsState()
@@ -397,8 +390,7 @@ internal fun IslandShell(
     LaunchedEffect(primaryPriority) {
         if (primaryPriority == lastCompactPriority) return@LaunchedEffect
         lastCompactPriority = primaryPriority
-        // M5.2: no squash in Reduced motion; the content just crossfades
-        if (isExpanded || !motion.allowsBounce) return@LaunchedEffect
+        if (isExpanded) return@LaunchedEffect
         swapSquash.animateTo(0.06f, motion.tween(MotionTween.SWAP_SQUASH_IN))
         swapSquash.animateTo(0f, motion.spring(motion.swapSquashOut))
     }
@@ -473,8 +465,7 @@ internal fun IslandShell(
     LaunchedEffect(isUnlock) {
         if (isUnlock) {
             unlockCheckmarkVisible = false
-            // M5.2: Reduced motion shows both halves together
-            if (motion.allowsStaggerDelays) kotlinx.coroutines.delay((110L / speed).toLong())
+            kotlinx.coroutines.delay((110L / speed).toLong())
             unlockCheckmarkVisible = true
         } else {
             unlockCheckmarkVisible = false
@@ -504,8 +495,7 @@ internal fun IslandShell(
     LaunchedEffect(isBluetooth) {
         if (isBluetooth) {
             bluetoothCheckmarkVisible = false
-            // M5.2: Reduced motion shows both halves together
-            if (motion.allowsStaggerDelays) kotlinx.coroutines.delay((110L / speed).toLong())
+            kotlinx.coroutines.delay((110L / speed).toLong())
             bluetoothCheckmarkVisible = true
         } else {
             bluetoothCheckmarkVisible = false
@@ -536,8 +526,7 @@ internal fun IslandShell(
     LaunchedEffect(isRingerMode) {
         if (isRingerMode) {
             ringerSecondaryVisible = false
-            // M5.2: Reduced motion shows both halves together
-            if (motion.allowsStaggerDelays) kotlinx.coroutines.delay((110L / speed).toLong())
+            kotlinx.coroutines.delay((110L / speed).toLong())
             ringerSecondaryVisible = true
         } else {
             ringerSecondaryVisible = false
@@ -658,12 +647,11 @@ internal fun IslandShell(
     // The bubble emerges once the main pill has established itself (M3.2, set below the pill)
     var secondaryBubbleEmerged by remember { mutableStateOf(false) }
 
-    // Out on the user's Split curve (a slight overshoot); back into the punch hole smoothly, on
-    // the merge token (M5.3: Droid's near-critical merge; Legacy's is the old bubble retract)
+    // Out on the user's Split curve (a slight overshoot); back into the punch hole smoothly
     val bubbleOffsetAnimSpec = if (secondaryBubbleEmerged && shouldEmergeSecondary) {
         motion.spring<Dp>(motion.split)
     } else {
-        motion.spring<Dp>(motion.merge)
+        motion.spring<Dp>(motion.bubbleRetract)
     }
 
     // F1.3: every target size comes from one pure function, shared with the window (F1.4)
@@ -731,21 +719,21 @@ internal fun IslandShell(
     }
     val animatedCompactWidthRaw by compactWidthState
     // The bouncy split spring overshoots below 0 when the pill shrinks away (swipe to hide, dual
-    // pill retracting); a negative width throws in layout and crashed the island.
-    // M2.6: a derived state, so declaring it doesn't read the width in composition
-    val animatedCompactWidth by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) } }
-    val pillGone by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) <= 0.1.dp } }
+    // pill retracting); a negative width throws in layout and crashed the island
+    val animatedCompactWidth = animatedCompactWidthRaw.coerceAtLeast(0.dp)
     // M1.1: the body's shape and position live in one state holder (Animatables), so later
     // tasks can retarget with a velocity, snap, and read the velocity
     val shell = rememberIslandShellState(shellTargetCard1, shellTargetX)
     shell.Follow(shellTargetCard1, shellTargetX, cardMorphAnimSpec, positionAnimSpec)
-    // M2.7: the body's geometry is read only in layout / draw lambdas (and in outlines, inside the
-    // cards' own restart scope); this reads it on demand instead of on every shell composition
-    fun animatedCornerRadius(): Dp = shell.geometry.corner.coerceAtLeast(0.dp)
+    val animatedCardMorph = shell.geometry
+    val animatedCard1Width = animatedCardMorph.width.coerceAtLeast(0.dp)
+    val animatedCard1Height = animatedCardMorph.height.coerceAtLeast(0.dp)
+    val animatedCornerRadius = animatedCardMorph.corner.coerceAtLeast(0.dp)
     val animatedCard2Height by animateDpAsState(targetValue = targetCard2Height, animationSpec = sizeAnimSpecDp, label = "card2Height")
     val animatedCard2Alpha by animateFloatAsState(targetValue = targetCard2Alpha, animationSpec = sizeAnimSpecFloat, label = "card2Alpha")
     val animatedCard2OffsetY by animateDpAsState(targetValue = targetCard2OffsetY, animationSpec = sizeAnimSpecDp, label = "card2OffsetY")
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
+    val animatedHorizontalOffset = shell.xDp
 
     // M3.1: content follows the shape. p runs 0 → 1 from card 1's closed rect to its open rect,
     // read from the body's own geometry (draw phase), and every content fade is a pure function of
@@ -779,14 +767,6 @@ internal fun IslandShell(
     val pillShown by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 0.5.dp } }
     val pillFilled by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 2.dp } }
     val pillOutlined by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 8.dp } }
-    // M2.6: more coarse pill flags, so no composition reads the pill's animated width
-    val pillFitsContent by remember { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > 24.dp } }
-    val pillWiderThanTall by remember(settings.heightDp) { derivedStateOf { compactWidthState.value.coerceAtLeast(0.dp) > settings.heightDp.dp } }
-    // M2.6: the width the pill's content is laid out at: where the pill is heading, or, while it
-    // shrinks away to nothing, the last width it had, so leaving content is clipped, not squeezed
-    val compactContentWidthHolder = remember { CompactContentWidth() }
-    if (targets.compactWidth > 0.dp) compactContentWidthHolder.width = targets.compactWidth
-    val compactContentWidth = compactContentWidthHolder.width
     val animatedCardSpacing by animateDpAsState(targetValue = targetCardSpacing, animationSpec = sizeAnimSpecDp, label = "cardSpacing")
 
     // F5.3: tell the window when every shape animation (card, pill, bubble, card 2) has come to
@@ -833,87 +813,28 @@ internal fun IslandShell(
         SolidColor(Color.Black)
     }
 
-    // M2.7: read in graphicsLayer only
-    fun cardContainerAlpha(): Float = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
-    // M2.7: coarse flags over expandProgress; they flip once per morph
-    val cardsStarted by remember { derivedStateOf { expandProgress > 0.001f } }
-    val backdropShown by remember { derivedStateOf { expandProgress > 0.05f } }
+    val cardContainerAlpha = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
 
-    // M4.2: the cards' sideways drag (px) on Animatables, so a release hands the finger's velocity
-    // to the spring and a dismissed card flies off without springing back first (CardStack.kt)
-    val card1OffsetX = remember { Animatable(0f) }
-    val card2OffsetX = remember { Animatable(0f) }
-    ResetCardOffsets(
-        isExpanded = isExpanded,
-        primaryKey = primaryKey,
-        secondaryKey = contentKeyFor(scene, sceneInputs, Slot.SECONDARY),
-        card1 = card1OffsetX,
-        card2 = card2OffsetX,
-        cardClosed = { shell.geometry.width <= 0.5.dp && animatedCard2Height <= 0.5.dp },
+    var card1OffsetX by remember { mutableFloatStateOf(0f) }
+    var card2OffsetX by remember { mutableFloatStateOf(0f) }
+
+    val animatedCard1OffsetX by animateFloatAsState(
+        targetValue = card1OffsetX,
+        animationSpec = motion.spring(motion.cardDrag),
+        label = "card1OffsetX"
     )
-    val cardOffscreenPx: () -> Float = { rootSize.width.toFloat() }
-    val card1Swipe = cardSwipeKind(primaryPriority, currentNotif)
-    val card2Swipe = cardSwipeKind(secondaryPriority, currentNotif)
-    // The store's own dismissal for each kind of card; false if nothing was removed
-    fun dismissCard(priority: IslandPriority?): Boolean = when (priority) {
-        IslandPriority.MEDIA -> { IslandStateManager.dismissMedia(); true }
-        IslandPriority.POP_NOTIFICATION -> IslandStateManager.clearCurrentNotification()
-        IslandPriority.PROGRESS -> IslandStateManager.dismissProgress()
-        else -> false
-    }
+    val animatedCard2OffsetX by animateFloatAsState(
+        targetValue = card2OffsetX,
+        animationSpec = motion.spring(motion.cardDrag),
+        label = "card2OffsetX"
+    )
 
-    // M4.5: predictive back previews a small shrink toward the pill; Back collapses (BackPreview.kt)
-    BackPreview(shell = shell, isExpanded = isExpanded, closed = card1Closed, open = shellTargetCard1)
-
-    // M4.4: the pill body under the finger (px), rubber-banded; it springs home on release (Pill.kt)
-    val pillDragX = remember { Animatable(0f) }
-    val pillDragY = remember { Animatable(0f) }
-    // A pull down on the pill opens the card with the finger's speed. Two bodies (M1.3 parked):
-    // the card grows from the pulled-down pill's position instead of morphing out of the pill.
-    fun expandFromPill(velocityY: Float, draggedY: Float) {
-        val dragged = with(windowDensity) { draggedY.toDp() }
-        coroutineScope.launch {
-            if (shell.isSettled && dragged > 0.dp) shell.body.snapTo(card1Closed.copy(top = card1Closed.top + dragged))
-            shell.handOff(gestureVelocity(velocityY / windowDensity.density, card1Closed, card1Open))
-            IslandStateManager.expand(primaryPriority)
+    LaunchedEffect(isExpanded) {
+        if (!isExpanded) {
+            card1OffsetX = 0f
+            card2OffsetX = 0f
         }
     }
-
-    // M4.3: a swipe up from card 1's pill zone tucks the island back. While dragging the body
-    // follows the finger (rubber-banded, from its shape when the drag began); a tuck hands the
-    // finger's velocity to the collapse, a short pull springs back with it. Not on the flashlight
-    // card, whose brightness slider is vertical.
-    val latestCard1Target by rememberUpdatedState(shellTargetCard1)
-    val card1DragBase = remember { arrayOfNulls<IslandGeometry>(1) }
-    val cardDragBand = GestureThresholds().rubberBandLength
-    val card1Vertical = if (primaryPriority == IslandPriority.FLASHLIGHT) null else CardVertical(
-        fromTopPx = with(windowDensity) { (settings.heightDp.dp + IslandTokens.Shell.PillZoneExtra).toPx() },
-        onDrag = { dyPx ->
-            val base = card1DragBase[0] ?: shell.geometry.also { card1DragBase[0] = it }
-            val dy = with(windowDensity) { dyPx.toDp() }
-            coroutineScope.launch { shell.dragBy(base, dy, minHeight = card1Closed.height, band = cardDragBand) }
-        },
-        onRelease = { result ->
-            card1DragBase[0] = null
-            if (result is IslandGestureResult.Tuck) {
-                haptics.perform(IslandHapticEvent.COLLAPSE)
-                shell.handOff(gestureVelocity(result.velocityY / windowDensity.density, shell.geometry, card1Closed))
-                IslandStateManager.collapse()
-            } else {
-                val vy = ((result as? IslandGestureResult.Cancel)?.velocity?.y ?: 0f) / windowDensity.density
-                val target = latestCard1Target
-                // Back along the edge that moved: the bottom after a pull up, the top after a pull down
-                val v = if (shell.geometry.height < target.height) {
-                    IslandGeometry(0.dp, vy.dp, 0.dp, 0.dp)
-                } else {
-                    IslandGeometry(0.dp, 0.dp, 0.dp, vy.dp)
-                }
-                coroutineScope.launch {
-                    shell.release(target, motion.spring(motion.interactive, IslandGeometry.VisibilityThreshold), v)
-                }
-            }
-        },
-    )
 
     // Liquid glass blur (M2.5): the cards' on-screen rects go to the overlay service from their
     // layout callbacks, and again whenever the fade-in strengths or the corner change, so the
@@ -963,16 +884,12 @@ internal fun IslandShell(
             parenthesisExtraShoot.snapTo(0f)
             // M3.2: shoot once the pill is 60% of the way out of the punch hole, at any speed
             snapshotFlow { latestCompactTarget > 0f && pillWidth.value >= latestCompactTarget * PARENTHESES_SHOOT_AT }.first { it }
-            // Shoot outward from the main island with spring bounce and settle back to 0.
-            // M5.2: an impulse, so Reduced motion (no impulse) skips it
-            val shoot = motion.impulse(motion.parenthesisShoot, 240f * speed)
-            if (shoot != null) {
-                parenthesisExtraShoot.animateTo(
-                    targetValue = 0f,
-                    initialVelocity = shoot.initialVelocity,
-                    animationSpec = shoot.spec
-                )
-            }
+            // Shoot outward from the main island with spring bounce and settle back to 0
+            parenthesisExtraShoot.animateTo(
+                targetValue = 0f,
+                initialVelocity = 240f * speed,
+                animationSpec = motion.spring(motion.parenthesisShoot)
+            )
         } else {
             parenthesisExtraShoot.snapTo(0f)
         }
@@ -1019,7 +936,7 @@ internal fun IslandShell(
     }
 
     // Completely idle and collapsed: nothing is visible on screen. Skip rendering the view hierarchy to preserve CPU & battery.
-    if (!isOccupied && !settings.alwaysShowPill && pillGone && !isExpanded && !cardsStarted) {
+    if (!isOccupied && !settings.alwaysShowPill && animatedCompactWidth <= 0.1.dp && !isExpanded && expandProgress <= 0.001f) {
         return
     }
 
@@ -1045,8 +962,7 @@ internal fun IslandShell(
         contentAlignment = Alignment.TopCenter
     ) {
         // Tap outside backdrop when expanded (active during whole expand and collapse animation)
-        // M2.7: its flag is read in its own restart scope
-        Isolated { if (backdropShown) {
+        if (expandProgress > 0.05f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1058,15 +974,12 @@ internal fun IslandShell(
                         IslandStateManager.collapse()
                     }
             )
-        } }
+        }
 
 
 
         // Expanded Cards Container: Positioned at animated top and horizontal offset
-        // M2.7: the cards run in their own restart scope, so their coarse flags (shown, filled,
-        // content in) and card 2's springs recompose the cards, never the whole shell
-        Isolated {
-        if (cardsStarted || isExpanded) {
+        if (expandProgress > 0.001f || isExpanded) {
             Box(
                 modifier = Modifier
                     .offset {
@@ -1082,19 +995,41 @@ internal fun IslandShell(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(animatedCardSpacing),
-                    // M4.3: the swipe up to tuck lives on card 1 itself (its pill zone), with the
-                    // sideways swipe, in one detector
+                    modifier = if (isExpanded && primaryPriority != IslandPriority.FLASHLIGHT) {
+                        // Swipe up to collapse only from the pill zone at the top of the island
+                        // (where the pill morphed from), never from card content such as the
+                        // media slider, buttons or the second card
+                        Modifier.pointerInput(settings.heightDp) {
+                            val pillZonePx = (settings.heightDp.dp + IslandTokens.Shell.PillZoneExtra).toPx()
+                            var fromPillZone = false
+                            var collapsed = false
+                            detectVerticalDragGestures(
+                                onDragStart = { start ->
+                                    fromPillZone = start.y <= pillZonePx
+                                    collapsed = false
+                                },
+                                onVerticalDrag = { change, dragAmount ->
+                                    if (fromPillZone && !collapsed && dragAmount < -IslandTokens.Gesture.LegacySwipeUpPx) {
+                                        change.consume()
+                                        collapsed = true
+                                        haptics.perform(IslandHapticEvent.COLLAPSE)
+                                        IslandStateManager.collapse()
+                                    }
+                                }
+                            )
+                        }
+                    } else Modifier
                 ) {
                     // Card 1: Primary Expanded Card
-                    if (card1Shown && (cardsStarted || isExpanded)) {
+                    if (card1Shown && (expandProgress > 0.001f || isExpanded)) {
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD)
-                                .offset { IntOffset(card1OffsetX.value.roundToInt(), 0) }
+                                .offset { IntOffset(animatedCard1OffsetX.roundToInt(), 0) }
                                 .layoutSize(width = { shell.geometry.width }, height = { shell.geometry.height })
                                 .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
-                                    alpha = cardContainerAlpha()
+                                    alpha = cardContainerAlpha
                                     // Liquid stretch: while the card grows it widens a touch and
                                     // flattens, and springs back as the morph slows. It hangs from
                                     // the top edge so it stays docked under the camera. Off for
@@ -1118,21 +1053,62 @@ internal fun IslandShell(
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = primaryOutlineColor,
-                                            shape = islandShape(animatedCornerRadius())
+                                            shape = islandShape(animatedCornerRadius)
                                         )
                                     } else Modifier
                                 )
-                                // M4.2: follows the finger sideways; flings out, tucks (B6.2: a ringing
-                                // call or alarm keeps its Answer / Stop buttons) or springs back
-                                .cardSwipe(
-                                    enabled = isExpanded,
-                                    offsetX = card1OffsetX,
-                                    kind = card1Swipe,
-                                    priority = primaryPriority,
-                                    offscreenPx = cardOffscreenPx,
-                                    onDismiss = { dismissCard(primaryPriority) },
-                                    onTuck = { IslandStateManager.collapse() },
-                                    vertical = card1Vertical,
+                                .then(
+                                    if (isExpanded) {
+                                        Modifier.pointerInput(primaryPriority) {
+                                            detectHorizontalDragGestures(
+                                                onDragEnd = {
+                                                    val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
+                                                    when (primaryPriority) {
+                                                        IslandPriority.MEDIA -> {
+                                                            if (abs(card1OffsetX) > threshold) {
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
+                                                                IslandStateManager.dismissMedia()
+                                                            }
+                                                        }
+                                                        IslandPriority.POP_NOTIFICATION -> {
+                                                            if (abs(card1OffsetX) > threshold) {
+                                                                if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
+                                                                    // B6.2: a ringing call or alarm tucks back to the pill instead
+                                                                    // of losing its Answer / Stop buttons. Decline and Stop end it.
+                                                                    haptics.perform(IslandHapticEvent.COLLAPSE)
+                                                                    IslandStateManager.collapse()
+                                                                } else {
+                                                                    haptics.perform(IslandHapticEvent.DISMISS)
+                                                                    IslandStateManager.clearCurrentNotification()
+                                                                }
+                                                            }
+                                                        }
+                                                        IslandPriority.PROGRESS -> {
+                                                            if (abs(card1OffsetX) > threshold) {
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
+                                                                IslandStateManager.dismissProgress()
+                                                            }
+                                                        }
+                                                        else -> Unit
+                                                    }
+                                                    card1OffsetX = 0f
+                                                },
+                                                onDragCancel = {
+                                                    card1OffsetX = 0f
+                                                },
+                                                onHorizontalDrag = { _, dragAmount ->
+                                                    when (primaryPriority) {
+                                                        IslandPriority.SCREEN_RECORDING -> {
+                                                            card1OffsetX += dragAmount * 0.18f
+                                                        }
+                                                        else -> {
+                                                            card1OffsetX += dragAmount
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    } else Modifier
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1142,19 +1118,17 @@ internal fun IslandShell(
                                     MediaArtBackdrop(
                                         art = blurredMediaArt ?: mediaArt,
                                         needsBlur = blurredMediaArt == null,
-                                        alpha = { expandProgress },
+                                        alpha = expandProgress,
                                         glass = settings.liquidGlassCards,
-                                        shape = { IslandShapeCache.get(animatedCornerRadius()) }
+                                        shape = islandShape(animatedCornerRadius)
                                     )
                                 } else {
-                                    // M2.7: the gradient is built at full strength and faded with
-                                    // the card in the layer (draw phase), not rebuilt every frame
                                     val ambientBrush = when {
                                         primaryPriority == IslandPriority.MEDIA && mediaAccentColor != Color.Transparent -> {
                                             Brush.verticalGradient(
                                                 colors = listOf(
-                                                    mediaAccentColor.copy(alpha = 0.35f),
-                                                    mediaAccentColor.copy(alpha = 0.12f),
+                                                    mediaAccentColor.copy(alpha = 0.35f * expandProgress),
+                                                    mediaAccentColor.copy(alpha = 0.12f * expandProgress),
                                                     Color.Transparent
                                                 )
                                             )
@@ -1164,8 +1138,8 @@ internal fun IslandShell(
                                             Brush.verticalGradient(
                                                 colors = listOf(
                                                     Color.Transparent,
-                                                    blurpleTint.copy(alpha = 0.06f),
-                                                    blurpleTint.copy(alpha = 0.20f)
+                                                    blurpleTint.copy(alpha = 0.06f * expandProgress),
+                                                    blurpleTint.copy(alpha = 0.20f * expandProgress)
                                                 )
                                             )
                                         }
@@ -1173,8 +1147,8 @@ internal fun IslandShell(
                                             val redTint = IslandTokens.RecordingRed
                                             Brush.verticalGradient(
                                                 colors = listOf(
-                                                    redTint.copy(alpha = 0.16f),
-                                                    redTint.copy(alpha = 0.05f),
+                                                    redTint.copy(alpha = 0.16f * expandProgress),
+                                                    redTint.copy(alpha = 0.05f * expandProgress),
                                                     Color.Transparent
                                                 )
                                             )
@@ -1185,7 +1159,6 @@ internal fun IslandShell(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .graphicsLayer { alpha = expandProgress }
                                                 .background(ambientBrush)
                                         )
                                     }
@@ -1212,7 +1185,7 @@ internal fun IslandShell(
                                             // Only leaving content blurs: sharp on the way in, blurred
                                             // with the card's speed (or its fade) on the way out
                                             val contracting = !isExpanded
-                                            renderEffect = if (!contracting) null else motion.motionBlur(
+                                            renderEffect = if (!contracting || !motion.allowsBlur) null else steppedBlurEffect(
                                                 maxOf(IslandChoreography.leavingBlurFraction(p, contracting), shell.morphSpeed()),
                                                 IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                             )
@@ -1257,7 +1230,7 @@ internal fun IslandShell(
                                                 .wrapContentSize(Alignment.TopCenter, unbounded = true)
                                                 .requiredSize(expandedCardWidth, shown.height)
                                                 .graphicsLayer {
-                                                    renderEffect = if (leavingBlur > 0f) motion.motionBlur(
+                                                    renderEffect = if (leavingBlur > 0f && motion.allowsBlur) steppedBlurEffect(
                                                         leavingBlur, IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                                     ) else null
                                                 }
@@ -1266,9 +1239,9 @@ internal fun IslandShell(
                                         priority = shown.key.priority,
                                         media = shown.media,
                                         notification = shown.notification,
-                                        recording = liveRecording(),
-                                        flashlightLevel = liveFlashlightLevel(),
-                                        maxFlashlightLevel = liveMaxFlashlightLevel(),
+                                        recording = recording,
+                                        flashlightLevel = flashlightLevel,
+                                        maxFlashlightLevel = maxFlashlightLevel,
                                         scale = settings.expandedScale,
                                         onCollapse = {
                                             haptics.perform(IslandHapticEvent.COLLAPSE)
@@ -1287,7 +1260,7 @@ internal fun IslandShell(
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD2)
-                                .offset { IntOffset(card2OffsetX.value.roundToInt(), animatedCard2OffsetY.roundToPx()) }
+                                .offset { IntOffset(animatedCard2OffsetX.roundToInt(), animatedCard2OffsetY.roundToPx()) }
                                 .layoutSize(width = { shell.geometry.width })
                                 .height(animatedCard2Height)
                                 .onGloballyPositioned { glassCardBounds[1] = it.boundsInWindow(); publishGlass() }
@@ -1307,19 +1280,63 @@ internal fun IslandShell(
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = secondaryOutlineColor,
-                                            shape = islandShape(animatedCornerRadius())
+                                            shape = islandShape(animatedCornerRadius)
                                         )
                                     } else Modifier
                                 )
-                                // M4.2: the same sideways swipe as card 1
-                                .cardSwipe(
-                                    enabled = isExpanded && secondaryPriority != null,
-                                    offsetX = card2OffsetX,
-                                    kind = card2Swipe,
-                                    priority = secondaryPriority,
-                                    offscreenPx = cardOffscreenPx,
-                                    onDismiss = { dismissCard(secondaryPriority) },
-                                    onTuck = { IslandStateManager.collapse() },
+                                .then(
+                                    if (isExpanded && secondaryPriority != null) {
+                                        Modifier.pointerInput(secondaryPriority) {
+                                            detectHorizontalDragGestures(
+                                                onDragEnd = {
+                                                    val threshold = IslandTokens.Gesture.LegacySwipeDismissPx
+                                                    when (secondaryPriority) {
+                                                        IslandPriority.MEDIA -> {
+                                                            if (abs(card2OffsetX) > threshold) {
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
+                                                                IslandStateManager.dismissMedia()
+                                                            }
+                                                        }
+                                                        IslandPriority.POP_NOTIFICATION -> {
+                                                            if (abs(card2OffsetX) > threshold) {
+                                                                if (currentNotif?.isIncomingCall == true || currentNotif?.isAlert == true) {
+                                                                    // B6.2: a ringing call or alarm tucks back to the pill instead
+                                                                    // of losing its Answer / Stop buttons. Decline and Stop end it.
+                                                                    haptics.perform(IslandHapticEvent.COLLAPSE)
+                                                                    IslandStateManager.collapse()
+                                                                } else {
+                                                                    haptics.perform(IslandHapticEvent.DISMISS)
+                                                                    IslandStateManager.clearCurrentNotification()
+                                                                }
+                                                            }
+                                                        }
+                                                        IslandPriority.PROGRESS -> {
+                                                            if (abs(card2OffsetX) > threshold) {
+                                                                haptics.perform(IslandHapticEvent.DISMISS)
+                                                                IslandStateManager.dismissProgress()
+                                                            }
+                                                        }
+                                                        else -> Unit
+                                                    }
+                                                    card2OffsetX = 0f
+                                                },
+                                                onDragCancel = {
+                                                    card2OffsetX = 0f
+                                                },
+                                                onHorizontalDrag = { _, dragAmount ->
+                                                    when (secondaryPriority) {
+                                                        IslandPriority.PROGRESS,
+                                                        IslandPriority.SCREEN_RECORDING -> {
+                                                            card2OffsetX += dragAmount * 0.18f
+                                                        }
+                                                        else -> {
+                                                            card2OffsetX += dragAmount
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    } else Modifier
                                 )
                         ) {
                             // Subtle ambient gradient background or blurred album art for secondary card if it's the media player or flashlight
@@ -1328,9 +1345,9 @@ internal fun IslandShell(
                                     MediaArtBackdrop(
                                         art = blurredMediaArt ?: mediaArt,
                                         needsBlur = blurredMediaArt == null,
-                                        alpha = { animatedCard2Alpha },
+                                        alpha = animatedCard2Alpha,
                                         glass = settings.liquidGlassCards,
-                                        shape = { IslandShapeCache.get(animatedCornerRadius()) }
+                                        shape = islandShape(animatedCornerRadius)
                                     )
                                 } else {
                                     val ambientBrush = when {
@@ -1385,7 +1402,7 @@ internal fun IslandShell(
                                             cardHeightFor(secondaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
                                         )
                                         .graphicsLayer {
-                                            renderEffect = if (card2Expanded) null else motion.motionBlur(
+                                            renderEffect = if (card2Expanded) null else steppedBlurEffect(
                                                 maxOf(1f - animatedCard2Alpha, shell.morphSpeed()), 10.dp.toPx()
                                             )
                                         }
@@ -1395,9 +1412,9 @@ internal fun IslandShell(
                                         priority = secondaryPriority,
                                         media = currentMedia,
                                         notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                        recording = liveRecording(),
-                                        flashlightLevel = liveFlashlightLevel(),
-                                        maxFlashlightLevel = liveMaxFlashlightLevel(),
+                                        recording = recording,
+                                        flashlightLevel = flashlightLevel,
+                                        maxFlashlightLevel = maxFlashlightLevel,
                                         scale = settings.expandedScale,
                                         onCollapse = {
                                             haptics.perform(IslandHapticEvent.COLLAPSE)
@@ -1411,7 +1428,6 @@ internal fun IslandShell(
                 }
             }
         }
-        } // Isolated: cards
 
         // Minimised Island Container: Positioned strictly at camera cutout level (settings.topOffsetDp.dp)
         // Shrinks horizontally to 0 width while the card expands downwards, and blossoms from 0 width when minimising!
@@ -1425,22 +1441,17 @@ internal fun IslandShell(
                 },
             contentAlignment = Alignment.TopCenter
         ) {
-            // M2.7: the pill, the bubble, the neck, the notch bridge and the parentheses run in their
-            // own restart scope: their flags never recompose the whole shell
-            Isolated {
             // Smoothly fade in over the first frames where it is barely a circle emerging from the punch hole,
             // and smoothly fade out when shrinking back into the punch hole.
             // Applies to both single and dual activities!
-            // M2.6: every alpha below is read inside graphicsLayer / draw / layout lambdas, so the
-            // pill's width morph redraws without recomposing; only coarse flags recompose
             val circleThreshold = (settings.heightDp.dp * 0.95f).coerceAtLeast(10.dp)
-            fun compactPillAlpha(): Float {
-                val emergenceProgress = (compactWidthState.value.coerceAtLeast(0.dp) / circleThreshold).coerceIn(0f, 1f)
-                return emergenceProgress * emergenceProgress * (3f - 2f * emergenceProgress)
-            }
-            // When emerging from the punch hole, the secondary bubble also fades in with the main island
-            // so no opaque circle sits exposed at the punch hole during the initial frames!
-            fun bubbleAlpha(): Float {
+            val emergenceProgress = (animatedCompactWidth / circleThreshold).coerceIn(0f, 1f)
+            val compactPillAlpha = emergenceProgress * emergenceProgress * (3f - 2f * emergenceProgress)
+
+            // 1. Auxiliary Circular Island Bubble: Placed on the LAYER BELOW (rendered first so main pill covers it!)
+            // Fixed circular shape & size; emerges and retracts purely along the X axis from the middle of the punch hole (x = 0)
+            if (isDual || animatedBubbleOffsetX > 1.dp) {
+                val bubbleOffsetXPx = with(LocalDensity.current) { animatedBubbleOffsetX.roundToPx() }
                 val baseBubbleAlpha = if (isExpanded) {
                     ((1f - expandProgress * 4f).coerceIn(0f, 1f))
                 } else if (!isOccupied) {
@@ -1448,39 +1459,28 @@ internal fun IslandShell(
                 } else {
                     1f
                 }
-                return baseBubbleAlpha * compactPillAlpha()
-            }
-            fun bubbleContentAlpha(): Float {
-                val emergedDistance = animatedBubbleOffsetX - (compactMainHalf - bubbleSize / 2f)
-                return ((emergedDistance - bubbleSize * 0.35f) / (bubbleSize * 0.55f)).coerceIn(0f, 1f) * bubbleAlpha()
-            }
-            val bubbleOut by remember { derivedStateOf { animatedBubbleOffsetX > 1.dp } }
-            val bubbleDrawn by remember(isExpanded, isOccupied, settings.heightDp, settings.widthDp) {
-                derivedStateOf { bubbleAlpha() > 0.01f }
-            }
-            val bubbleContentDrawn by remember(isExpanded, isOccupied, settings.heightDp, settings.widthDp) {
-                derivedStateOf { bubbleContentAlpha() > 0.05f }
-            }
-            val bubbleOutlined by remember(settings.widthDp) { derivedStateOf { animatedBubbleOffsetX > compactMainHalf * 0.7f } }
+                // When emerging from the punch hole, the secondary bubble also fades in with the main island
+                // so no opaque circle sits exposed at the punch hole during the initial frames!
+                val bubbleAlpha = baseBubbleAlpha * compactPillAlpha
 
-            // 1. Auxiliary Circular Island Bubble: Placed on the LAYER BELOW (rendered first so main pill covers it!)
-            // Fixed circular shape & size; emerges and retracts purely along the X axis from the middle of the punch hole (x = 0)
-            if (isDual || bubbleOut) {
-                if (bubbleDrawn) {
+                if (bubbleAlpha > 0.01f) {
+                    val emergedDistance = animatedBubbleOffsetX - (compactMainHalf - bubbleSize / 2f)
+                    val contentAlpha = ((emergedDistance - bubbleSize * 0.35f) / (bubbleSize * 0.55f)).coerceIn(0f, 1f) * bubbleAlpha
+
                     Box(
                         modifier = Modifier
                             .testTag(IslandTestTags.BUBBLE)
-                            .offset { IntOffset(x = animatedBubbleOffsetX.roundToPx(), y = 0) }
+                            .offset { IntOffset(x = bubbleOffsetXPx, y = 0) }
                             .size(bubbleSize)
                             .graphicsLayer {
-                                alpha = bubbleAlpha()
+                                alpha = bubbleAlpha
                                 scaleX = bubblePressScale
                                 scaleY = bubblePressScale
                             }
                             .clip(CircleShape)
                             .background(Color.Black)
                             .then(
-                                if (settings.showOutline && bubbleOutlined) {
+                                if (settings.showOutline && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
                                     Modifier.border(
                                         width = settings.outlineThicknessDp.dp,
                                         color = secondaryOutlineColor,
@@ -1508,23 +1508,20 @@ internal fun IslandShell(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (bubbleContentDrawn) {
+                        if (contentAlpha > 0.05f) {
                             Box(
                                 modifier = Modifier
                                     .testTag(IslandTestTags.content("bubble", secondaryPriority))
                                     .fillMaxSize()
-                                    .graphicsLayer { alpha = bubbleContentAlpha() },
+                                    .graphicsLayer { alpha = contentAlpha },
                                 contentAlignment = Alignment.Center
                             ) {
-                                // M2.7: own restart scope, so the recording's tick redraws only the bubble
-                                Isolated {
-                                    AuxiliaryBubbleContent(
-                                        priority = secondaryPriority,
-                                        media = currentMedia,
-                                        notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                        recording = liveRecording(),
-                                    )
-                                }
+                                AuxiliaryBubbleContent(
+                                    priority = secondaryPriority,
+                                    media = currentMedia,
+                                    notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+                                    recording = recording,
+                                )
                             }
                         }
                     }
@@ -1534,7 +1531,7 @@ internal fun IslandShell(
             // Liquid split: while the secondary bubble separates from the pill, a black "neck" with
             // concave sides joins them and thins until it snaps, like two drops pulling apart.
             // Only drawn during the split itself, so it costs nothing at rest.
-            if (isDual && !isExpanded && bubbleOut && pillWiderThanTall) {
+            if (isDual && !isExpanded && animatedBubbleOffsetX > 1.dp && animatedCompactWidth > settings.heightDp.dp) {
                 val pillH = settings.heightDp.dp
                 val pillRight = animatedCompactWidth / 2f
                 val gap = (animatedBubbleOffsetX - bubbleSize / 2f) - pillRight
@@ -1550,7 +1547,7 @@ internal fun IslandShell(
                         modifier = Modifier
                             .offset { IntOffset(x = neckCenterX.roundToPx(), y = 0) }
                             .size(neckEnd - neckStart, pillH)
-                            .graphicsLayer { alpha = compactPillAlpha() }
+                            .graphicsLayer { alpha = compactPillAlpha }
                     ) {
                         val w = size.width
                         val cy = size.height / 2f
@@ -1578,21 +1575,20 @@ internal fun IslandShell(
             } else {
                 islandShape(settings.heightDp.dp / 2)
             }
-            if (settings.isNotch && pillShown) {
-                fun notchEar(): Dp = (8.dp * compactPillAlpha()).coerceAtLeast(0.dp)
+            if (settings.isNotch && animatedCompactWidth > 0.5.dp) {
+                val notchEar = (8.dp * compactPillAlpha).coerceAtLeast(0.dp)
                 val bridgeHeight = settings.topOffsetDp.dp + settings.heightDp.dp / 2f
                 Canvas(
                     modifier = Modifier
                         .offset { IntOffset(x = 0, y = -settings.topOffsetDp.dp.roundToPx()) }
-                        // M2.6: sized in the layout phase (same as .size(width + ears, bridgeHeight))
-                        .layoutSize(width = { compactWidthState.value.coerceAtLeast(0.dp) + notchEar() * 2 }, height = { bridgeHeight })
+                        .size(animatedCompactWidth + notchEar * 2, bridgeHeight)
                         .graphicsLayer {
-                            alpha = compactPillAlpha()
+                            alpha = compactPillAlpha
                             transformOrigin = TransformOrigin(0.5f, 0f)
                             scaleX = pillPressScale * (1f + swapSquash.value)
                         }
                 ) {
-                    drawPath(notchBridgePath(size.width, size.height, notchEar().toPx()), Color.Black)
+                    drawPath(notchBridgePath(size.width, size.height, notchEar.toPx()), Color.Black)
                 }
             }
 
@@ -1601,51 +1597,56 @@ internal fun IslandShell(
                 Box(
                     modifier = Modifier
                         .testTag(IslandTestTags.PILL)
-                        // M4.4: the body under the finger while dragged (layout phase)
-                        .offset { IntOffset(pillDragX.value.roundToInt(), pillDragY.value.roundToInt()) }
                         .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)
                         .graphicsLayer {
-                            alpha = compactPillAlpha()
-                            // A notch stays attached to the top edge: no bounce away from it.
-                            // M5.2: no idle tap bounce in Reduced motion
-                            val bounce = motion.allowsBounce
-                            translationY = if (settings.isNotch || !bounce) 0f else idleBounceY.value.dp.toPx()
+                            alpha = compactPillAlpha
+                            // A notch stays attached to the top edge: no bounce away from it
+                            translationY = if (settings.isNotch) 0f else idleBounceY.value.dp.toPx()
                             if (settings.isNotch) transformOrigin = TransformOrigin(0.5f, 0f)
-                            val idleScale = if (bounce) idleBounceScale.value else 1f
-                            scaleX = idleScale * pillPressScale * (1f + swapSquash.value)
-                            scaleY = idleScale * pillPressScale * (1f - swapSquash.value * 0.5f)
+                            scaleX = idleBounceScale.value * pillPressScale * (1f + swapSquash.value)
+                            scaleY = idleBounceScale.value * pillPressScale * (1f - swapSquash.value * 0.5f)
                         }
                         .clip(compactPillShape)
                         .background(if (pillFilled) Color.Black else Color.Transparent)
                         .then(
                             // Deliberately no pill outline in notch style: the notch is fused to the screen edge
                             if (settings.showOutline && !settings.isNotch && pillOutlined) {
-                                // M2.6: the layer's alpha already fades the outline with the pill;
-                                // it is no longer faded a second time in composition
                                 Modifier.border(
                                     width = settings.outlineThicknessDp.dp,
-                                    color = primaryOutlineColor,
+                                    color = primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)),
                                     shape = compactPillShape
                                 )
                             } else Modifier
                         )
-                        // M4.4: pull down to expand (further: the system shade); swipe inward,
-                        // toward the camera, to shrink into the ring; the ring swiped outward (or
-                        // tapped) comes back. Outward on the full pill does nothing (B6.4, D6: no
-                        // swipe-to-hide). Claimed drags are consumed, so none leaks to the card below.
-                        .pillSwipe(
-                            enabled = !isExpanded,
-                            minimised = userMinimized,
-                            follows = !settings.isNotch,
-                            dragX = pillDragX,
-                            dragY = pillDragY,
-                            canExpand = isOccupied && !userMinimized && !isUnlock && !isBluetooth && !isRingerMode,
-                            canMinimise = !userMinimized,
-                            onExpand = { velocityY, draggedY -> expandFromPill(velocityY, draggedY) },
-                            onMinimise = { IslandStateManager.minimizeIsland() },
-                            onRestore = { IslandStateManager.restoreIsland() },
-                        )
+                        // Swipe left: shrink the pill into the camera circle. On the camera circle, a
+                        // right swipe (or a tap) brings it back. A right swipe on the full pill does
+                        // nothing (B6.4, D6): it used to hide the island until the next event, a trap.
+                        // The drag is still consumed so it doesn't leak to the card below.
+                        .pointerInput(isExpanded, userMinimized) {
+                            var dragTotal = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragTotal = 0f },
+                                onHorizontalDrag = { change, amount ->
+                                    change.consume()
+                                    dragTotal += amount
+                                },
+                                onDragEnd = {
+                                    val threshold = IslandTokens.Gesture.LegacyPillSwipe.toPx()
+                                    when {
+                                        isExpanded -> Unit
+                                        userMinimized && dragTotal > threshold -> {
+                                            haptics.perform(IslandHapticEvent.RESTORE)
+                                            IslandStateManager.restoreIsland()
+                                        }
+                                        dragTotal < -threshold && !userMinimized -> {
+                                            haptics.perform(IslandHapticEvent.MINIMISE)
+                                            IslandStateManager.minimizeIsland()
+                                        }
+                                    }
+                                }
+                            )
+                        }
                         .combinedClickable(
                             interactionSource = pillInteraction,
                             indication = null,
@@ -1710,16 +1711,6 @@ internal fun IslandShell(
                     // M3.1: the pill's content is gone by p 0.35, and back below it, either way
                     val compactHidden = userMinimized && !isCharging && !isUnlock && !isBluetooth && !isRingerMode
                     fun compactAlpha(): Float = if (compactHidden) 0f else IslandChoreography.compactAlpha(contentP())
-
-                    // M2.6: the content is laid out once at the width the pill is heading to and is
-                    // revealed (or hidden) by the pill's own clip as it grows and shrinks, instead of
-                    // re-measuring and squeezing on every frame. Settled, the two widths are equal.
-                    Box(
-                        modifier = Modifier
-                            .wrapContentSize(Alignment.Center, unbounded = true)
-                            .requiredSize(compactContentWidth, settings.heightDp.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
 
                     // Background darker green progress bar for charging status:
                     if (isCharging || chargingContentAlpha > 0.01f) {
@@ -1972,7 +1963,7 @@ internal fun IslandShell(
                                 }
                             }
                         }
-                    } else if (!compactHidden && compactContentShown && pillFitsContent) {
+                    } else if (!compactHidden && compactContentShown && animatedCompactWidth > 24.dp) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -1980,7 +1971,7 @@ internal fun IslandShell(
                                     val a = compactAlpha()
                                     alpha = a
                                     // Pill content leaving for the card blurs out with the morph
-                                    renderEffect = if (isExpanded) motion.motionBlur(
+                                    renderEffect = if (isExpanded && motion.allowsBlur) steppedBlurEffect(
                                         maxOf(1f - a, shell.morphSpeed()), IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                     ) else null
                                 },
@@ -1998,16 +1989,11 @@ internal fun IslandShell(
                                 ),
                                 contentKey = { it.key },
                                 transitionSpec = {
-                                    // M5.2: Reduced motion crossfades (150 ms), with no scale
-                                    if (!motion.allowsBounce) {
-                                        fadeIn(motion.effects()) togetherWith fadeOut(motion.effects()) using SizeTransform(clip = false)
-                                    } else {
-                                        (fadeIn(motion.tween(MotionTween.COMPACT_SWAP_FADE_IN)) +
-                                            scaleIn(initialScale = 0.85f, animationSpec = motion.spring(motion.compactSwapScale))) togetherWith
-                                            (fadeOut(motion.tween(MotionTween.COMPACT_SWAP_OUT)) +
-                                                scaleOut(targetScale = 0.85f, animationSpec = motion.tween(MotionTween.COMPACT_SWAP_OUT))) using
-                                            SizeTransform(clip = false)
-                                    }
+                                    (fadeIn(motion.tween(MotionTween.COMPACT_SWAP_FADE_IN)) +
+                                        scaleIn(initialScale = 0.85f, animationSpec = motion.spring(motion.compactSwapScale))) togetherWith
+                                        (fadeOut(motion.tween(MotionTween.COMPACT_SWAP_OUT)) +
+                                            scaleOut(targetScale = 0.85f, animationSpec = motion.tween(MotionTween.COMPACT_SWAP_OUT))) using
+                                        SizeTransform(clip = false)
                                 },
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier.fillMaxSize(),
@@ -2021,7 +2007,7 @@ internal fun IslandShell(
                                         .graphicsLayer {
                                             // Only the leaving activity blurs, with the swap's squash
                                             // and the pill's width change; the new one stays sharp
-                                            renderEffect = if (shown.key != primaryKey) motion.motionBlur(
+                                            renderEffect = if (shown.key != primaryKey) steppedBlurEffect(
                                                 maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillMorphSpeed()), 12.dp.toPx()
                                             ) else null
                                         },
@@ -2031,9 +2017,9 @@ internal fun IslandShell(
                                         priority = shownPriority,
                                         media = shown.media,
                                         notification = shown.notification,
-                                        recording = liveRecording(),
-                                        flashlightLevel = liveFlashlightLevel(),
-                                        maxFlashlightLevel = liveMaxFlashlightLevel(),
+                                        recording = recording,
+                                        flashlightLevel = flashlightLevel,
+                                        maxFlashlightLevel = maxFlashlightLevel,
                                         secondaryPriority = secondaryPriority,
                                         horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
                                     )
@@ -2041,34 +2027,24 @@ internal fun IslandShell(
                             }
                         }
                     }
-                    } // M2.6: the final-width content box
                 }
             }
 
             // 3. Parentheses Accents: Neat parentheses-shaped brackets on each side of the island
             // Shorter than the height of the island, smoothly positioning symmetrically around 1 or 2 activities, and neatly close to the edges.
             // Hidden while two activities share the island (main pill + secondary bubble)
-            // M2.7: the fade with the card opening is applied in the layer (below), not as a target
-            // that changes every frame
-            val targetParenthesisAlpha = if (!isOccupied || isDual || userHidden || userMinimized || settings.isNotch) 0f else 1f
+            val targetParenthesisAlpha = if (!isOccupied || isDual || userHidden || userMinimized || settings.isNotch) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
             val parenthesisAlphaAnim by animateFloatAsState(
                 targetValue = targetParenthesisAlpha,
                 animationSpec = motion.effects(),
                 label = "parenthesisAlpha"
             )
 
-            // Fades in a split second earlier as the island begins emerging from the punch hole.
-            // M2.6: the pill's width is read only in these lambdas (layout and draw phases)
-            fun pillWidthNow(): Dp = compactWidthState.value.coerceAtLeast(0.dp)
-            fun effectiveParenthesisAlpha(): Float =
-                parenthesisAlphaAnim * (1f - expandProgress * 3.5f).coerceIn(0f, 1f) * (pillWidthNow() / 14.dp).coerceIn(0f, 1f)
-            val parenthesesDrawn by remember(settings.bubbleEffectEnabled) {
-                derivedStateOf { settings.bubbleEffectEnabled && effectiveParenthesisAlpha() > 0.01f && pillWidthNow() > 3.dp }
-            }
+            // Fades in a split second earlier as the island begins emerging from the punch hole
+            val parenthesisEmergenceAlpha = (animatedCompactWidth / 14.dp).coerceIn(0f, 1f)
+            val effectiveParenthesisAlpha = parenthesisAlphaAnim * parenthesisEmergenceAlpha
 
-            if (parenthesesDrawn) Isolated {
-                // Own restart scope: the shoot below changes the brackets' width while it runs,
-                // which recomposes only this block
+            if (settings.bubbleEffectEnabled && effectiveParenthesisAlpha > 0.01f && animatedCompactWidth > 3.dp) {
                 val parenthesisHeight = (settings.heightDp.dp * 0.52f).coerceIn(16.dp, 21.dp)
                 val extraShootDp = parenthesisExtraShoot.value.coerceAtLeast(0f).dp
                 val parenthesisWidth = 5.0.dp + (extraShootDp * 0.20f)
@@ -2081,23 +2057,21 @@ internal fun IslandShell(
 
                 // Left parenthesis `(`: tips facing right are at centerX + tipOffsetFromCenter.
                 // Sits at islandLeft - parenthesisGap - extraShootDp.
-                fun leftCenterXPx(d: Density): Int = with(d) {
-                    val islandLeftDp = -pillWidthNow() / 2f
+                val islandLeftDp = -animatedCompactWidth / 2f
+                val leftCenterXPx = with(density) {
                     (islandLeftDp - parenthesisGap - extraShootDp - tipOffsetFromCenter).roundToPx()
                 }
 
                 // Right parenthesis `)`: tips facing left are at centerX - tipOffsetFromCenter.
                 // Sits at rightContentEdgeDp + parenthesisGap + extraShootDp.
                 // When emerging, curve shoots out slightly further from the island and settles back.
-                val bubbleCanLead = !isCharging && !isUnlock && !isBluetooth && !isRingerMode
-                fun rightCenterXPx(d: Density): Int = with(d) {
-                    val w = pillWidthNow()
-                    val bubbleRightEdge = animatedBubbleOffsetX + (bubbleSize / 2f)
-                    val rightContentEdgeDp = if (bubbleCanLead && animatedBubbleOffsetX > 1.dp) {
-                        maxOf(w / 2f, bubbleRightEdge)
-                    } else {
-                        w / 2f
-                    }
+                val bubbleRightEdge = animatedBubbleOffsetX + (bubbleSize / 2f)
+                val rightContentEdgeDp = if (!isCharging && !isUnlock && !isBluetooth && !isRingerMode && animatedBubbleOffsetX > 1.dp) {
+                    maxOf(animatedCompactWidth / 2f, bubbleRightEdge)
+                } else {
+                    animatedCompactWidth / 2f
+                }
+                val rightCenterXPx = with(density) {
                     (rightContentEdgeDp + parenthesisGap + extraShootDp + tipOffsetFromCenter).roundToPx()
                 }
 
@@ -2111,8 +2085,8 @@ internal fun IslandShell(
                     strokeWidth = parenthesisStroke,
                     color = bracketColor,
                     modifier = Modifier
-                        .offset { IntOffset(x = leftCenterXPx(this), y = pYPx) }
-                        .graphicsLayer { alpha = effectiveParenthesisAlpha() }
+                        .offset { IntOffset(x = leftCenterXPx, y = pYPx) }
+                        .graphicsLayer { alpha = effectiveParenthesisAlpha }
                 )
 
                 // Right Parenthesis `)`
@@ -2123,11 +2097,10 @@ internal fun IslandShell(
                     strokeWidth = parenthesisStroke,
                     color = bracketColor,
                     modifier = Modifier
-                        .offset { IntOffset(x = rightCenterXPx(this), y = pYPx) }
-                        .graphicsLayer { alpha = effectiveParenthesisAlpha() }
+                        .offset { IntOffset(x = rightCenterXPx, y = pYPx) }
+                        .graphicsLayer { alpha = effectiveParenthesisAlpha }
                 )
             }
-            } // Isolated: pill
         }
     }
 }
@@ -2137,34 +2110,6 @@ private const val CARD2_STARTS_AT = 0.1f
 private const val BUBBLE_EMERGE_AT = 0.95f
 private const val PARENTHESES_SHOOT_AT = 0.6f
 
-/**
- * M2.7: the leaf data, collected where it is drawn and only while the overlay is resumed (the
- * service pauses its lifecycle while the screen is off), so a 1 Hz tick or a level change
- * recomposes the view that shows it, not the shell.
- */
-@Composable
-private fun liveRecording(): ScreenRecordingState =
-    IslandStateManager.screenRecordingState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED).value
-
-@Composable
-private fun liveFlashlightLevel(): Int =
-    IslandStateManager.flashlightLevel.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED).value
-
-@Composable
-private fun liveMaxFlashlightLevel(): Int =
-    IslandStateManager.maxFlashlightLevel.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED).value
-
-/**
- * M2.6 / M2.7: a restart scope of its own. State read inside [content] recomposes only this block,
- * not the whole shell (Box, Row and Column are inline, so their content would recompose the
- * caller). The block still sees its caller's receivers (BoxScope...), and its nodes are placed in
- * the caller's layout as before.
- */
-@Composable
-private fun Isolated(content: @Composable () -> Unit) {
-    content()
-}
-
 /** M3.3: what card 1 shows, frozen per [ContentKey] so leaving content keeps its own data and height. */
 @Immutable
 private data class Card1Payload(
@@ -2173,14 +2118,6 @@ private data class Card1Payload(
     val notification: NotificationInfo?,
     val height: Dp,
 )
-
-/**
- * M2.6: the last non-zero width the pill was heading to. A plain holder, not state: it is only
- * written while composing, from the targets, and read in the same pass.
- */
-private class CompactContentWidth {
-    var width: Dp = 0.dp
-}
 
 /** M3.4: what the pill shows, frozen per [ContentKey] so leaving content keeps its own data. */
 @Immutable

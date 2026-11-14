@@ -1,8 +1,6 @@
 package com.droidbubble.app.island
 
-import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
-import com.droidbubble.app.island.motion.LoopToken
 import com.droidbubble.app.island.motion.MotionTween
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.layout.FirstBaseline
@@ -434,12 +432,8 @@ private fun numberLetterSpacing(fontSize: TextUnit): TextUnit =
  * around it moves. When the value changes, only the characters that changed slide to their new
  * value (up when counting up, down when counting down) and fade, clipped to the text's box; the
  * animation runs in the draw phase, so it costs no recomposition. Long or digit-free text is
- * drawn plainly. In Reduced motion (M5.2) the changed characters crossfade in place instead of
- * rolling.
+ * drawn plainly.
  */
-/** M5.2: digits roll (slide) except in Reduced motion, where [RollingNumberText] crossfades them. */
-fun rollsDigits(motion: IslandMotion): Boolean = motion.allowsBounce
-
 @Composable
 fun RollingNumberText(
     text: String,
@@ -473,7 +467,6 @@ fun RollingNumberText(
     var shown by remember { mutableStateOf(text) }
     var previous by remember { mutableStateOf<String?>(null) }
     val motion = LocalIslandMotion.current
-    val rolls = rollsDigits(motion)
     val progress = remember { Animatable(1f) }
     LaunchedEffect(text) {
         if (text == shown) return@LaunchedEffect
@@ -510,8 +503,7 @@ fun RollingNumberText(
                     return@drawBehind
                 }
                 val dir = if (countDown) -1f else 1f
-                // M5.2: no travel in Reduced motion, so the roll becomes a crossfade in place
-                val travel = if (rolls) size.height * 0.72f else 0f
+                val travel = size.height * 0.72f
                 // Every character is drawn from the whole-string layout, cut out by its own column,
                 // so unchanged characters (the ":" above all) stay on exactly the pixels they had
                 // before and after the roll. Re-measuring single glyphs shifted them by the letter
@@ -620,18 +612,13 @@ private fun LiveEyebrow(text: String, color: Color, layout: LiveLayout) {
  */
 @Composable
 fun LiveWaveform(color: Color, active: Boolean, modifier: Modifier = Modifier, bars: Int = 27) {
-    // M5.2: Reduced motion draws one still frame (no loop); Efficient steps at most every 33 ms
-    val loop = LocalIslandMotion.current.loop(LoopToken.EQUALIZER)
-    val animates = active && loop != null
-    val frameIntervalMs = (loop?.frameIntervalMillis ?: 0).toLong()
-    MicLevelEffect(active = animates)
-    val useMic = animates && MicLevelMeter.hasSignal
+    MicLevelEffect(active = active)
+    val useMic = active && MicLevelMeter.hasSignal
     var phase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(animates, useMic, frameIntervalMs) {
-        if (!animates || useMic) return@LaunchedEffect
+    LaunchedEffect(active, useMic) {
+        if (!active || useMic) return@LaunchedEffect
         val start = withInfiniteAnimationFrameMillis { it }
         while (true) {
-            if (frameIntervalMs > 0L) kotlinx.coroutines.delay(frameIntervalMs)
             withInfiniteAnimationFrameMillis { phase = (it - start) / 1000f }
         }
     }
@@ -1097,17 +1084,12 @@ private fun AlertPillButton(
 @Composable
 private fun PulsingAlertIcon(icon: ImageVector, color: Color, size: Dp) {
     val motion = LocalIslandMotion.current
-    // M5.2: Reduced motion holds the icon still at full size
-    val pulse = if (motion.loop(LoopToken.PULSE) != null) {
-        rememberInfiniteTransition(label = "alert_pulse").animateFloat(
-            initialValue = 0.85f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(motion.tween(MotionTween.ALERT_PULSE), RepeatMode.Reverse),
-            label = "alert_scale"
-        ).value
-    } else {
-        1f
-    }
+    val pulse by rememberInfiniteTransition(label = "alert_pulse").animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(motion.tween(MotionTween.ALERT_PULSE), RepeatMode.Reverse),
+        label = "alert_scale"
+    )
     Box(
         modifier = Modifier
             .size(size)

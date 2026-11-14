@@ -58,7 +58,6 @@ import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandOverlayRoot
 import com.droidbubble.app.service.window.EnvelopeWindow
 import com.droidbubble.app.service.window.OutsideTapCollapser
-import com.droidbubble.app.service.window.OverlayBackHandler
 import com.droidbubble.app.service.window.OverlayWindowController
 import com.droidbubble.app.service.window.ShrinkOnSettle
 import com.droidbubble.app.service.window.WindowState
@@ -218,13 +217,9 @@ class IslandOverlayService : Service() {
                 // The lock screen belongs to systemui (ignored), so forget the last app: its
                 // notifications arriving while locked must still show
                 IslandStateManager.setForegroundPackage(null)
-                // M2.7: pause the overlay's lifecycle while the screen is off, so the island's
-                // leaf data (recording seconds, flashlight level) stops reaching the views
-                lifecycleOwner.pauseForScreenOff(true)
                 return
             }
             if (action == Intent.ACTION_SCREEN_ON) {
-                lifecycleOwner.pauseForScreenOff(false)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 val locked = km?.isKeyguardLocked == true
                 IslandStateManager.setDeviceLocked(locked)
@@ -506,16 +501,12 @@ class IslandOverlayService : Service() {
     private var windowSize: WindowState = WindowState.Gone
     private var keyboardFocused = false
     private var boosting = false
-    // M4.5: Back collapses the expanded island (with IslandSettings.backCollapses on)
-    private var expandedNow = false
-    private var backHandler: OverlayBackHandler? = null
 
     /** Sends the window what the size, the keyboard and the refresh boost ask for, in one update. */
     private fun pushWindow() = traced("db.pushWindow") {
         windowController?.apply(
             windowSize.copy(
-                // M4.5: also focusable while expanded with "Back collapses" on, so Back reaches the island
-                focusable = overlayFocusable(keyboardFocused, expandedNow, currentSettings.backCollapses),
+                focusable = keyboardFocused,
                 preferredRefreshRate = if (boosting && maxRefreshRate > 60f) maxRefreshRate else 0f,
             )
         )
@@ -676,8 +667,6 @@ class IslandOverlayService : Service() {
 
         composeView = view
         syncOutsideTap()
-        backHandler?.detach()
-        backHandler = OverlayBackHandler(view, active = { expandedNow && currentSettings.backCollapses }).also { it.attach() }
 
         overlayJobs.forEach { it.cancel() }
         overlayJobs.clear()
@@ -719,11 +708,9 @@ class IslandOverlayService : Service() {
                     boostRefreshRate()
                     startMorphHold()
                 }
-                expandedNow = scene.isExpanded
                 updateWindowState(scene.isExpanded)
                 // The boost rides on the resize above; if the size didn't change it goes alone
                 pushWindow()
-                backHandler?.sync()
             }
         }
 
@@ -767,9 +754,6 @@ class IslandOverlayService : Service() {
                     syncGlassPanes(settings.liquidGlassCards)
                     syncOutsideTap()
                     updateWindowState(IslandStateManager.isExpanded.value)
-                    // M4.5: "Back collapses" switched: focus and the Back callback follow at once
-                    pushWindow()
-                    backHandler?.sync()
                 }
             }
         }
@@ -1013,9 +997,6 @@ class IslandOverlayService : Service() {
         IslandStateManager.glassPaneListener = null
         glassPaneWindows?.dismiss()
         glassPaneWindows = null
-        backHandler?.detach()
-        backHandler = null
-        expandedNow = false
         composeView?.let { view ->
             try {
                 windowManager?.removeView(view)
@@ -1150,19 +1131,6 @@ class IslandOverlayService : Service() {
             manager?.createNotificationChannel(channel)
         }
     }
-}
-
-/**
- * M2.7: ON_PAUSE while the screen is off, ON_RESUME when it comes back. Only between STARTED and
- * RESUMED: never before the service has started or after it was destroyed. Compose keeps its
- * frame clock running (that follows ON_START / ON_STOP); only collectors that wait for RESUMED
- * (the island's leaf data) stop.
- */
-internal fun CustomLifecycleOwner.pauseForScreenOff(off: Boolean) {
-    val state = lifecycle.currentState
-    if (!state.isAtLeast(Lifecycle.State.STARTED)) return
-    if (off && state == Lifecycle.State.RESUMED) handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-    if (!off && state == Lifecycle.State.STARTED) handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 }
 
 // Custom LifecycleOwner for Compose in WindowManager Service

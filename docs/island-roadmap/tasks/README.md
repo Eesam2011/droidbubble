@@ -152,20 +152,20 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M2.3 | Cached squircle surface | done (exact-radius cache: 0.25 dp buckets would shift mid-animation pixels) |
 | M2.4 | Stretch and blur from spring velocity | done (owner approved the mid-frame diff, 2026-11-12) |
 | M2.5 | Glass publishing without SideEffect | done (device: OPPO CPH2631, Android 16, Liquid glass on; the blur follows the card on expand and collapse) |
-| M2.6 | Pill content laid out at final width | done (code only; not built or tested yet; device check pending) |
-| M2.7 | Narrow state reads and recomposition gate | done (code only; not built or tested yet; device check pending) |
+| M2.6 | Pill content laid out at final width | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M2.7 | Narrow state reads and recomposition gate | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M3.1 | Content progress as a pure function of geometry | done (owner-approved mid-frames; device checked at 0.7×, 1×, 2× and 10×: content waits for the shape, leaves blurred) |
 | M3.2 | Staggers in progress, not wall-clock time | done (device checked at 0.7×, 1×, 2× and 10×: card 2 after card 1, bubble after the pill, parentheses at 60%; no jank regression vs the pre-M2.5 build) |
 | M3.3 | Expanded content keyed per activity | done (crossfade on a new key, same-key updates in place; new mid-frame motion_call_replaces_media__64ms; device check pending, phone not connected) |
 | M3.4 | Compact content keyed per activity | done (pill keyed on ContentKey; tests written, not run yet; device check pending) |
 | M4.1 | `Modifier.islandGestures` and release resolver | done |
-| M4.2 | Card sideways fling-out or spring-back | done (code only; not built or tested yet; device check pending) |
-| M4.3 | Card swipe-up tucks, with velocity hand-off | done (code only; not built or tested yet; device check pending) |
-| M4.4 | Pill: down expands, further opens the shade, inward minimizes | done (code only; not built or tested yet; device check pending) |
-| M4.5 | Back and predictive back collapse | done (code only; not built or tested yet; device check pending) |
+| M4.2 | Card sideways fling-out or spring-back | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.3 | Card swipe-up tucks, with velocity hand-off | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.4 | Pill: down expands, further opens the shade, inward minimizes | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M4.5 | Back and predictive back collapse | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 | M5.1 | Resolve the motion tier | doing (code and tests done; device check pending: "Remove animations" and Battery Saver switch the tier live) |
-| M5.2 | Apply Reduced and Efficient everywhere | done (code only; not built or tested yet; device check pending) |
-| M5.3 | "Eager in, calm out" retune | done (code only; not built or tested yet; device check pending) |
+| M5.2 | Apply Reduced and Efficient everywhere | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
+| M5.3 | "Eager in, calm out" retune | reverted (owner, after a device try: the swipes, motion feel, cover animation and pill position got worse; code kept in history, see commit 3cfb11c..3f88e06) |
 
 ### Phase 4 + 6: Layout polish and signature motion ([file](phase-4-6-layout-and-motion-polish.md))
 | ID | Title | Status |
