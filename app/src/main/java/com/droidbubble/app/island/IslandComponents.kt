@@ -91,6 +91,8 @@ fun IslandHeader(
     modifier: Modifier = Modifier,
     titleSize: TextUnit = IslandType.HeaderTitle,
     subtitleSize: TextUnit = IslandType.HeaderSubtitle,
+    titleLineHeight: TextUnit = TextUnit.Unspecified,
+    subtitleLineHeight: TextUnit = TextUnit.Unspecified,
     subtitleSpacing: Dp = IslandTokens.SpaceXxs,
     iconSpacing: Dp = IslandTokens.SpaceMd,
     titleMarquee: Boolean = false,
@@ -109,6 +111,7 @@ fun IslandHeader(
                 text = title,
                 color = IslandTokens.TextPrimary,
                 fontSize = titleSize,
+                lineHeight = titleLineHeight,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -119,6 +122,7 @@ fun IslandHeader(
                 text = subtitle,
                 color = IslandTokens.TextSecondary,
                 fontSize = subtitleSize,
+                lineHeight = subtitleLineHeight,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -249,7 +253,9 @@ class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
     val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     val titleSize = type.title(IslandType.Card.NOTIFICATION)
+    val titleLineHeight = type.titleLineHeight(IslandType.Card.NOTIFICATION)
     val appNameSize = type.secondary
+    val appNameLineHeight = type.secondaryLineHeight
     val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
     val bodySize = type.body
     val bodyLineHeight = type.bodyLineHeight
@@ -258,8 +264,11 @@ class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)
     val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
     val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp) // 44dp+ visual, inside a 48dp touch row
     val buttonFontSize = type.button
+    val buttonLineHeight = type.buttonLineHeight
     val replyChipFontSize = type.replyChip
+    val replyChipLineHeight = type.replyChipLineHeight
     val replyInputSize = type.replyInput
+    val replyInputLineHeight = type.replyInputLineHeight
     val replyChipVerticalPadding = 5.dp
     val replyRowSpacing = 6.dp
     val replyInputHeight = 42.dp
@@ -271,7 +280,9 @@ class ProgressCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
     val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     val titleSize = type.title(IslandType.Card.PROGRESS)
+    val titleLineHeight = type.titleLineHeight(IslandType.Card.PROGRESS)
     val appNameSize = type.secondary
+    val appNameLineHeight = type.secondaryLineHeight
     val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
     val gap = (IslandTokens.SpaceMd * scale).coerceIn(9.dp, 14.dp)
     val bodySize = type.body
@@ -281,6 +292,7 @@ class ProgressCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
     val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
     val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp)
     val buttonFontSize = type.button
+    val buttonLineHeight = type.buttonLineHeight
 }
 
 /** Detail line of a download ("12 MB of 40 MB"), without stray leading / trailing bullets. */
@@ -310,8 +322,8 @@ fun measureProgressCardHeight(
 ): Dp = with(density) {
     val m = ProgressCardMetrics(scale)
     fun lineHeight(style: TextStyle): Dp = textMeasurer.measure(text = "Ag", style = style, maxLines = 1).size.height.toDp()
-    val title = lineHeight(baseStyle.merge(TextStyle(fontSize = m.titleSize, fontWeight = FontWeight.SemiBold)))
-    val subtitle = lineHeight(baseStyle.merge(TextStyle(fontSize = m.appNameSize, fontWeight = FontWeight.Medium)))
+    val title = lineHeight(baseStyle.merge(TextStyle(fontSize = m.titleSize, lineHeight = m.titleLineHeight, fontWeight = FontWeight.SemiBold)))
+    val subtitle = lineHeight(baseStyle.merge(TextStyle(fontSize = m.appNameSize, lineHeight = m.appNameLineHeight, fontWeight = FontWeight.Medium)))
     val header = maxOf(m.iconSize, title + m.subtitleSpacing + subtitle)
     val body = lineHeight(baseStyle.merge(TextStyle(fontSize = m.bodySize, lineHeight = m.bodyLineHeight)))
     val actions = if (progressActions(notification).isNotEmpty()) m.actionsGap + m.buttonHeight else 0.dp
@@ -355,10 +367,10 @@ fun measureNotificationCardHeight(
             constraints = Constraints(maxWidth = width.roundToPx().coerceAtLeast(1))
         ).size.height.toDp()
 
-    val titleHeight = textHeight(title, TextStyle(fontSize = m.titleSize, fontWeight = FontWeight.SemiBold), innerWidth, 1)
+    val titleHeight = textHeight(title, TextStyle(fontSize = m.titleSize, lineHeight = m.titleLineHeight, fontWeight = FontWeight.SemiBold), innerWidth, 1)
     val subtitleHeight = textHeight(
         notification?.appName ?: "",
-        TextStyle(fontSize = m.appNameSize, fontWeight = FontWeight.Medium),
+        TextStyle(fontSize = m.appNameSize, lineHeight = m.appNameLineHeight, fontWeight = FontWeight.Medium),
         innerWidth,
         1
     )
@@ -377,7 +389,7 @@ fun measureNotificationCardHeight(
     if (isReplying) {
         // B6.1: the chip row exists only when the app supplied reply choices
         val chipRow = if (replyChoices(notification).isNotEmpty()) {
-            textHeight("OK", TextStyle(fontSize = m.replyChipFontSize, fontWeight = FontWeight.Medium), innerWidth, 1) +
+            textHeight("OK", TextStyle(fontSize = m.replyChipFontSize, lineHeight = m.replyChipLineHeight, fontWeight = FontWeight.Medium), innerWidth, 1) +
                 m.replyChipVerticalPadding * 2 + m.replyRowSpacing
         } else 0.dp
         height += m.actionsGap + chipRow + m.replyInputHeight
@@ -445,7 +457,8 @@ fun IslandActionButtonRow(
     items: List<IslandActionItem>,
     modifier: Modifier = Modifier,
     height: Dp = 42.dp,
-    fontSize: TextUnit = IslandType.CompactLabel
+    fontSize: TextUnit = IslandType.CompactLabel,
+    lineHeight: TextUnit = TextUnit.Unspecified
 ) {
     if (items.isEmpty()) return
     val total = items.size
@@ -489,6 +502,7 @@ fun IslandActionButtonRow(
                 Text(
                     text = item.title,
                     fontSize = fontSize,
+                    lineHeight = lineHeight,
                     fontWeight = if (item.isPrimary) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

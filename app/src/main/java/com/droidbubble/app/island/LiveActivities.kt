@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -384,6 +385,14 @@ class LiveLayout(scale: Float, fontScale: Float = 1f) {
     val titleSize = type.title(IslandType.Card.LIVE)
     val captionSize = type.caption
 
+    // F4.2: each role's line box, and the hero box that never cuts a rolling digit
+    val heroLineHeight = type.heroLineHeight
+    val heroSmallLineHeight = type.heroSmallLineHeight
+    val labelLineHeight = type.secondaryLineHeight
+    val titleLineHeight = type.titleLineHeight(IslandType.Card.LIVE)
+    val captionLineHeight = type.captionLineHeight
+    val heroLineHeightStyle = type.heroLineHeightStyle
+
     /** Height of a card with one row of content. */
     val rowCardHeight = control + margin * 2
 
@@ -432,7 +441,9 @@ fun RollingNumberText(
     fontSize: TextUnit,
     fontWeight: FontWeight,
     modifier: Modifier = Modifier,
-    countDown: Boolean = false
+    countDown: Boolean = false,
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    lineHeightStyle: LineHeightStyle? = null
 ) {
     val style = LocalTextStyle.current.merge(
         TextStyle(
@@ -440,7 +451,9 @@ fun RollingNumberText(
             fontSize = fontSize,
             fontWeight = fontWeight,
             fontFeatureSettings = TABULAR_NUMBERS,
-            letterSpacing = numberLetterSpacing(fontSize)
+            letterSpacing = numberLetterSpacing(fontSize),
+            lineHeight = lineHeight,
+            lineHeightStyle = lineHeightStyle
         )
     )
     if (text.length > 12 || text.none { it.isDigit() }) {
@@ -584,6 +597,7 @@ private fun LiveEyebrow(text: String, color: Color, layout: LiveLayout) {
         text = text,
         color = color,
         fontSize = layout.labelSize,
+        lineHeight = layout.labelLineHeight,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
@@ -684,6 +698,7 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
                     text = liveTimer,
                     color = LiveActivityColors.CallGreen,
                     fontSize = layout.labelSize,
+                    lineHeight = layout.labelLineHeight,
                     fontWeight = FontWeight.Medium
                 )
             } else {
@@ -693,6 +708,7 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
                 text = notification.title,
                 color = IslandTokens.TextPrimary,
                 fontSize = layout.titleSize,
+                lineHeight = layout.titleLineHeight,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -748,6 +764,8 @@ fun LiveRecordingRow(
             text = timeText,
             color = if (isPaused) red.copy(alpha = 0.6f) else red,
             fontSize = layout.heroSize,
+            lineHeight = layout.heroLineHeight,
+            lineHeightStyle = layout.heroLineHeightStyle,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.clickable(onClick = onOpen)
         )
@@ -824,6 +842,7 @@ fun LiveTimerRow(
                 text = label,
                 color = accent.copy(alpha = 0.75f),
                 fontSize = layout.labelSize,
+                lineHeight = layout.labelLineHeight,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -836,6 +855,8 @@ fun LiveTimerRow(
                 text = timeText,
                 color = if (isPaused && onPauseResume != null) accent.copy(alpha = 0.6f) else accent,
                 fontSize = layout.heroSize,
+                lineHeight = layout.heroLineHeight,
+                lineHeightStyle = layout.heroLineHeightStyle,
                 fontWeight = FontWeight.Medium,
                 countDown = countDown,
                 modifier = Modifier.alignByBaseline()
@@ -989,6 +1010,7 @@ fun LiveAlertView(
                     text = headline,
                     color = IslandTokens.TextPrimary,
                     fontSize = layout.titleSize,
+                    lineHeight = layout.titleLineHeight,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1000,6 +1022,8 @@ fun LiveAlertView(
                     text = trailing,
                     color = accent,
                     fontSize = layout.heroSmallSize,
+                    lineHeight = layout.heroSmallLineHeight,
+                    lineHeightStyle = layout.heroLineHeightStyle,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.width(layout.margin * 0.5f))
@@ -1124,6 +1148,7 @@ fun LiveTrackingRow(notification: NotificationInfo, scale: Float, onOpen: () -> 
                 text = notification.title,
                 color = IslandTokens.TextPrimary,
                 fontSize = layout.titleSize,
+                lineHeight = layout.titleLineHeight,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1134,6 +1159,7 @@ fun LiveTrackingRow(notification: NotificationInfo, scale: Float, onOpen: () -> 
                     text = notification.text,
                     color = IslandTokens.TextSecondary,
                     fontSize = layout.captionSize,
+                    lineHeight = layout.captionLineHeight,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1163,6 +1189,8 @@ fun LiveTrackingRow(notification: NotificationInfo, scale: Float, onOpen: () -> 
                 text = chip,
                 color = accent,
                 fontSize = layout.heroSmallSize,
+                lineHeight = layout.heroSmallLineHeight,
+                lineHeightStyle = layout.heroLineHeightStyle,
                 fontWeight = FontWeight.SemiBold,
                 countDown = true
             )
@@ -1188,6 +1216,7 @@ fun LiveScoreRow(score: LiveScore, scale: Float, onOpen: () -> Unit) {
             text = score.home,
             color = IslandTokens.TextPrimary,
             fontSize = layout.titleSize,
+            lineHeight = layout.titleLineHeight,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1198,20 +1227,22 @@ fun LiveScoreRow(score: LiveScore, scale: Float, onOpen: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RollingNumberText(score.homeScore, LiveActivityColors.SportsWhite, layout.heroSmallSize, FontWeight.Bold)
+                RollingNumberText(score.homeScore, LiveActivityColors.SportsWhite, layout.heroSmallSize, FontWeight.Bold, lineHeight = layout.heroSmallLineHeight, lineHeightStyle = layout.heroLineHeightStyle)
                 Text(
                     text = " – ",
                     color = IslandTokens.TextTertiary,
                     fontSize = layout.heroSmallSize,
+                    lineHeight = layout.heroSmallLineHeight,
                     fontWeight = FontWeight.Medium
                 )
-                RollingNumberText(score.awayScore, LiveActivityColors.SportsWhite, layout.heroSmallSize, FontWeight.Bold)
+                RollingNumberText(score.awayScore, LiveActivityColors.SportsWhite, layout.heroSmallSize, FontWeight.Bold, lineHeight = layout.heroSmallLineHeight, lineHeightStyle = layout.heroLineHeightStyle)
             }
             if (!score.status.isNullOrBlank()) {
                 Text(
                     text = score.status,
                     color = LiveActivityColors.TrackingGreen,
                     fontSize = layout.captionSize,
+                    lineHeight = layout.captionLineHeight,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1222,6 +1253,7 @@ fun LiveScoreRow(score: LiveScore, scale: Float, onOpen: () -> Unit) {
             text = score.away,
             color = IslandTokens.TextPrimary,
             fontSize = layout.titleSize,
+            lineHeight = layout.titleLineHeight,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1248,7 +1280,7 @@ private fun TeamBadge(team: String, layout: LiveLayout) {
             .background(LiveActivityColors.Glass),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = initials, color = Color.White, fontSize = layout.captionSize, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(text = initials, color = Color.White, fontSize = layout.captionSize, lineHeight = layout.captionLineHeight, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 

@@ -410,6 +410,8 @@ fun IslandOverlayRoot(
         LocalIslandHaptics provides haptics,
         LocalIslandMotion provides motion,
         LocalIslandType provides type,
+        // F4.2: every Text starts from the island's base (trimmed 20 sp box), not bodyLarge's 24 sp one
+        LocalTextStyle provides LocalTextStyle.current.merge(type.base),
     ) {
         IslandShell(settings)
     }
@@ -557,7 +559,7 @@ fun AuxiliaryBubbleContent(
                     BoxWithConstraints(contentAlignment = Alignment.Center) {
                         val ring = bubbleRingDiameter(minOf(maxWidth, maxHeight))
                         val label = "${(pct * 100).roundToInt()}"
-                        val numeralStyle = LocalTextStyle.current.merge(IslandType.BubbleNumeral.copy(color = Color.White))
+                        val numeralStyle = LocalTextStyle.current.merge(LocalIslandType.current.bubbleNumeral.copy(color = Color.White))
                         val measurer = rememberTextMeasurer()
                         val density = LocalDensity.current
                         val labelWidth = with(density) { measurer.measure(label, numeralStyle).size.width.toDp() }
@@ -774,6 +776,7 @@ fun CompactContent(
                                 text = notification?.appName ?: "Download",
                                 color = IslandTokens.ControlLight,
                                 fontSize = IslandType.CompactLabel,
+                                lineHeight = LocalIslandType.current.compactLabelLineHeight,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -823,6 +826,7 @@ fun CompactContent(
                         text = String.format(Locale.US, "%02d:%02d", call.durationSeconds / 60, call.durationSeconds % 60),
                         color = LiveActivityColors.CallGreen,
                         fontSize = IslandType.CompactLabel,
+                        lineHeight = LocalIslandType.current.compactLabelLineHeight,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -833,6 +837,7 @@ fun CompactContent(
                         text = String.format(Locale.US, "%02d:%02d", minutes, seconds),
                         color = LiveActivityColors.RecordingRed,
                         fontSize = IslandType.CompactLabel,
+                        lineHeight = LocalIslandType.current.compactLabelLineHeight,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -852,6 +857,7 @@ fun CompactContent(
                         text = liveTimer ?: notification?.title ?: "Notification",
                         color = if (liveKind != LiveActivityKind.NONE && liveTimer != null) LiveActivityColors.accentFor(liveKind) else IslandTokens.ControlLight,
                         fontSize = IslandType.CompactLabel,
+                        lineHeight = LocalIslandType.current.compactLabelLineHeight,
                         fontWeight = FontWeight.SemiBold,
                         countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
                     )
@@ -872,6 +878,7 @@ fun CompactContent(
                             text = "${(pct * 100).roundToInt()}%",
                             color = IslandTokens.ControlLight,
                             fontSize = IslandType.CompactLabel,
+                            lineHeight = LocalIslandType.current.compactLabelLineHeight,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             softWrap = false
@@ -1346,6 +1353,8 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
             subtitle = media?.artist?.ifBlank { "Unknown Artist" } ?: "Unknown Artist",
             titleSize = titleSize,
             subtitleSize = artistSize,
+            titleLineHeight = type.titleLineHeight(IslandType.Card.MEDIA),
+            subtitleLineHeight = type.secondaryLineHeight,
             subtitleSpacing = 3.dp,
             titleMarquee = true,
             icon = {
@@ -1660,6 +1669,8 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                 subtitle = notification?.appName ?: "",
                 titleSize = metrics.titleSize,
                 subtitleSize = metrics.appNameSize,
+                titleLineHeight = metrics.titleLineHeight,
+                subtitleLineHeight = metrics.appNameLineHeight,
                 subtitleSpacing = metrics.subtitleSpacing,
                 iconSpacing = iconGap,
                 titleMarquee = true,
@@ -1738,6 +1749,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                                 text = choice,
                                 color = IslandTokens.ControlLight,
                                 fontSize = metrics.replyChipFontSize,
+                                lineHeight = metrics.replyChipLineHeight,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -1783,7 +1795,8 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                                     text = replyAction?.remoteInputLabel ?: "Type a reply...",
                                     // B5.2: TextTertiary on the input reaches 4.5:1 (#71717A was about 3.3:1)
                                     color = IslandTokens.TextTertiary,
-                                    fontSize = metrics.replyInputSize
+                                    fontSize = metrics.replyInputSize,
+                                    lineHeight = metrics.replyInputLineHeight
                                 )
                             }
                             innerTextField()
@@ -1853,7 +1866,8 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                 IslandActionButtonRow(
                     items = actionItems,
                     height = metrics.buttonHeight,
-                    fontSize = metrics.buttonFontSize
+                    fontSize = metrics.buttonFontSize,
+                    lineHeight = metrics.buttonLineHeight
                 )
             }
         }
@@ -1890,6 +1904,8 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
             subtitle = notification?.appName ?: "",
             titleSize = m.titleSize,
             subtitleSize = m.appNameSize,
+            titleLineHeight = m.titleLineHeight,
+            subtitleLineHeight = m.appNameLineHeight,
             subtitleSpacing = m.subtitleSpacing,
             iconSpacing = m.iconGap,
             titleMarquee = true,
@@ -1978,7 +1994,8 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
             IslandActionButtonRow(
                 items = actionItems,
                 height = m.buttonHeight,
-                fontSize = m.buttonFontSize
+                fontSize = m.buttonFontSize,
+                lineHeight = m.buttonLineHeight
             )
         }
     }
@@ -2011,13 +2028,15 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
             text = "Droidbubble Island",
             color = Color.White,
             fontSize = type.idleTitle,
+            lineHeight = type.idleTitleLineHeight,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(IslandTokens.SpaceXs))
         Text(
             text = "Ready for Media, Notifications & Recording",
             color = IslandTokens.TextSecondary,
-            fontSize = type.idleCaption
+            fontSize = type.idleCaption,
+            lineHeight = type.idleCaptionLineHeight
         )
         Spacer(modifier = Modifier.height(IslandTokens.SpaceMd))
         FilledTonalButton(
@@ -2028,7 +2047,7 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
                 contentColor = Color.White
             )
         ) {
-            Text("Collapse", fontSize = type.idleCaption)
+            Text("Collapse", fontSize = type.idleCaption, lineHeight = type.idleCaptionLineHeight)
         }
     }
 }
