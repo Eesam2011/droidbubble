@@ -187,6 +187,19 @@ class IslandScreenshotTest {
         capture("src/test/screenshots/island/motion_dual_appear__150ms.png")
     }
 
+    /** M3.3: a call takes the open card from the media player; mid-way both contents show. */
+    @Test fun motionCallReplacesMedia() {
+        prepare()
+        rule.runOnIdle {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.expand(null)
+        }
+        h.advanceFrozen(1500)
+        rule.runOnIdle { IslandStateManager.updateNotification(IslandFixtures.incomingCall) }
+        h.advanceFrozen(64)
+        capture("src/test/screenshots/island/motion_call_replaces_media__64ms.png")
+    }
+
     @Test fun motionChargingGlance() {
         prepare()
         rule.runOnIdle { IslandStateManager.updateMedia(IslandFixtures.song) }

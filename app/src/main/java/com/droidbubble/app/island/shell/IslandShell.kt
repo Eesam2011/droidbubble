@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
@@ -62,6 +63,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -181,6 +183,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -194,7 +197,11 @@ import com.droidbubble.app.island.scene.IslandEnv
 import com.droidbubble.app.island.scene.IslandInputs
 import com.droidbubble.app.island.scene.IslandMode
 import com.droidbubble.app.island.scene.MeasuredHeights
+import com.droidbubble.app.island.scene.ContentKey
+import com.droidbubble.app.island.scene.Slot
+import com.droidbubble.app.island.scene.contentKeyFor
 import com.droidbubble.app.island.scene.deriveIslandScene
+import com.droidbubble.app.island.motion.MotionTier
 import com.droidbubble.app.island.scene.deriveIslandTargets
 import com.droidbubble.app.island.shell.Follow
 import com.droidbubble.app.island.shell.rememberIslandShellState
@@ -321,6 +328,7 @@ internal fun IslandShell(
     val scene = remember(sceneInputs, settings, sceneEnv) { deriveIslandScene(sceneInputs, settings, sceneEnv) }
     // Locked with "hide on lock screen": the window is gone too (F1.4)
     if (scene.mode == IslandMode.OFF) return
+    val card1Key = contentKeyFor(scene, sceneInputs, Slot.PRIMARY)
     val isRecording = scene.visible.isRecording
     val isProgress = scene.visible.isProgress
     val isNotification = scene.visible.isNotification
@@ -1172,10 +1180,54 @@ internal fun IslandShell(
                                             )
                                         }
                                 ) {
-                                    ExpandedCardContent(
-                                        priority = primaryPriority,
+                                    // M3.3: a different activity taking the card crossfades (the old one
+                                    // blurs out) while the card springs to its new height; updates under
+                                    // the same key (a tick, the media position) change in place
+                                    val card1Payload = Card1Payload(
+                                        key = card1Key,
                                         media = currentMedia,
                                         notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+                                        height = card1ContentHeight
+                                    )
+                                    AnimatedContent(
+                                        targetState = card1Payload,
+                                        contentKey = { it.key },
+                                        transitionSpec = {
+                                            if (motion.tier == MotionTier.REDUCED) {
+                                                fadeIn(motion.effects()) togetherWith fadeOut(motion.effects()) using null
+                                            } else {
+                                                (fadeIn(motion.effects()) + scaleIn(
+                                                    initialScale = 1f - CARD_SWAP_SCALE_DROP,
+                                                    transformOrigin = TransformOrigin(0.5f, 0f),
+                                                    animationSpec = motion.effects()
+                                                )) togetherWith fadeOut(motion.effects()) using null
+                                            }
+                                        },
+                                        contentAlignment = Alignment.TopCenter,
+                                        // Leaving content keeps its own (maybe taller) height; pin it
+                                        // to the top instead of letting the overflow centre it
+                                        modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.Top, unbounded = true),
+                                        label = "card1ContentSwap"
+                                    ) { shown ->
+                                        val leavingBlur by transition.animateFloat(
+                                            transitionSpec = { motion.effects() },
+                                            label = "card1LeavingBlur"
+                                        ) { if (it == EnterExitState.PostExit) 1f else 0f }
+                                        Box(
+                                            modifier = Modifier
+                                                .testTag(IslandTestTags.swapContent("card1", shown.key.priority))
+                                                .wrapContentSize(Alignment.TopCenter, unbounded = true)
+                                                .requiredSize(expandedCardWidth, shown.height)
+                                                .graphicsLayer {
+                                                    renderEffect = if (leavingBlur > 0f && motion.allowsBlur) steppedBlurEffect(
+                                                        leavingBlur, IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
+                                                    ) else null
+                                                }
+                                        ) {
+                                    ExpandedCardContent(
+                                        priority = shown.key.priority,
+                                        media = shown.media,
+                                        notification = shown.notification,
                                         recording = recording,
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
@@ -1185,6 +1237,8 @@ internal fun IslandShell(
                                             IslandStateManager.collapse()
                                         }
                                     )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2036,3 +2090,15 @@ internal fun IslandShell(
 private const val CARD2_STARTS_AT = 0.1f
 private const val BUBBLE_EMERGE_AT = 0.95f
 private const val PARENTHESES_SHOOT_AT = 0.6f
+
+/** M3.3: what card 1 shows, frozen per [ContentKey] so leaving content keeps its own data and height. */
+@Immutable
+private data class Card1Payload(
+    val key: ContentKey,
+    val media: MediaInfo?,
+    val notification: NotificationInfo?,
+    val height: Dp,
+)
+
+/** M3.3: incoming card content grows from 92% (03 §6), the same as [IslandChoreography.incomingScale]. */
+private const val CARD_SWAP_SCALE_DROP = 0.08f

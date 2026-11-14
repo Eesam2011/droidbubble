@@ -382,6 +382,8 @@ object IslandTestTags {
 
     /** Tag on the content root of [slot] while it shows [priority]. Semantics only: no layout or drawing. */
     fun content(slot: String, priority: IslandPriority?) = "island_${slot}_${priority?.name ?: "NONE"}"
+    /** M3.3: one keyed child of a content swap; old and new are both present mid-transition. */
+    fun swapContent(slot: String, priority: IslandPriority?) = "island_swap_${slot}_${priority?.name ?: "NONE"}"
 }
 
 /**
