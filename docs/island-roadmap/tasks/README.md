@@ -123,7 +123,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | F2.2 | Color literals into IslandTokens (exact) | done |
 | F2.3 | Merge near-duplicate colors | done (code only; not built or tested yet; screenshots to review) |
 | F2.4 | Shell geometry tokens | done |
-| F2.5 | Presentation dp hygiene, file by file | todo |
+| F2.5 | Presentation dp hygiene, file by file | done (code only; not built or tested yet; screenshots to review) |
 | F3.1 | IslandMotion: formula, tokens, tiers, impulse and loop | done |
 | F3.2 | Route every inline spec through IslandMotion | done |
 | F3.3 | IslandHaptics (1:1, toggle respected) | doing (code and tests done; device check pending) |

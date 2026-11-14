@@ -148,7 +148,7 @@ fun InfoChip(
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = IslandTokens.SpaceXs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (dotColor != null) {
@@ -184,7 +184,7 @@ fun InfoChip(
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = IslandTokens.SpaceXs),
             verticalAlignment = Alignment.CenterVertically,
             content = content
         )
@@ -247,7 +247,7 @@ class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)
     val horizontalPadding = islandCardHorizontalPadding(IslandPriority.POP_NOTIFICATION, scale)
     val verticalPadding = islandCardVerticalPadding(IslandPriority.POP_NOTIFICATION, scale)
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
-    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
+    val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     val titleSize = type.title(IslandType.Card.NOTIFICATION)
     val appNameSize = type.secondary
     val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
@@ -269,7 +269,7 @@ class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)
 class ProgressCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
     val verticalPadding = islandCardVerticalPadding(IslandPriority.PROGRESS, scale)
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
-    val iconGap = (12.dp * scale).coerceIn(8.dp, 16.dp)
+    val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     val titleSize = type.title(IslandType.Card.PROGRESS)
     val appNameSize = type.secondary
     val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
@@ -480,7 +480,7 @@ fun IslandActionButtonRow(
                     .weight(1f)
                     .height(height),
                 shape = shape,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                contentPadding = PaddingValues(horizontal = IslandTokens.SpaceSm, vertical = 0.dp),
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = if (item.isPrimary) IslandTokens.ActionPrimaryContainer else IslandTokens.ActionSecondaryContainer,
                     contentColor = if (item.isPrimary) IslandTokens.ActionPrimaryContent else IslandTokens.TextBody

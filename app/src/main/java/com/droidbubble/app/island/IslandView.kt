@@ -1029,7 +1029,7 @@ fun ExpandedFlashlightView(
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 4.dp, bottom = 0.dp)
+                    .padding(top = IslandTokens.SpaceXs, bottom = 0.dp)
                     .blur(radius = 8.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
             ) {
                 val w = size.width
@@ -1174,13 +1174,13 @@ fun ExpandedFlashlightView(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(IslandTokens.SpaceXs))
 
         // Bottom section: Large centered flashlight icon (NO dark circle background, NO radial glow)
         // Tapping on this icon turns the flashlight off!
         Box(
             modifier = Modifier
-                .padding(bottom = 8.dp)
+                .padding(bottom = IslandTokens.SpaceSm)
                 .size(64.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -1729,7 +1729,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                     smartChoices.take(3).forEach { choice ->
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(IslandTokens.RadiusChip))
                                 .background(IslandTokens.SurfaceRaised)
                                 .clickable { sendReply(choice) }
                                 .padding(horizontal = 10.dp, vertical = metrics.replyChipVerticalPadding)
@@ -1751,7 +1751,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         .height(metrics.replyInputHeight)
                         .clip(RoundedCornerShape(metrics.replyInputHeight / 2))
                         .background(IslandTokens.SurfaceMuted)
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = IslandTokens.SpaceMd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     BasicTextField(
@@ -2013,13 +2013,13 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
             fontSize = type.idleTitle,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(IslandTokens.SpaceXs))
         Text(
             text = "Ready for Media, Notifications & Recording",
             color = IslandTokens.TextSecondary,
             fontSize = type.idleCaption
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(IslandTokens.SpaceMd))
         FilledTonalButton(
             onClick = onCollapse,
             shape = RoundedCornerShape(16.dp),
