@@ -2192,11 +2192,15 @@ fun <T : Any> rememberLastNonNull(value: T?): T? {
  * no solid fade, so the blurred screen behind the card still shows through like the other cards.
  */
 @Composable
-internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, glass: Boolean, shape: Shape) {
+internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: () -> Float, glass: Boolean, shape: () -> Shape) {
+    // M2.7: the alpha and the (animated) corner are read in the layer, so a morph doesn't recompose this
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clip(shape)
+            .graphicsLayer {
+                this.shape = shape()
+                clip = true
+            }
     ) {
         Image(
             bitmap = art.asImageBitmap(),
@@ -2208,7 +2212,7 @@ internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, gla
                 .graphicsLayer {
                     scaleX = 1.35f
                     scaleY = 1.35f
-                    this.alpha = alpha * (if (glass) 0.42f else 0.75f)
+                    this.alpha = alpha() * (if (glass) 0.42f else 0.75f)
                 }
         )
         if (!glass) {

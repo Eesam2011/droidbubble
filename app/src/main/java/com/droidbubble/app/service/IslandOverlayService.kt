@@ -218,9 +218,13 @@ class IslandOverlayService : Service() {
                 // The lock screen belongs to systemui (ignored), so forget the last app: its
                 // notifications arriving while locked must still show
                 IslandStateManager.setForegroundPackage(null)
+                // M2.7: pause the overlay's lifecycle while the screen is off, so the island's
+                // leaf data (recording seconds, flashlight level) stops reaching the views
+                lifecycleOwner.pauseForScreenOff(true)
                 return
             }
             if (action == Intent.ACTION_SCREEN_ON) {
+                lifecycleOwner.pauseForScreenOff(false)
                 val km = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
                 val locked = km?.isKeyguardLocked == true
                 IslandStateManager.setDeviceLocked(locked)
@@ -1146,6 +1150,19 @@ class IslandOverlayService : Service() {
             manager?.createNotificationChannel(channel)
         }
     }
+}
+
+/**
+ * M2.7: ON_PAUSE while the screen is off, ON_RESUME when it comes back. Only between STARTED and
+ * RESUMED: never before the service has started or after it was destroyed. Compose keeps its
+ * frame clock running (that follows ON_START / ON_STOP); only collectors that wait for RESUMED
+ * (the island's leaf data) stop.
+ */
+internal fun CustomLifecycleOwner.pauseForScreenOff(off: Boolean) {
+    val state = lifecycle.currentState
+    if (!state.isAtLeast(Lifecycle.State.STARTED)) return
+    if (off && state == Lifecycle.State.RESUMED) handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+    if (!off && state == Lifecycle.State.STARTED) handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 }
 
 // Custom LifecycleOwner for Compose in WindowManager Service

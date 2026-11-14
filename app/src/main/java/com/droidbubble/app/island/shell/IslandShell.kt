@@ -183,6 +183,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.DpSize
@@ -246,14 +248,16 @@ internal fun IslandShell(
     val media by IslandStateManager.activeMedia.collectAsState()
     val notification by IslandStateManager.activeNotification.collectAsState()
     val progressNotification by IslandStateManager.activeProgress.collectAsState()
-    val recording by IslandStateManager.screenRecordingState.collectAsState()
+    // M2.7: the recording's ticking seconds reach only the views that draw them (liveRecording());
+    // the shell and its scene see the recording without its timer, so a tick never recomposes it
+    val recordingState = IslandStateManager.screenRecordingState.collectAsState()
+    val recording by remember { derivedStateOf { recordingState.value.copy(durationSeconds = 0L) } }
     val charging by IslandStateManager.activeCharging.collectAsState()
     val isUnlocked by IslandStateManager.isUnlocked.collectAsState()
     val isBluetoothConnected by IslandStateManager.isBluetoothConnected.collectAsState()
     val activeRingerMode by IslandStateManager.activeRingerMode.collectAsState()
     val isFlashlightOn by IslandStateManager.isFlashlightOn.collectAsState()
-    val flashlightLevel by IslandStateManager.flashlightLevel.collectAsState()
-    val maxFlashlightLevel by IslandStateManager.maxFlashlightLevel.collectAsState()
+    // M2.7: the flashlight level is read by the flashlight views themselves (liveFlashlightLevel())
     val isKeyboardFocused by IslandStateManager.isKeyboardFocused.collectAsState()
     val connectionAlert by IslandStateManager.connectionAlert.collectAsState()
     val foregroundPackage by IslandStateManager.foregroundPackage.collectAsState()
@@ -735,15 +739,13 @@ internal fun IslandShell(
     // tasks can retarget with a velocity, snap, and read the velocity
     val shell = rememberIslandShellState(shellTargetCard1, shellTargetX)
     shell.Follow(shellTargetCard1, shellTargetX, cardMorphAnimSpec, positionAnimSpec)
-    val animatedCardMorph = shell.geometry
-    val animatedCard1Width = animatedCardMorph.width.coerceAtLeast(0.dp)
-    val animatedCard1Height = animatedCardMorph.height.coerceAtLeast(0.dp)
-    val animatedCornerRadius = animatedCardMorph.corner.coerceAtLeast(0.dp)
+    // M2.7: the body's geometry is read only in layout / draw lambdas (and in outlines, inside the
+    // cards' own restart scope); this reads it on demand instead of on every shell composition
+    fun animatedCornerRadius(): Dp = shell.geometry.corner.coerceAtLeast(0.dp)
     val animatedCard2Height by animateDpAsState(targetValue = targetCard2Height, animationSpec = sizeAnimSpecDp, label = "card2Height")
     val animatedCard2Alpha by animateFloatAsState(targetValue = targetCard2Alpha, animationSpec = sizeAnimSpecFloat, label = "card2Alpha")
     val animatedCard2OffsetY by animateDpAsState(targetValue = targetCard2OffsetY, animationSpec = sizeAnimSpecDp, label = "card2OffsetY")
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
-    val animatedHorizontalOffset = shell.xDp
 
     // M3.1: content follows the shape. p runs 0 → 1 from card 1's closed rect to its open rect,
     // read from the body's own geometry (draw phase), and every content fade is a pure function of
@@ -831,7 +833,11 @@ internal fun IslandShell(
         SolidColor(Color.Black)
     }
 
-    val cardContainerAlpha = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
+    // M2.7: read in graphicsLayer only
+    fun cardContainerAlpha(): Float = if (isExpanded) 1f else ((expandProgress - 0.05f) / 0.95f).coerceIn(0f, 1f)
+    // M2.7: coarse flags over expandProgress; they flip once per morph
+    val cardsStarted by remember { derivedStateOf { expandProgress > 0.001f } }
+    val backdropShown by remember { derivedStateOf { expandProgress > 0.05f } }
 
     // M4.2: the cards' sideways drag (px) on Animatables, so a release hands the finger's velocity
     // to the spring and a dismissed card flies off without springing back first (CardStack.kt)
@@ -1013,7 +1019,7 @@ internal fun IslandShell(
     }
 
     // Completely idle and collapsed: nothing is visible on screen. Skip rendering the view hierarchy to preserve CPU & battery.
-    if (!isOccupied && !settings.alwaysShowPill && pillGone && !isExpanded && expandProgress <= 0.001f) {
+    if (!isOccupied && !settings.alwaysShowPill && pillGone && !isExpanded && !cardsStarted) {
         return
     }
 
@@ -1039,7 +1045,8 @@ internal fun IslandShell(
         contentAlignment = Alignment.TopCenter
     ) {
         // Tap outside backdrop when expanded (active during whole expand and collapse animation)
-        if (expandProgress > 0.05f) {
+        // M2.7: its flag is read in its own restart scope
+        Isolated { if (backdropShown) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1051,12 +1058,15 @@ internal fun IslandShell(
                         IslandStateManager.collapse()
                     }
             )
-        }
+        } }
 
 
 
         // Expanded Cards Container: Positioned at animated top and horizontal offset
-        if (expandProgress > 0.001f || isExpanded) {
+        // M2.7: the cards run in their own restart scope, so their coarse flags (shown, filled,
+        // content in) and card 2's springs recompose the cards, never the whole shell
+        Isolated {
+        if (cardsStarted || isExpanded) {
             Box(
                 modifier = Modifier
                     .offset {
@@ -1076,7 +1086,7 @@ internal fun IslandShell(
                     // sideways swipe, in one detector
                 ) {
                     // Card 1: Primary Expanded Card
-                    if (card1Shown && (expandProgress > 0.001f || isExpanded)) {
+                    if (card1Shown && (cardsStarted || isExpanded)) {
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD)
@@ -1084,7 +1094,7 @@ internal fun IslandShell(
                                 .layoutSize(width = { shell.geometry.width }, height = { shell.geometry.height })
                                 .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
                                 .graphicsLayer {
-                                    alpha = cardContainerAlpha
+                                    alpha = cardContainerAlpha()
                                     // Liquid stretch: while the card grows it widens a touch and
                                     // flattens, and springs back as the morph slows. It hangs from
                                     // the top edge so it stays docked under the camera. Off for
@@ -1108,7 +1118,7 @@ internal fun IslandShell(
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = primaryOutlineColor,
-                                            shape = islandShape(animatedCornerRadius)
+                                            shape = islandShape(animatedCornerRadius())
                                         )
                                     } else Modifier
                                 )
@@ -1132,17 +1142,19 @@ internal fun IslandShell(
                                     MediaArtBackdrop(
                                         art = blurredMediaArt ?: mediaArt,
                                         needsBlur = blurredMediaArt == null,
-                                        alpha = expandProgress,
+                                        alpha = { expandProgress },
                                         glass = settings.liquidGlassCards,
-                                        shape = islandShape(animatedCornerRadius)
+                                        shape = { IslandShapeCache.get(animatedCornerRadius()) }
                                     )
                                 } else {
+                                    // M2.7: the gradient is built at full strength and faded with
+                                    // the card in the layer (draw phase), not rebuilt every frame
                                     val ambientBrush = when {
                                         primaryPriority == IslandPriority.MEDIA && mediaAccentColor != Color.Transparent -> {
                                             Brush.verticalGradient(
                                                 colors = listOf(
-                                                    mediaAccentColor.copy(alpha = 0.35f * expandProgress),
-                                                    mediaAccentColor.copy(alpha = 0.12f * expandProgress),
+                                                    mediaAccentColor.copy(alpha = 0.35f),
+                                                    mediaAccentColor.copy(alpha = 0.12f),
                                                     Color.Transparent
                                                 )
                                             )
@@ -1152,8 +1164,8 @@ internal fun IslandShell(
                                             Brush.verticalGradient(
                                                 colors = listOf(
                                                     Color.Transparent,
-                                                    blurpleTint.copy(alpha = 0.06f * expandProgress),
-                                                    blurpleTint.copy(alpha = 0.20f * expandProgress)
+                                                    blurpleTint.copy(alpha = 0.06f),
+                                                    blurpleTint.copy(alpha = 0.20f)
                                                 )
                                             )
                                         }
@@ -1161,8 +1173,8 @@ internal fun IslandShell(
                                             val redTint = IslandTokens.RecordingRed
                                             Brush.verticalGradient(
                                                 colors = listOf(
-                                                    redTint.copy(alpha = 0.16f * expandProgress),
-                                                    redTint.copy(alpha = 0.05f * expandProgress),
+                                                    redTint.copy(alpha = 0.16f),
+                                                    redTint.copy(alpha = 0.05f),
                                                     Color.Transparent
                                                 )
                                             )
@@ -1173,6 +1185,7 @@ internal fun IslandShell(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
+                                                .graphicsLayer { alpha = expandProgress }
                                                 .background(ambientBrush)
                                         )
                                     }
@@ -1253,9 +1266,9 @@ internal fun IslandShell(
                                         priority = shown.key.priority,
                                         media = shown.media,
                                         notification = shown.notification,
-                                        recording = recording,
-                                        flashlightLevel = flashlightLevel,
-                                        maxFlashlightLevel = maxFlashlightLevel,
+                                        recording = liveRecording(),
+                                        flashlightLevel = liveFlashlightLevel(),
+                                        maxFlashlightLevel = liveMaxFlashlightLevel(),
                                         scale = settings.expandedScale,
                                         onCollapse = {
                                             haptics.perform(IslandHapticEvent.COLLAPSE)
@@ -1294,7 +1307,7 @@ internal fun IslandShell(
                                         Modifier.border(
                                             width = settings.outlineThicknessDp.dp,
                                             color = secondaryOutlineColor,
-                                            shape = islandShape(animatedCornerRadius)
+                                            shape = islandShape(animatedCornerRadius())
                                         )
                                     } else Modifier
                                 )
@@ -1315,9 +1328,9 @@ internal fun IslandShell(
                                     MediaArtBackdrop(
                                         art = blurredMediaArt ?: mediaArt,
                                         needsBlur = blurredMediaArt == null,
-                                        alpha = animatedCard2Alpha,
+                                        alpha = { animatedCard2Alpha },
                                         glass = settings.liquidGlassCards,
-                                        shape = islandShape(animatedCornerRadius)
+                                        shape = { IslandShapeCache.get(animatedCornerRadius()) }
                                     )
                                 } else {
                                     val ambientBrush = when {
@@ -1382,9 +1395,9 @@ internal fun IslandShell(
                                         priority = secondaryPriority,
                                         media = currentMedia,
                                         notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                        recording = recording,
-                                        flashlightLevel = flashlightLevel,
-                                        maxFlashlightLevel = maxFlashlightLevel,
+                                        recording = liveRecording(),
+                                        flashlightLevel = liveFlashlightLevel(),
+                                        maxFlashlightLevel = liveMaxFlashlightLevel(),
                                         scale = settings.expandedScale,
                                         onCollapse = {
                                             haptics.perform(IslandHapticEvent.COLLAPSE)
@@ -1398,6 +1411,7 @@ internal fun IslandShell(
                 }
             }
         }
+        } // Isolated: cards
 
         // Minimised Island Container: Positioned strictly at camera cutout level (settings.topOffsetDp.dp)
         // Shrinks horizontally to 0 width while the card expands downwards, and blossoms from 0 width when minimising!
@@ -1411,6 +1425,9 @@ internal fun IslandShell(
                 },
             contentAlignment = Alignment.TopCenter
         ) {
+            // M2.7: the pill, the bubble, the neck, the notch bridge and the parentheses run in their
+            // own restart scope: their flags never recompose the whole shell
+            Isolated {
             // Smoothly fade in over the first frames where it is barely a circle emerging from the punch hole,
             // and smoothly fade out when shrinking back into the punch hole.
             // Applies to both single and dual activities!
@@ -1499,12 +1516,15 @@ internal fun IslandShell(
                                     .graphicsLayer { alpha = bubbleContentAlpha() },
                                 contentAlignment = Alignment.Center
                             ) {
-                                AuxiliaryBubbleContent(
-                                    priority = secondaryPriority,
-                                    media = currentMedia,
-                                    notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                    recording = recording,
-                                )
+                                // M2.7: own restart scope, so the recording's tick redraws only the bubble
+                                Isolated {
+                                    AuxiliaryBubbleContent(
+                                        priority = secondaryPriority,
+                                        media = currentMedia,
+                                        notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+                                        recording = liveRecording(),
+                                    )
+                                }
                             }
                         }
                     }
@@ -2011,9 +2031,9 @@ internal fun IslandShell(
                                         priority = shownPriority,
                                         media = shown.media,
                                         notification = shown.notification,
-                                        recording = recording,
-                                        flashlightLevel = flashlightLevel,
-                                        maxFlashlightLevel = maxFlashlightLevel,
+                                        recording = liveRecording(),
+                                        flashlightLevel = liveFlashlightLevel(),
+                                        maxFlashlightLevel = liveMaxFlashlightLevel(),
                                         secondaryPriority = secondaryPriority,
                                         horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
                                     )
@@ -2028,7 +2048,9 @@ internal fun IslandShell(
             // 3. Parentheses Accents: Neat parentheses-shaped brackets on each side of the island
             // Shorter than the height of the island, smoothly positioning symmetrically around 1 or 2 activities, and neatly close to the edges.
             // Hidden while two activities share the island (main pill + secondary bubble)
-            val targetParenthesisAlpha = if (!isOccupied || isDual || userHidden || userMinimized || settings.isNotch) 0f else ((1f - expandProgress * 3.5f).coerceIn(0f, 1f))
+            // M2.7: the fade with the card opening is applied in the layer (below), not as a target
+            // that changes every frame
+            val targetParenthesisAlpha = if (!isOccupied || isDual || userHidden || userMinimized || settings.isNotch) 0f else 1f
             val parenthesisAlphaAnim by animateFloatAsState(
                 targetValue = targetParenthesisAlpha,
                 animationSpec = motion.effects(),
@@ -2038,7 +2060,8 @@ internal fun IslandShell(
             // Fades in a split second earlier as the island begins emerging from the punch hole.
             // M2.6: the pill's width is read only in these lambdas (layout and draw phases)
             fun pillWidthNow(): Dp = compactWidthState.value.coerceAtLeast(0.dp)
-            fun effectiveParenthesisAlpha(): Float = parenthesisAlphaAnim * (pillWidthNow() / 14.dp).coerceIn(0f, 1f)
+            fun effectiveParenthesisAlpha(): Float =
+                parenthesisAlphaAnim * (1f - expandProgress * 3.5f).coerceIn(0f, 1f) * (pillWidthNow() / 14.dp).coerceIn(0f, 1f)
             val parenthesesDrawn by remember(settings.bubbleEffectEnabled) {
                 derivedStateOf { settings.bubbleEffectEnabled && effectiveParenthesisAlpha() > 0.01f && pillWidthNow() > 3.dp }
             }
@@ -2104,6 +2127,7 @@ internal fun IslandShell(
                         .graphicsLayer { alpha = effectiveParenthesisAlpha() }
                 )
             }
+            } // Isolated: pill
         }
     }
 }
@@ -2112,6 +2136,23 @@ internal fun IslandShell(
 private const val CARD2_STARTS_AT = 0.1f
 private const val BUBBLE_EMERGE_AT = 0.95f
 private const val PARENTHESES_SHOOT_AT = 0.6f
+
+/**
+ * M2.7: the leaf data, collected where it is drawn and only while the overlay is resumed (the
+ * service pauses its lifecycle while the screen is off), so a 1 Hz tick or a level change
+ * recomposes the view that shows it, not the shell.
+ */
+@Composable
+private fun liveRecording(): ScreenRecordingState =
+    IslandStateManager.screenRecordingState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED).value
+
+@Composable
+private fun liveFlashlightLevel(): Int =
+    IslandStateManager.flashlightLevel.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED).value
+
+@Composable
+private fun liveMaxFlashlightLevel(): Int =
+    IslandStateManager.maxFlashlightLevel.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED).value
 
 /**
  * M2.6 / M2.7: a restart scope of its own. State read inside [content] recomposes only this block,

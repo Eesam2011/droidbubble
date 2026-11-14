@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performTouchInput
 import com.droidbubble.app.model.IslandPriority
+import com.droidbubble.app.model.ScreenRecordingState
 import android.os.SystemClock
 import java.time.Duration
 import org.robolectric.shadows.ShadowSystemClock
@@ -85,6 +86,12 @@ class RecompositionBudgetTest {
         assertTrue("$name: $actual root compositions, baseline $baseline (+10 % allowed)", actual <= baseline * 1.1)
     }
 
+    /** M2.7: a hard gate, not a baseline: no tolerance, and record mode doesn't skip it. */
+    private fun gate(name: String, actual: Int, max: Int) {
+        if (System.getProperty("island.record") == "true") println("PerfBaseline $name = $actual (gate $max)")
+        assertTrue("$name: $actual shell compositions, the gate is $max", actual <= max)
+    }
+
     @Test
     fun mediaExpand_500ms() {
         rule.runOnIdle { IslandStateManager.updateMedia(IslandFixtures.song) }
@@ -93,7 +100,7 @@ class RecompositionBudgetTest {
             rule.runOnIdle { IslandStateManager.expand(null) }
             frames(500)
         }
-        check("MEDIA_EXPAND_500MS", n, PerfBaseline.MEDIA_EXPAND_500MS)
+        gate("MEDIA_EXPAND_500MS", n, PerfBaseline.MEDIA_EXPAND_500MS)
     }
 
     @Test
@@ -106,7 +113,7 @@ class RecompositionBudgetTest {
             rule.runOnIdle { IslandStateManager.collapse() }
             frames(600)
         }
-        check("MEDIA_COLLAPSE_600MS", n, PerfBaseline.MEDIA_COLLAPSE_600MS)
+        gate("MEDIA_COLLAPSE_600MS", n, PerfBaseline.MEDIA_COLLAPSE_600MS)
     }
 
     @Test
@@ -157,6 +164,23 @@ class RecompositionBudgetTest {
         val root = measure { playingFrames(3000) }
         check("MEDIA_EXPANDED_PLAYING_3S_ROOT", root, PerfBaseline.MEDIA_EXPANDED_PLAYING_3S_ROOT)
         check("MEDIA_EXPANDED_PLAYING_3S_CARD", cardCount, PerfBaseline.MEDIA_EXPANDED_PLAYING_3S_CARD)
+    }
+
+    @Test
+    fun screenRecordingPill_10s() {
+        // M2.7: the recording's seconds tick once a second; only the timer text follows them, the
+        // shell never recomposes
+        rule.runOnIdle { IslandStateManager.updateRecordingState(ScreenRecordingState(isRecording = true, durationSeconds = 5L)) }
+        frames(2000)
+        var seconds = 5L
+        val n = measure {
+            repeat(10) {
+                seconds++
+                rule.runOnIdle { IslandStateManager.updateRecordingState(ScreenRecordingState(isRecording = true, durationSeconds = seconds)) }
+                frames(1000)
+            }
+        }
+        gate("RECORDING_PILL_10S", n, PerfBaseline.RECORDING_PILL_10S)
     }
 
     @Test

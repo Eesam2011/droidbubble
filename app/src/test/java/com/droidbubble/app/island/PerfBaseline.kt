@@ -8,9 +8,16 @@ package com.droidbubble.app.island
  * their own scopes. B8.1 and B8.2 therefore need a counter in those scopes to show their gains.
  */
 object PerfBaseline {
-    /** About one root composition per 16 ms frame: the whole root follows the morph (06 P0-1). */
-    const val MEDIA_EXPAND_500MS = 30
-    const val MEDIA_COLLAPSE_600MS = 37
+    /**
+     * M2.7: hard gates, no tolerance. An expand or a collapse may recompose the shell at most
+     * twice: once for the state change itself, once when card 2's stagger flips. Everything that
+     * moves frame by frame is read in layout / draw lambdas or inside its own restart scope.
+     * (They were 30 and 37, about one per frame, at the Phase 0 checkpoint.)
+     */
+    const val MEDIA_EXPAND_500MS = 2
+    const val MEDIA_COLLAPSE_600MS = 2
+    /** M2.7 gate: ten ticks of a screen recording's timer never recompose the shell. */
+    const val RECORDING_PILL_10S = 0
     const val MEDIA_PILL_REST_5S = 0
     const val TIMER_PILL_5S = 0
     const val FLASHLIGHT_DRAG_1S = 2
