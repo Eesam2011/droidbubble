@@ -228,7 +228,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I2.1 | Morph toolkit and play↔pause | todo |
 | I2.2 | Checkmark draw-on and slash overlay | todo |
 | I2.3 | Flashlight and mic morphs | todo |
-| I3.1 | Icon event counters | todo |
+| I3.1 | Icon event counters | done (`IslandStateManager.iconSignals`; tests pass) |
 | I3.2 | Wire bounce, wiggle, pulse, appear and replace | todo |
 | I3.3 | Wire charging, download, network and flashlight | todo |
 | I3.4 | Media: cover flip and play-state morph | todo |

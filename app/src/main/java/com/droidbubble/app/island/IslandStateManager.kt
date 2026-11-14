@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** How long a torch blink sequence is remembered when telling a flashlight from a flash alert. */
@@ -120,6 +121,10 @@ object IslandStateManager {
 
     private val _activeMedia = MutableStateFlow<MediaInfo?>(null)
     val activeMedia: StateFlow<MediaInfo?> = _activeMedia.asStateFlow()
+
+    /** I3.1: counters that trigger the icons' one-shot effects (bounce, wiggle, appear). */
+    private val _iconSignals = MutableStateFlow(com.droidbubble.app.island.icon.IconSignals())
+    val iconSignals: StateFlow<com.droidbubble.app.island.icon.IconSignals> = _iconSignals.asStateFlow()
 
     private val _activeNotification = MutableStateFlow<NotificationInfo?>(null)
     val activeNotification: StateFlow<NotificationInfo?> = _activeNotification.asStateFlow()
@@ -490,6 +495,7 @@ object IslandStateManager {
         bluetoothJob?.cancel()
         _connectionAlert.value = kind
         _isBluetoothConnected.value = true
+        _iconSignals.update { it.copy(connectionAppear = it.connectionAppear + 1) }
         bluetoothJob = scope.launch {
             delay(timings.connection)
             _isBluetoothConnected.value = false
@@ -514,6 +520,7 @@ object IslandStateManager {
         restoreIsland()
         chargingJob?.cancel()
         _activeCharging.value = ChargingInfo(percentage.coerceIn(0, 100), wattage)
+        _iconSignals.update { it.copy(chargeStart = it.chargeStart + 1) }
         chargingJob = scope.launch {
             delay(timings.charging)
             _activeCharging.value = null
@@ -645,15 +652,20 @@ object IslandStateManager {
         val previous = _activeNotification.value
         val isNewNotification = notification != null && previous?.key != notification.key
         val wasRinging = isIncomingCallRinging
+        if (com.droidbubble.app.island.icon.isSameAppNudge(previous, notification)) {
+            _iconSignals.update { it.copy(sameAppNudge = it.sameAppNudge + 1) }
+        }
         _activeNotification.value = notification
         onRingingChanged(wasRinging)
         // Incoming call: open the call card (answer / decline) right away
         if (notification != null && notification.isIncomingCall && (isNewNotification || previous?.isIncomingCall != true)) {
+            _iconSignals.update { it.copy(ringStart = it.ringStart + 1) }
             restoreIsland()
             expand(IslandPriority.POP_NOTIFICATION)
         }
         // Ringing alarm / expired timer: open the full island with its Stop / Snooze buttons
         if (notification != null && notification.isAlert && (isNewNotification || previous?.isAlert != true)) {
+            _iconSignals.update { it.copy(alertStart = it.alertStart + 1) }
             restoreIsland()
             expand(IslandPriority.POP_NOTIFICATION)
         }
@@ -821,6 +833,7 @@ object IslandStateManager {
         listOf(popInJob, chargingJob, unlockJob, bluetoothJob, ringerJob, autoDismissNotificationJob, torchConfirmJob)
             .forEach { it?.cancel() }
         _activeCharging.value = null
+        _iconSignals.value = com.droidbubble.app.island.icon.IconSignals()
         _isUnlocked.value = false
         _isBluetoothConnected.value = false
         _activeRingerMode.value = null
