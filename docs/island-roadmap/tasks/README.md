@@ -164,7 +164,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | M4.4 | Pill: down expands, further opens the shade, inward minimizes | done (code only; not built or tested yet; device check pending) |
 | M4.5 | Back and predictive back collapse | done (code only; not built or tested yet; device check pending) |
 | M5.1 | Resolve the motion tier | doing (code and tests done; device check pending: "Remove animations" and Battery Saver switch the tier live) |
-| M5.2 | Apply Reduced and Efficient everywhere | todo |
+| M5.2 | Apply Reduced and Efficient everywhere | done (code only; not built or tested yet; device check pending) |
 | M5.3 | "Eager in, calm out" retune | todo |
 
 ### Phase 4 + 6: Layout polish and signature motion ([file](phase-4-6-layout-and-motion-polish.md))

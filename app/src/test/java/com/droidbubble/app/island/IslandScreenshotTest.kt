@@ -149,6 +149,26 @@ class IslandScreenshotTest {
         IslandStateManager.updateProgress(IslandFixtures.progress(42))
     }
 
+    // ---- Reduced motion (M5.2): the settled frames must equal the default ones ----
+    // The *__reduced.png baselines start as copies of the *__default.png ones, so a difference
+    // fails. Playing media is left out on purpose: its equalizer draws a still frame in Reduced
+    // motion, which differs from the animated one by design.
+
+    @Test fun messagePillReduced() = shot("message_pill", REDUCED, variant = "reduced") { IslandStateManager.updateNotification(IslandFixtures.message()) }
+
+    @Test fun timerPillReduced() = shot("timer_pill", REDUCED, variant = "reduced") { IslandStateManager.updateNotification(IslandFixtures.timer) }
+
+    @Test fun chargingGlanceReduced() = shot("charging_glance", REDUCED, variant = "reduced") { IslandStateManager.triggerChargingEvent(80, 18.0) }
+
+    @Test fun expandedTimerReduced() = shot("expanded_timer", REDUCED, variant = "reduced") {
+        IslandStateManager.updateNotification(IslandFixtures.timer)
+        IslandStateManager.expand(IslandPriority.POP_NOTIFICATION)
+    }
+
+    @Test fun expandedIncomingCallReduced() = shot("expanded_incoming_call", REDUCED, variant = "reduced") {
+        IslandStateManager.updateNotification(IslandFixtures.incomingCall)
+    }
+
     // ---- mid-animation frames (F3.2): the proof that a motion refactor kept every spring ----
     // The clock is frozen and stepped by hand, so each frame is the same on every run.
 
@@ -282,5 +302,6 @@ class IslandScreenshotTest {
 
     private companion object {
         val BASE = IslandSettings(showNotifications = true)
+        val REDUCED = BASE.copy(reduceMotion = true)
     }
 }

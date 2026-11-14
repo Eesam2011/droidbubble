@@ -188,6 +188,38 @@ class IslandMotionTest {
     }
 
     @Test
+    fun bounce_isOffOnlyInReducedMotion() {
+        // M5.2: idle bounce, parentheses shoot, swap squash, cover flip and pulses
+        assertTrue(motion().allowsBounce)
+        assertTrue(motion(tier = MotionTier.EFFICIENT).allowsBounce)
+        assertFalse(motion(tier = MotionTier.REDUCED).allowsBounce)
+    }
+
+    @Test
+    fun reduced_keepsTheCountdownTickAsAClock() {
+        // M5.2: a countdown ring drains in real seconds even in Reduced motion
+        val m = motion(tier = MotionTier.REDUCED)
+        val tick: TweenSpec<Float> = m.tween(MotionTween.COUNTDOWN_TICK)
+        assertEquals(1000, tick.durationMillis)
+        // Every other named tween is the short fade
+        val roll: TweenSpec<Float> = m.tween(MotionTween.ROLL)
+        assertEquals(IslandMotion.REDUCED_FADE_MS, roll.durationMillis)
+        assertEquals(0, m.tween<Float>(MotionTween.CHARGING_FILL).delay)
+    }
+
+    @Test
+    fun reduced_parenthesesShoot_isNoImpulse() {
+        val m = motion(tier = MotionTier.REDUCED)
+        assertNull(m.impulse(m.parenthesisShoot, 240f))
+        val full = motion(speed = 0.7f)
+        val shoot = full.impulse(full.parenthesisShoot, 240f * full.speed)!!
+        // Full motion: the same spring the shell used before M5.2
+        assertEquals(0.65f, shoot.spec.dampingRatio, 0f)
+        assertEquals(260f * (0.7f * 0.7f), shoot.spec.stiffness, 0f)
+        assertEquals(240f * 0.7f, shoot.initialVelocity, 0f)
+    }
+
+    @Test
     fun impulse_carriesTheVelocity() {
         val i = motion().impulse(motion().iconBounce, 6f)!!
         assertEquals(6f, i.initialVelocity, 0f)

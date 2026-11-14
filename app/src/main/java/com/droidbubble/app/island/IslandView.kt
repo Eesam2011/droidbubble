@@ -195,6 +195,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidbubble.app.island.motion.IslandMotion
 import com.droidbubble.app.island.motion.LocalIslandMotion
+import com.droidbubble.app.island.motion.LoopToken
 import com.droidbubble.app.island.motion.rememberMotionTier
 import com.droidbubble.app.island.shell.Follow
 import com.droidbubble.app.island.shell.IslandShell
@@ -2055,23 +2056,29 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
 @Composable
 fun PulsingRecordingDot(modifier: Modifier = Modifier) {
     val motion = LocalIslandMotion.current
-    val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = motion.tween(MotionTween.RECORDING_PULSE),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_alpha"
-    )
+    // M5.2: Reduced motion holds the dot still at full strength
+    val alpha: () -> Float = if (motion.loop(LoopToken.PULSE) != null) {
+        val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
+        val pulse = infiniteTransition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = motion.tween(MotionTween.RECORDING_PULSE),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulse_alpha"
+        )
+        ({ pulse.value })
+    } else {
+        ({ 1f })
+    }
 
     // B8.1: the pulse is read in the layer and draw phases only, so the dot never recomposes
     Box(
         modifier = modifier
             .size(11.dp)
             .graphicsLayer {
-                val a = alpha
+                val a = alpha()
                 scaleX = 1f + a * 0.12f
                 scaleY = 1f + a * 0.12f
                 this.alpha = a
@@ -2087,13 +2094,18 @@ fun PulsingRecordingDot(modifier: Modifier = Modifier) {
  */
 @Composable
 fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.ControlLight) {
-    OutputAudioBandsEffect(active = isPlaying)
+    // M5.2: Reduced motion draws one still frame (taller bars while playing, so playing and
+    // paused still read differently); Efficient (Battery Saver) steps at most every 33 ms
+    val loop = LocalIslandMotion.current.loop(LoopToken.EQUALIZER)
+    val animates = isPlaying && loop != null
+    val frameIntervalMs = (loop?.frameIntervalMillis ?: 0).toLong()
+    OutputAudioBandsEffect(active = animates)
     val idle = remember { floatArrayOf(0.3f, 0.5f, 0.2f) }
     val shown = remember { idle.copyOf() }
     var frame by remember { mutableIntStateOf(0) }
-    LaunchedEffect(isPlaying) {
-        if (!isPlaying) {
-            idle.copyInto(shown)
+    LaunchedEffect(isPlaying, animates, frameIntervalMs) {
+        if (!animates) {
+            (if (isPlaying) EQ_STILL_PLAYING else idle).copyInto(shown)
             frame++
             return@LaunchedEffect
         }
@@ -2103,7 +2115,7 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.Contr
         // data itself arrives at 20 Hz or less (AudioLevels).
         val lastBands = FloatArray(shown.size) { -1f }
         while (true) {
-            delay(if (AudioPowerPolicy.lowPower) EQ_STEP_LOW_POWER_MS else EQ_STEP_MS)
+            delay(if (frameIntervalMs > 0L) maxOf(EQ_STEP_LOW_POWER_MS, frameIntervalMs) else EQ_STEP_MS)
             withInfiniteAnimationFrameMillis { now ->
                 val t = (now - start) / 1000f
                 val real = OutputAudioBands.hasSignal
@@ -2142,6 +2154,8 @@ fun EqualizerVisualizer(isPlaying: Boolean, barColor: Color = IslandTokens.Contr
 }
 
 private val EQ_FAKE_SPEED = floatArrayOf(7.0f, 8.3f, 6.0f)
+/** M5.2: the equalizer's still frame while playing in Reduced motion. */
+private val EQ_STILL_PLAYING = floatArrayOf(0.55f, 0.85f, 0.45f)
 private const val EQ_STEP_MS = 33L
 private const val EQ_STEP_LOW_POWER_MS = 66L
 

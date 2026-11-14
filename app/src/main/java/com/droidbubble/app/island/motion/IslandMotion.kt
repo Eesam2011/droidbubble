@@ -43,7 +43,9 @@ fun MotionToken.Physical.toPerceptual() =
 
 /**
  * A fixed-length animation (fades, one-shot steps). [speedScaled]: the length and delay are
- * divided by the island's animation speed, like the springs.
+ * divided by the island's animation speed, like the springs. [reducible]: Reduced motion turns
+ * it into a short fade; false for tweens that show time passing (a countdown draining), whose
+ * length is their meaning (M5.2).
  */
 @Immutable
 data class TweenToken(
@@ -51,6 +53,7 @@ data class TweenToken(
     val easing: Easing = FastOutSlowInEasing,
     val delayMillis: Int = 0,
     val speedScaled: Boolean = true,
+    val reducible: Boolean = true,
 )
 
 /** The island's named tweens (Legacy values, F3.2). */
@@ -80,8 +83,8 @@ object MotionTween {
     val ART_FLIP_OUT = TweenToken(150, FastOutLinearInEasing, speedScaled = false)
     /** The timer clock icon's hand stepping one second. */
     val CLOCK_HAND = TweenToken(280, speedScaled = false)
-    /** A countdown ring draining one second. */
-    val COUNTDOWN_TICK = TweenToken(1000, LinearEasing, speedScaled = false)
+    /** A countdown ring draining one second. Kept in Reduced motion: it is a clock, not an effect. */
+    val COUNTDOWN_TICK = TweenToken(1000, LinearEasing, speedScaled = false, reducible = false)
     /** One digit roll: short enough to always finish before the next second ticks. */
     val ROLL = TweenToken(IslandMotion.ROLL_MS, IslandMotion.ROLL_EASING, speedScaled = false)
 }
@@ -194,9 +197,12 @@ data class IslandMotion(
         return TweenSpec(scaled(millis), scaled(delayMillis), easing)
     }
 
-    /** A named tween. In [MotionTier.REDUCED] it becomes a [REDUCED_FADE_MS] fade with no delay. */
+    /**
+     * A named tween. In [MotionTier.REDUCED] it becomes a [REDUCED_FADE_MS] fade with no delay,
+     * unless the token isn't [TweenToken.reducible].
+     */
     fun <T> tween(token: TweenToken): TweenSpec<T> {
-        if (tier == MotionTier.REDUCED) return TweenSpec(REDUCED_FADE_MS, 0, LinearEasing)
+        if (tier == MotionTier.REDUCED && token.reducible) return TweenSpec(REDUCED_FADE_MS, 0, LinearEasing)
         return if (token.speedScaled) {
             TweenSpec(scaled(token.millis), scaled(token.delayMillis), token.easing)
         } else {
@@ -236,6 +242,11 @@ data class IslandMotion(
     val allowsStretch: Boolean get() = tier == MotionTier.FULL
     val allowsBlur: Boolean get() = tier == MotionTier.FULL
     val allowsStaggerDelays: Boolean get() = tier != MotionTier.REDUCED
+    /**
+     * M5.2: overshoot effects (the idle tap bounce, the parentheses shoot, the swap squash, the
+     * cover flip, ringer shakes, ambient pulses). Off in [MotionTier.REDUCED]: nothing bounces.
+     */
+    val allowsBounce: Boolean get() = tier != MotionTier.REDUCED
 
     companion object {
         const val REDUCED_FADE_MS = 150

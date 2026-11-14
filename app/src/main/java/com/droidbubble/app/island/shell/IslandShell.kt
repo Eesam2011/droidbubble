@@ -392,7 +392,8 @@ internal fun IslandShell(
     LaunchedEffect(primaryPriority) {
         if (primaryPriority == lastCompactPriority) return@LaunchedEffect
         lastCompactPriority = primaryPriority
-        if (isExpanded) return@LaunchedEffect
+        // M5.2: no squash in Reduced motion; the content just crossfades
+        if (isExpanded || !motion.allowsBounce) return@LaunchedEffect
         swapSquash.animateTo(0.06f, motion.tween(MotionTween.SWAP_SQUASH_IN))
         swapSquash.animateTo(0f, motion.spring(motion.swapSquashOut))
     }
@@ -467,7 +468,8 @@ internal fun IslandShell(
     LaunchedEffect(isUnlock) {
         if (isUnlock) {
             unlockCheckmarkVisible = false
-            kotlinx.coroutines.delay((110L / speed).toLong())
+            // M5.2: Reduced motion shows both halves together
+            if (motion.allowsStaggerDelays) kotlinx.coroutines.delay((110L / speed).toLong())
             unlockCheckmarkVisible = true
         } else {
             unlockCheckmarkVisible = false
@@ -497,7 +499,8 @@ internal fun IslandShell(
     LaunchedEffect(isBluetooth) {
         if (isBluetooth) {
             bluetoothCheckmarkVisible = false
-            kotlinx.coroutines.delay((110L / speed).toLong())
+            // M5.2: Reduced motion shows both halves together
+            if (motion.allowsStaggerDelays) kotlinx.coroutines.delay((110L / speed).toLong())
             bluetoothCheckmarkVisible = true
         } else {
             bluetoothCheckmarkVisible = false
@@ -528,7 +531,8 @@ internal fun IslandShell(
     LaunchedEffect(isRingerMode) {
         if (isRingerMode) {
             ringerSecondaryVisible = false
-            kotlinx.coroutines.delay((110L / speed).toLong())
+            // M5.2: Reduced motion shows both halves together
+            if (motion.allowsStaggerDelays) kotlinx.coroutines.delay((110L / speed).toLong())
             ringerSecondaryVisible = true
         } else {
             ringerSecondaryVisible = false
@@ -941,12 +945,16 @@ internal fun IslandShell(
             parenthesisExtraShoot.snapTo(0f)
             // M3.2: shoot once the pill is 60% of the way out of the punch hole, at any speed
             snapshotFlow { latestCompactTarget > 0f && pillWidth.value >= latestCompactTarget * PARENTHESES_SHOOT_AT }.first { it }
-            // Shoot outward from the main island with spring bounce and settle back to 0
-            parenthesisExtraShoot.animateTo(
-                targetValue = 0f,
-                initialVelocity = 240f * speed,
-                animationSpec = motion.spring(motion.parenthesisShoot)
-            )
+            // Shoot outward from the main island with spring bounce and settle back to 0.
+            // M5.2: an impulse, so Reduced motion (no impulse) skips it
+            val shoot = motion.impulse(motion.parenthesisShoot, 240f * speed)
+            if (shoot != null) {
+                parenthesisExtraShoot.animateTo(
+                    targetValue = 0f,
+                    initialVelocity = shoot.initialVelocity,
+                    animationSpec = shoot.spec
+                )
+            }
         } else {
             parenthesisExtraShoot.snapTo(0f)
         }
@@ -1179,7 +1187,7 @@ internal fun IslandShell(
                                             // Only leaving content blurs: sharp on the way in, blurred
                                             // with the card's speed (or its fade) on the way out
                                             val contracting = !isExpanded
-                                            renderEffect = if (!contracting || !motion.allowsBlur) null else steppedBlurEffect(
+                                            renderEffect = if (!contracting) null else motion.motionBlur(
                                                 maxOf(IslandChoreography.leavingBlurFraction(p, contracting), shell.morphSpeed()),
                                                 IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                             )
@@ -1224,7 +1232,7 @@ internal fun IslandShell(
                                                 .wrapContentSize(Alignment.TopCenter, unbounded = true)
                                                 .requiredSize(expandedCardWidth, shown.height)
                                                 .graphicsLayer {
-                                                    renderEffect = if (leavingBlur > 0f && motion.allowsBlur) steppedBlurEffect(
+                                                    renderEffect = if (leavingBlur > 0f) motion.motionBlur(
                                                         leavingBlur, IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                                     ) else null
                                                 }
@@ -1352,7 +1360,7 @@ internal fun IslandShell(
                                             cardHeightFor(secondaryPriority, settings.expandedScale, notifBaseHeight, progressBaseHeight, notifDensity.fontScale)
                                         )
                                         .graphicsLayer {
-                                            renderEffect = if (card2Expanded) null else steppedBlurEffect(
+                                            renderEffect = if (card2Expanded) null else motion.motionBlur(
                                                 maxOf(1f - animatedCard2Alpha, shell.morphSpeed()), 10.dp.toPx()
                                             )
                                         }
@@ -1553,11 +1561,14 @@ internal fun IslandShell(
                         .height(settings.heightDp.dp)
                         .graphicsLayer {
                             alpha = compactPillAlpha
-                            // A notch stays attached to the top edge: no bounce away from it
-                            translationY = if (settings.isNotch) 0f else idleBounceY.value.dp.toPx()
+                            // A notch stays attached to the top edge: no bounce away from it.
+                            // M5.2: no idle tap bounce in Reduced motion
+                            val bounce = motion.allowsBounce
+                            translationY = if (settings.isNotch || !bounce) 0f else idleBounceY.value.dp.toPx()
                             if (settings.isNotch) transformOrigin = TransformOrigin(0.5f, 0f)
-                            scaleX = idleBounceScale.value * pillPressScale * (1f + swapSquash.value)
-                            scaleY = idleBounceScale.value * pillPressScale * (1f - swapSquash.value * 0.5f)
+                            val idleScale = if (bounce) idleBounceScale.value else 1f
+                            scaleX = idleScale * pillPressScale * (1f + swapSquash.value)
+                            scaleY = idleScale * pillPressScale * (1f - swapSquash.value * 0.5f)
                         }
                         .clip(compactPillShape)
                         .background(if (pillFilled) Color.Black else Color.Transparent)
@@ -1911,7 +1922,7 @@ internal fun IslandShell(
                                     val a = compactAlpha()
                                     alpha = a
                                     // Pill content leaving for the card blurs out with the morph
-                                    renderEffect = if (isExpanded && motion.allowsBlur) steppedBlurEffect(
+                                    renderEffect = if (isExpanded) motion.motionBlur(
                                         maxOf(1f - a, shell.morphSpeed()), IslandChoreography.LEAVING_BLUR_MAX_DP.dp.toPx()
                                     ) else null
                                 },
@@ -1929,11 +1940,16 @@ internal fun IslandShell(
                                 ),
                                 contentKey = { it.key },
                                 transitionSpec = {
-                                    (fadeIn(motion.tween(MotionTween.COMPACT_SWAP_FADE_IN)) +
-                                        scaleIn(initialScale = 0.85f, animationSpec = motion.spring(motion.compactSwapScale))) togetherWith
-                                        (fadeOut(motion.tween(MotionTween.COMPACT_SWAP_OUT)) +
-                                            scaleOut(targetScale = 0.85f, animationSpec = motion.tween(MotionTween.COMPACT_SWAP_OUT))) using
-                                        SizeTransform(clip = false)
+                                    // M5.2: Reduced motion crossfades (150 ms), with no scale
+                                    if (!motion.allowsBounce) {
+                                        fadeIn(motion.effects()) togetherWith fadeOut(motion.effects()) using SizeTransform(clip = false)
+                                    } else {
+                                        (fadeIn(motion.tween(MotionTween.COMPACT_SWAP_FADE_IN)) +
+                                            scaleIn(initialScale = 0.85f, animationSpec = motion.spring(motion.compactSwapScale))) togetherWith
+                                            (fadeOut(motion.tween(MotionTween.COMPACT_SWAP_OUT)) +
+                                                scaleOut(targetScale = 0.85f, animationSpec = motion.tween(MotionTween.COMPACT_SWAP_OUT))) using
+                                            SizeTransform(clip = false)
+                                    }
                                 },
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier.fillMaxSize(),
@@ -1947,7 +1963,7 @@ internal fun IslandShell(
                                         .graphicsLayer {
                                             // Only the leaving activity blurs, with the swap's squash
                                             // and the pill's width change; the new one stays sharp
-                                            renderEffect = if (shown.key != primaryKey) steppedBlurEffect(
+                                            renderEffect = if (shown.key != primaryKey) motion.motionBlur(
                                                 maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillMorphSpeed()), 12.dp.toPx()
                                             ) else null
                                         },
