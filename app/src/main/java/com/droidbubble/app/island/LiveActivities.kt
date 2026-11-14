@@ -36,14 +36,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.CallEnd
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,9 +66,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.material.icons.rounded.Alarm
-import androidx.compose.material.icons.rounded.LocalShipping
-import androidx.compose.material.icons.rounded.SportsSoccer
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
@@ -717,7 +706,7 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
         }
         Spacer(modifier = Modifier.width(layout.gap))
         LiveRoundButton(
-            icon = Icons.Rounded.CallEnd,
+            icon = IslandIcons.CallEnd,
             contentDescription = if (notification.isIncomingCall) "Decline" else "Hang up",
             accent = LiveActivityColors.CallRed,
             size = layout.control
@@ -729,7 +718,7 @@ fun LiveCallView(notification: NotificationInfo, onCollapse: () -> Unit, scale: 
         if (notification.isIncomingCall) {
             Spacer(modifier = Modifier.width(layout.buttonGap))
             LiveRoundButton(
-                icon = Icons.Rounded.Call,
+                icon = IslandIcons.Call,
                 contentDescription = "Answer",
                 accent = LiveActivityColors.CallGreen,
                 size = layout.control
@@ -781,7 +770,7 @@ fun LiveRecordingRow(
         Spacer(modifier = Modifier.width(layout.gap))
         if (onPauseResume != null) {
             LiveRoundButton(
-                icon = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                icon = if (isPaused) IslandIcons.Play else IslandIcons.Pause,
                 contentDescription = if (isPaused) "Resume" else "Pause",
                 accent = red,
                 size = layout.control,
@@ -819,7 +808,7 @@ fun LiveTimerRow(
         // Cancel sits at the leading end, concentric with the card's corner; the time takes the middle
         if (onCancel != null) {
             LiveRoundButton(
-                icon = Icons.Rounded.Close,
+                icon = IslandIcons.Close,
                 contentDescription = "Cancel",
                 accent = accent,
                 size = layout.control,
@@ -865,7 +854,7 @@ fun LiveTimerRow(
         if (onPauseResume != null) {
             Spacer(modifier = Modifier.width(layout.gap))
             LiveRoundButton(
-                icon = if (isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                icon = if (isPaused) IslandIcons.Play else IslandIcons.Pause,
                 contentDescription = if (isPaused) "Resume" else "Pause",
                 accent = accent,
                 size = layout.control,
@@ -999,7 +988,7 @@ fun LiveAlertView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             PulsingAlertIcon(
-                icon = if (isTimer) Icons.Rounded.Timer else Icons.Rounded.Alarm,
+                icon = if (isTimer) IslandIcons.Timer else IslandIcons.Alarm,
                 color = accent,
                 size = layout.control
             )
@@ -1138,7 +1127,7 @@ fun LiveTrackingRow(notification: NotificationInfo, scale: Float, onOpen: () -> 
                     Modifier.fillMaxSize().clip(CircleShape).background(LiveActivityColors.tint(accent)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.LocalShipping, contentDescription = null, tint = accent, modifier = Modifier.size(layout.control * 0.44f))
+                    Icon(IslandIcons.Delivery, contentDescription = null, tint = accent, modifier = Modifier.size(layout.control * 0.44f))
                 }
             }
         )
@@ -1328,7 +1317,7 @@ fun TimerRingIcon(notification: NotificationInfo, size: Dp, color: Color) {
 fun LiveActivityCompactIcon(kind: LiveActivityKind, notification: NotificationInfo) {
     val accent = LiveActivityColors.accentFor(kind)
     when (kind) {
-        LiveActivityKind.CALL -> Icon(Icons.Rounded.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(18.dp))
+        LiveActivityKind.CALL -> Icon(IslandIcons.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(18.dp))
         LiveActivityKind.RECORDING -> LiveWaveform(
             color = accent,
             active = notification.liveTimerBaseMs > 0L,
@@ -1343,23 +1332,23 @@ fun LiveActivityCompactIcon(kind: LiveActivityKind, notification: NotificationIn
         LiveActivityKind.STOPWATCH -> if (notification.liveTimerBaseMs > 0L) {
             TimerClockIcon(baseMs = notification.liveTimerBaseMs, countDown = notification.liveTimerCountDown, size = 18.dp, color = accent)
         } else {
-            Icon(Icons.Rounded.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            Icon(IslandIcons.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
         }
         LiveActivityKind.ALERT -> Icon(
-            if (isTimerAlert(notification)) Icons.Rounded.Timer else Icons.Rounded.Alarm,
+            if (isTimerAlert(notification)) IslandIcons.Timer else IslandIcons.Alarm,
             contentDescription = null,
             tint = accent,
             modifier = Modifier.size(18.dp)
         )
-        LiveActivityKind.ALARM -> Icon(Icons.Rounded.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
+        LiveActivityKind.ALARM -> Icon(IslandIcons.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
         LiveActivityKind.TRACKING -> NotificationAvatar(
             notification = notification,
             size = 20.dp,
             showAppBadge = false,
-            fallback = { Icon(Icons.Rounded.LocalShipping, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp)) }
+            fallback = { Icon(IslandIcons.Delivery, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp)) }
         )
-        LiveActivityKind.SPORTS -> Icon(Icons.Rounded.SportsSoccer, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
-        LiveActivityKind.NONE -> Icon(Icons.Rounded.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+        LiveActivityKind.SPORTS -> Icon(IslandIcons.Sports, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
+        LiveActivityKind.NONE -> Icon(IslandIcons.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
     }
 }
 

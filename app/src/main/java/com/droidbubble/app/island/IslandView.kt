@@ -66,39 +66,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.FlashlightOff
-import androidx.compose.material.icons.filled.FlashlightOn
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.filled.Air
 import kotlinx.coroutines.flow.first
 import com.droidbubble.app.model.allows
 import com.droidbubble.app.island.IslandStateManager.RingerMode
@@ -107,8 +74,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.material.icons.rounded.CallEnd
-import androidx.compose.material.icons.rounded.Call
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -134,7 +99,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.SliderDefaults
@@ -509,7 +473,7 @@ fun AuxiliaryBubbleContent(
         IslandPriority.POP_NOTIFICATION -> {
             val liveKind = liveActivityKind(notification)
             if (notification != null && liveKind == LiveActivityKind.RECORDING) {
-                Icon(Icons.Rounded.Mic, contentDescription = "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(17.dp))
+                Icon(IslandIcons.Mic, contentDescription = "Recording", tint = LiveActivityColors.RecordingRed, modifier = Modifier.size(17.dp))
             } else if (notification != null && liveKind != LiveActivityKind.NONE) {
                 LiveActivityCompactIcon(liveKind, notification)
             } else if (notification != null && notification.liveTimerBaseMs > 0L) {
@@ -532,7 +496,7 @@ fun AuxiliaryBubbleContent(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.Notifications,
+                    imageVector = IslandIcons.Notification,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(16.dp)
@@ -614,7 +578,7 @@ fun AuxiliaryBubbleContent(
                         )
                 )
                 Icon(
-                    imageVector = Icons.Default.FlashlightOn,
+                    imageVector = IslandIcons.Flashlight,
                     contentDescription = "Flashlight",
                     tint = Color.White,
                     modifier = Modifier.size(16.dp)
@@ -689,7 +653,7 @@ fun CompactContent(
         ) {
             when (priority) {
                 IslandPriority.CALL -> Icon(
-                    Icons.Default.Call, contentDescription = "Active call",
+                    IslandIcons.Call, contentDescription = "Active call",
                     tint = LiveActivityColors.CallGreen, modifier = Modifier.size(18.dp)
                 )
                 IslandPriority.SCREEN_RECORDING -> {
@@ -716,7 +680,7 @@ fun CompactContent(
                                 )
                         )
                         Icon(
-                            imageVector = Icons.Default.FlashlightOn,
+                            imageVector = IslandIcons.Flashlight,
                             contentDescription = "Flashlight",
                             tint = Color.White,
                             modifier = Modifier.size(17.dp)
@@ -744,7 +708,7 @@ fun CompactContent(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.Notifications,
+                            imageVector = IslandIcons.Notification,
                             contentDescription = null,
                             tint = IslandTokens.ControlLight,
                             modifier = Modifier.size(16.dp)
@@ -764,7 +728,7 @@ fun CompactContent(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.Download,
+                                imageVector = IslandIcons.Download,
                                 contentDescription = null,
                                 tint = IslandTokens.ControlLight,
                                 modifier = Modifier.size(16.dp)
@@ -795,7 +759,7 @@ fun CompactContent(
                             .clip(RoundedCornerShape(5.dp)),
                         placeholder = {
                             Icon(
-                                imageVector = Icons.Default.MusicNote,
+                                imageVector = IslandIcons.MusicNote,
                                 contentDescription = null,
                                 tint = IslandTokens.TextSecondary,
                                 modifier = Modifier.size(18.dp)
@@ -1199,7 +1163,7 @@ fun ExpandedFlashlightView(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.FlashlightOn,
+                imageVector = IslandIcons.Flashlight,
                 contentDescription = "Turn off flashlight",
                 tint = Color.White,
                 modifier = Modifier.size(46.dp)
@@ -1372,7 +1336,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         },
                     placeholder = {
                         Icon(
-                            imageVector = Icons.Rounded.MusicNote,
+                            imageVector = IslandIcons.MusicNote,
                             contentDescription = null,
                             tint = IslandTokens.TextSecondary,
                             modifier = Modifier.size((28.dp * scale).coerceIn(20.dp, 32.dp))
@@ -1501,7 +1465,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     modifier = Modifier.size(sideControlSize)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Shuffle,
+                        imageVector = IslandIcons.Shuffle,
                         contentDescription = "Shuffle",
                         tint = if (media?.isShuffleOn == true) sliderActiveTint else controlsTint.copy(alpha = 0.45f),
                         modifier = Modifier.size(sideControlIcon)
@@ -1515,7 +1479,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     modifier = Modifier.size(prevNextSize)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
+                        imageVector = IslandIcons.SkipPrevious,
                         contentDescription = "Previous",
                         tint = controlsTint,
                         modifier = Modifier.size(prevNextIcon)
@@ -1542,7 +1506,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         label = "playPauseIcon"
                     ) { playing ->
                         Icon(
-                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            imageVector = if (playing) IslandIcons.Pause else IslandIcons.Play,
                             contentDescription = "Play/Pause",
                             tint = playButtonIconTint,
                             modifier = Modifier.size(playBtnIcon)
@@ -1557,7 +1521,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     modifier = Modifier.size(prevNextSize)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipNext,
+                        imageVector = IslandIcons.SkipNext,
                         contentDescription = "Next",
                         tint = controlsTint,
                         modifier = Modifier.size(prevNextIcon)
@@ -1572,7 +1536,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     modifier = Modifier.size(sideControlSize)
                 ) {
                     Icon(
-                        imageVector = if (media?.repeatMode == MediaInfo.REPEAT_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                        imageVector = if (media?.repeatMode == MediaInfo.REPEAT_ONE) IslandIcons.RepeatOne else IslandIcons.Repeat,
                         contentDescription = "Repeat",
                         tint = if ((media?.repeatMode ?: MediaInfo.REPEAT_OFF) != MediaInfo.REPEAT_OFF) sliderActiveTint else controlsTint.copy(alpha = 0.45f),
                         modifier = Modifier.size(sideControlIcon)
@@ -1693,7 +1657,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         },
                         fallback = {
                             Icon(
-                                imageVector = Icons.Default.Notifications,
+                                imageVector = IslandIcons.Notification,
                                 contentDescription = null,
                                 tint = IslandTokens.ActionPrimaryContainer,
                                 modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))
@@ -1809,7 +1773,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = IslandIcons.Send,
                             contentDescription = "Send Reply",
                             // Disabled Send keeps its dimmer grey: disabled controls are exempt from contrast
                             tint = if (replyText.isNotBlank()) Color.White else IslandTokens.IconDisabled,
@@ -1825,7 +1789,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = IslandIcons.Close,
                             contentDescription = "Cancel",
                             tint = IslandTokens.TextTertiary,
                             modifier = Modifier.size(16.dp)
@@ -1927,7 +1891,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.Download,
+                            imageVector = IslandIcons.Download,
                             contentDescription = null,
                             tint = IslandTokens.ActionPrimaryContainer,
                             modifier = Modifier.size((24.dp * scale).coerceIn(18.dp, 28.dp))

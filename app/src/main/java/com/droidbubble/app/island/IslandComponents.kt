@@ -12,9 +12,6 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.rounded.CallEnd
-import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas

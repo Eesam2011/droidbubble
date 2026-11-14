@@ -1,5 +1,6 @@
 package com.droidbubble.app.island.shell
 
+import com.droidbubble.app.island.IslandIcons
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
@@ -70,42 +71,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Air
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.FlashlightOff
-import androidx.compose.material.icons.filled.FlashlightOn
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.CallEnd
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -1807,7 +1772,7 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.LockOpen,
+                                    imageVector = IslandIcons.Unlocked,
                                     contentDescription = "Unlocked",
                                     tint = Color.White,
                                     modifier = Modifier.size(19.dp)
@@ -1824,7 +1789,7 @@ internal fun IslandShell(
                             ) {
                                 if (unlockCheckmarkAlpha > 0.01f) {
                                     Icon(
-                                        imageVector = Icons.Default.Check,
+                                        imageVector = IslandIcons.Done,
                                         contentDescription = "Success",
                                         tint = Color.White,
                                         modifier = Modifier
@@ -1852,7 +1817,7 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Icon(
-                                    imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) Icons.Default.Wifi else Icons.Default.Bluetooth,
+                                    imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) IslandIcons.Wifi else IslandIcons.Bluetooth,
                                     contentDescription = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth",
                                     tint = Color.White,
                                     modifier = Modifier.size(19.dp)
@@ -1869,7 +1834,7 @@ internal fun IslandShell(
                             ) {
                                 if (bluetoothCheckmarkAlpha > 0.01f) {
                                     Icon(
-                                        imageVector = Icons.Default.Check,
+                                        imageVector = IslandIcons.Done,
                                         contentDescription = "Connected",
                                         tint = Color.White,
                                         modifier = Modifier
@@ -1897,9 +1862,9 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 val icon = when (displayRingerMode) {
-                                    RingerMode.SILENT -> Icons.Default.NotificationsOff
-                                    RingerMode.VIBRATE -> Icons.Default.Vibration
-                                    RingerMode.RING -> Icons.Default.Notifications
+                                    RingerMode.SILENT -> IslandIcons.RingerSilent
+                                    RingerMode.VIBRATE -> IslandIcons.RingerVibrate
+                                    RingerMode.RING -> IslandIcons.RingerOn
                                 }
                                 val iconTint = if (displayRingerMode == RingerMode.SILENT) {
                                     IslandTokens.RingerSilentRed // Red icon for silent
