@@ -1772,7 +1772,7 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Icon(
-                                    imageVector = IslandIcons.Unlocked,
+                                    imageVector = IslandIcons.Compact.Unlocked,
                                     contentDescription = "Unlocked",
                                     tint = Color.White,
                                     modifier = Modifier.size(IslandTokens.Glyph.Compact)
@@ -1789,7 +1789,7 @@ internal fun IslandShell(
                             ) {
                                 if (unlockCheckmarkAlpha > 0.01f) {
                                     Icon(
-                                        imageVector = IslandIcons.Done,
+                                        imageVector = IslandIcons.Compact.Done,
                                         contentDescription = "Success",
                                         tint = Color.White,
                                         modifier = Modifier
@@ -1817,7 +1817,7 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Icon(
-                                    imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) IslandIcons.Wifi else IslandIcons.Bluetooth,
+                                    imageVector = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) IslandIcons.Compact.Wifi else IslandIcons.Compact.Bluetooth,
                                     contentDescription = if (connectionAlert == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth",
                                     tint = Color.White,
                                     modifier = Modifier.size(IslandTokens.Glyph.Compact)
@@ -1834,7 +1834,7 @@ internal fun IslandShell(
                             ) {
                                 if (bluetoothCheckmarkAlpha > 0.01f) {
                                     Icon(
-                                        imageVector = IslandIcons.Done,
+                                        imageVector = IslandIcons.Compact.Done,
                                         contentDescription = "Connected",
                                         tint = Color.White,
                                         modifier = Modifier
@@ -1862,9 +1862,9 @@ internal fun IslandShell(
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 val icon = when (displayRingerMode) {
-                                    RingerMode.SILENT -> IslandIcons.RingerSilent
-                                    RingerMode.VIBRATE -> IslandIcons.RingerVibrate
-                                    RingerMode.RING -> IslandIcons.RingerOn
+                                    RingerMode.SILENT -> IslandIcons.Compact.RingerSilent
+                                    RingerMode.VIBRATE -> IslandIcons.Compact.RingerVibrate
+                                    RingerMode.RING -> IslandIcons.Compact.RingerOn
                                 }
                                 val iconTint = if (displayRingerMode == RingerMode.SILENT) {
                                     IslandTokens.RingerSilentRed // Red icon for silent

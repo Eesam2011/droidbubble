@@ -199,7 +199,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V6.2 | One outline rule, including notch | todo |
 | V7.1 | IslandIcons catalogue, Rounded only | done (owner kept Rounded; 7 glyphs changed, S2 re-recorded, full suite passes) |
 | V7.2 | Icon size tokens and optical centering | done (CP4 approved: pill glyphs 18 dp, bubble 16 dp, six glyphs centred from measured centroids; full suite passes) |
-| V7.3 | (optional) Material Symbols drawables | todo |
+| V7.3 | (optional) Material Symbols drawables | done, not verified (owner asked to commit without the final full suite; last compile and S2 re-record passed; check later: run the full suite, owner look at the new glyphs, APK size vs 3,655,255 bytes before) |
 | D1.1 | Liquid SDF math and shader asset | todo |
 | D1.2 | Split and merge with the shader | todo |
 | D1.3 | (optional) Drip on expand | todo |

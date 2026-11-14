@@ -1,6 +1,7 @@
 package com.droidbubble.app.ui.main
 
 
+import com.droidbubble.app.icons.AppIcons
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -34,12 +35,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material.icons.filled.Accessibility
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.Swipe
-import androidx.compose.material.icons.filled.Menu
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.alpha
@@ -65,64 +60,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.BlurOn
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Science
 import androidx.activity.compose.BackHandler
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ColorLens
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.Emergency
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Feedback
-import androidx.compose.material.icons.filled.FitScreen
-import androidx.compose.material.icons.filled.FlashlightOn
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material.icons.filled.Height
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockReset
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.LinearScale
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RoundedCorner
-import androidx.compose.material.icons.filled.ScreenRotation
-import androidx.compose.material.icons.filled.ScreenSearchDesktop
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Update
-import androidx.compose.material.icons.filled.VerticalAlignTop
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -359,7 +297,7 @@ fun MainScreen(
                     modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Feedback,
+                        imageVector = AppIcons.Feedback,
                         contentDescription = "Send Feedback",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(26.dp)
@@ -381,7 +319,7 @@ fun MainScreen(
                 item {
                     SectionHeader(
                         title = "Required Setup",
-                        icon = Icons.Default.Security,
+                        icon = AppIcons.Security,
                         badge = "${pendingPermissions.size} Pending",
                         badgeColor = MaterialTheme.colorScheme.error
                     )
@@ -418,7 +356,7 @@ fun MainScreen(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Warning,
+                                                imageVector = AppIcons.Warning,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier.size(20.dp)
@@ -453,7 +391,7 @@ fun MainScreen(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         headlineContent = { Text("Enable Island", fontWeight = FontWeight.SemiBold) },
                         leadingContent = {
-                            Icon(Icons.Default.PowerSettingsNew, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(AppIcons.PowerSettingsNew, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         },
                         trailingContent = {
                             Switch(
@@ -527,21 +465,21 @@ fun MainScreen(
                                 }
                                 is MainScreenViewModel.UpdateState.UpToDate -> {
                                     Icon(
-                                        imageVector = Icons.Default.CheckCircle,
+                                        imageVector = AppIcons.CheckCircle,
                                         contentDescription = "Up to date",
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
                                 is MainScreenViewModel.UpdateState.Available -> {
                                     Icon(
-                                        imageVector = Icons.Default.SystemUpdate,
+                                        imageVector = AppIcons.SystemUpdate,
                                         contentDescription = "Update Available",
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
                                 else -> {
                                     Icon(
-                                        imageVector = Icons.Default.Refresh,
+                                        imageVector = AppIcons.Refresh,
                                         contentDescription = "Check for Updates",
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -583,11 +521,11 @@ fun MainScreen(
                             modifier = Modifier.clickable { showDimensionsPage = true },
                             headlineContent = { Text("Island Dimensions", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Straighten, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(AppIcons.Straighten, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                    AppIcons.ArrowForwardIos,
                                     contentDescription = "Open Island Dimensions",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     modifier = Modifier.size(16.dp)
@@ -602,11 +540,11 @@ fun MainScreen(
                             modifier = Modifier.clickable { showAppearancePage = true },
                             headlineContent = { Text("Appearance & Feedback", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(AppIcons.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                    AppIcons.ArrowForwardIos,
                                     contentDescription = "Open Appearance & Feedback",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     modifier = Modifier.size(16.dp)
@@ -621,11 +559,11 @@ fun MainScreen(
                             modifier = Modifier.clickable { showAccessibilityPage = true },
                             headlineContent = { Text("Accessibility", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Accessibility, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(AppIcons.Accessibility, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                    AppIcons.ArrowForwardIos,
                                     contentDescription = "Open Accessibility",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     modifier = Modifier.size(16.dp)
@@ -640,7 +578,7 @@ fun MainScreen(
             item {
                 SectionHeader(
                     title = "Island Activities",
-                    icon = Icons.Default.Apps
+                    icon = AppIcons.Apps
                 )
             }
 
@@ -726,13 +664,13 @@ fun MainScreen(
                             }
 
                             val featureIcon = when (currentKey) {
-                                "CALL" -> Icons.Default.Call
-                                "MEDIA" -> Icons.Default.MusicNote
-                                "NOTIFICATION" -> Icons.Default.Notifications
-                                "PROGRESS" -> Icons.Default.Animation
-                                "RECORDING" -> Icons.Default.Videocam
-                                "FLASHLIGHT" -> Icons.Default.FlashlightOn
-                                else -> Icons.Default.Apps
+                                "CALL" -> AppIcons.Call
+                                "MEDIA" -> AppIcons.MusicNote
+                                "NOTIFICATION" -> AppIcons.Notifications
+                                "PROGRESS" -> AppIcons.Animation
+                                "RECORDING" -> AppIcons.Videocam
+                                "FLASHLIGHT" -> AppIcons.FlashlightOn
+                                else -> AppIcons.Apps
                             }
 
                             val cardModifier = Modifier
@@ -816,7 +754,7 @@ fun MainScreen(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.Menu,
+                                                    imageVector = AppIcons.Menu,
                                                     contentDescription = "Drag to reorder",
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                                                     modifier = Modifier.size(20.dp)
@@ -870,7 +808,7 @@ fun MainScreen(
                                 ) {
                                     Spacer(modifier = Modifier.size(36.dp))
                                     Icon(
-                                        imageVector = Icons.Default.Timer,
+                                        imageVector = AppIcons.Timer,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -893,7 +831,7 @@ fun MainScreen(
             item {
                 SectionHeader(
                     title = "Priority Apps",
-                    icon = Icons.Default.Star
+                    icon = AppIcons.Star
                 )
             }
 
@@ -916,10 +854,10 @@ fun MainScreen(
                             )
                         },
                         leadingContent = {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(AppIcons.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         trailingContent = {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                            Icon(AppIcons.KeyboardArrowRight, contentDescription = null)
                         }
                     )
                 }
@@ -929,7 +867,7 @@ fun MainScreen(
             item {
                 SectionHeader(
                     title = "System Alerts",
-                    icon = Icons.Default.NotificationsActive
+                    icon = AppIcons.NotificationsActive
                 )
             }
 
@@ -943,7 +881,7 @@ fun MainScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Bluetooth Connecting", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -961,7 +899,7 @@ fun MainScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Wi-Fi Connecting", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -979,7 +917,7 @@ fun MainScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Charging Indicator", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -997,7 +935,7 @@ fun MainScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Ring Modes", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -1016,7 +954,7 @@ fun MainScreen(
             item {
                 SectionHeader(
                     title = "Test Live Activities",
-                    icon = Icons.Default.Science
+                    icon = AppIcons.Science
                 )
             }
             item {
@@ -1102,7 +1040,7 @@ fun MainScreen(
                                             .clip(RoundedCornerShape(8.dp))
                                     )
                                 } else {
-                                    Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(36.dp))
+                                    Icon(AppIcons.Apps, contentDescription = null, modifier = Modifier.size(36.dp))
                                 }
                             },
                             trailingContent = {
@@ -1202,7 +1140,7 @@ fun MainScreen(
                                             .clip(RoundedCornerShape(8.dp))
                                     )
                                 } else {
-                                    Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(36.dp))
+                                    Icon(AppIcons.Apps, contentDescription = null, modifier = Modifier.size(36.dp))
                                 }
                             },
                             trailingContent = {
@@ -1354,7 +1292,7 @@ fun MainScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Downloading...")
                             } else {
-                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Install Update")
                             }
@@ -1403,7 +1341,7 @@ fun MainScreen(
                         label = { Text("Bug Report", fontWeight = FontWeight.SemiBold) },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.BugReport,
+                                AppIcons.BugReport,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -1416,7 +1354,7 @@ fun MainScreen(
                         label = { Text("Feature Idea", fontWeight = FontWeight.SemiBold) },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.Lightbulb,
+                                AppIcons.Lightbulb,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -1465,7 +1403,7 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(AppIcons.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Add Attachment (Screenshot / Log)", fontSize = 13.sp)
                     }
@@ -1480,7 +1418,7 @@ fun MainScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.AttachFile,
+                                AppIcons.AttachFile,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
@@ -1501,7 +1439,7 @@ fun MainScreen(
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Close,
+                                    AppIcons.Close,
                                     contentDescription = "Remove attachment",
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -1609,7 +1547,7 @@ fun MainScreen(
                         modifier = Modifier.weight(1.5f),
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(AppIcons.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Send Email")
                     }
@@ -1820,7 +1758,7 @@ fun DimensionsPage(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = AppIcons.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -2136,7 +2074,7 @@ fun AppearancePage(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = AppIcons.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -2170,7 +2108,7 @@ fun AppearancePage(
                             Text("Expanded cards fade from black to clear over a blur of what's behind them. The pill stays solid.")
                         },
                         leadingContent = {
-                            Icon(Icons.Default.BlurOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(AppIcons.BlurOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         trailingContent = {
                             Switch(
@@ -2195,7 +2133,7 @@ fun AppearancePage(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Island Outline", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.CropSquare, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.CropSquare, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2232,7 +2170,7 @@ fun AppearancePage(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Bubble Effect", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.RoundedCorner, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.RoundedCorner, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2250,7 +2188,7 @@ fun AppearancePage(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Always Show Pill", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.FitScreen, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.FitScreen, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2268,7 +2206,7 @@ fun AppearancePage(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Haptic Feedback", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.Vibration, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Vibration, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2286,7 +2224,7 @@ fun AppearancePage(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Show in Landscape", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.ScreenRotation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.ScreenRotation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2304,7 +2242,7 @@ fun AppearancePage(
             item {
                 SectionHeader(
                     title = "Media Player Customisation",
-                    icon = Icons.Default.MusicNote
+                    icon = AppIcons.MusicNote
                 )
             }
 
@@ -2318,7 +2256,7 @@ fun AppearancePage(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Blurred Album Art Background", fontWeight = FontWeight.SemiBold) },
                             leadingContent = {
-                                Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2359,7 +2297,7 @@ fun AccessibilityPage(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = AppIcons.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -2388,7 +2326,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("Auto-Dismiss Notifications", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("Dismiss notification cards automatically after 3 seconds") },
                             leadingContent = {
-                                Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2407,7 +2345,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("Dismiss on Pause", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("Automatically hide the media player island when playback is paused") },
                             leadingContent = {
-                                Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2426,7 +2364,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("Hide on Lock Screen", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("Do not show the island when the phone is locked, even if an activity is active") },
                             leadingContent = {
-                                Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2452,7 +2390,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("High Contrast", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("Brighter text and buttons, and an outline around the island") },
                             leadingContent = {
-                                Icon(Icons.Default.Contrast, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Contrast, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2468,7 +2406,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("Reduce Motion", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("No bounces or shakes: the island moves without overshoot and content fades. Also on when Android's animations are turned off.") },
                             leadingContent = {
-                                Icon(Icons.Default.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2484,7 +2422,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("Swipe Resistance", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("Screen recording and download cards move slower under your finger, so they aren't swiped away by accident. Off: every card follows your finger.") },
                             leadingContent = {
-                                Icon(Icons.Default.Swipe, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Swipe, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2500,7 +2438,7 @@ fun AccessibilityPage(
                             headlineContent = { Text("Spoken Alerts", fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("Reads \"Time's up\", alarms and who's calling aloud. Stays quiet in silent and vibrate mode.") },
                             leadingContent = {
-                                Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
                             trailingContent = {
                                 Switch(
@@ -2535,7 +2473,7 @@ private fun CrashReportItem() {
                 Text(crash.lineSequence().drop(4).firstOrNull { it.isNotBlank() } ?: crash.lineSequence().first(), maxLines = 2)
             },
             leadingContent = {
-                Icon(Icons.Default.BugReport, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                Icon(AppIcons.BugReport, contentDescription = null, tint = MaterialTheme.colorScheme.error)
             },
             trailingContent = {
                 Row {
@@ -2593,11 +2531,11 @@ fun AnimationCurveEditor(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(AppIcons.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(16.dp))
                 Text("Animation Curves", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 TextButton(onClick = { setCurve(defaults[selected].first, defaults[selected].second) }, enabled = !isDefault) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(AppIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Reset")
                 }

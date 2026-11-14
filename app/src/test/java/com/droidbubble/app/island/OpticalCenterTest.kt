@@ -19,10 +19,12 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class OpticalCenterTest {
 
-    private val catalogue: List<ImageVector> =
-        IslandIcons::class.java.declaredMethods
+    /** Both optical sizes: the card glyphs and their Compact (size 20) twins. */
+    private val catalogue: List<ImageVector> = listOf<Any>(IslandIcons, IslandIcons.Compact).flatMap { owner ->
+        owner::class.java.declaredMethods
             .filter { it.returnType == ImageVector::class.java && it.parameterCount == 0 }
-            .map { it.invoke(IslandIcons) as ImageVector }
+            .map { it.invoke(owner) as ImageVector }
+    }
 
     /** The play button's glyph tops out at 36 dp; check at 48 dp for margin. */
     private val largestDp = 48f
@@ -30,7 +32,7 @@ class OpticalCenterTest {
     @Test
     fun shiftedGlyphsAreCentredWithinHalfADp() {
         val shifted = catalogue.distinctBy { it.name }.filter { IslandIcons.opticalShiftOf(it) != null }
-        assertEquals("every glyph with an optical shift is in the catalogue", 6, shifted.size)
+        assertEquals("every glyph with an optical shift is in the catalogue, at both sizes", 12, shifted.size)
         for (glyph in shifted) {
             val (cx, cy) = GlyphCentroidProbe.measure(glyph)
             val (fx, fy) = IslandIcons.opticalShiftOf(glyph)!!
@@ -62,6 +64,10 @@ class OpticalCenterTest {
                 val start = text.indexOf(fn).also { check(it >= 0) { "$fn not found in ${file.name}" } }
                 val end = text.indexOf("\n}\n", start)
                 val body = text.substring(start, end)
+                // Small glyphs come from the optical-size-20 set
+                Regex("""IslandIcons\.(?!Compact\b)([A-Z]\w*)""").findAll(body).forEach { m ->
+                    offenders += "${file.name} $fn: IslandIcons.${m.groupValues[1]} (use IslandIcons.Compact)"
+                }
                 Regex("""(?<![A-Za-z])Icon\(""").findAll(body).forEach { m ->
                     val size = Regex("""Modifier\.size\(([^)]*)\)""").find(body, m.range.last)?.groupValues?.get(1).orEmpty()
                     if (!(size.startsWith("IslandTokens.Glyph.Compact") || size.startsWith("IslandTokens.Glyph.Bubble") || size == "glyph")) {
@@ -73,6 +79,9 @@ class OpticalCenterTest {
         // The alert pills (unlock, connection, ringer) draw their glyphs at the compact size
         val shell = File(island, "shell/IslandShell.kt").readText()
         if (Regex("""\.size\(19\.dp\)""").containsMatchIn(shell)) offenders += "IslandShell.kt: an alert glyph at 19 dp"
+        Regex("""IslandIcons\.(?!Compact\b)([A-Z]\w*)""").findAll(shell).forEach { m ->
+            offenders += "IslandShell.kt: IslandIcons.${m.groupValues[1]} in an alert pill (use IslandIcons.Compact)"
+        }
         assertEquals(emptyList<String>(), offenders)
     }
 }

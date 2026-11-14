@@ -6,13 +6,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** V7.1: one icon family (Material Rounded), reached only through [IslandIcons]. */
+/**
+ * V7.1 / V7.3: one icon family (Material Symbols Rounded), reached only through [IslandIcons],
+ * with every glyph at optical size 24 and, in [IslandIcons.Compact], at 20.
+ */
 class IslandIconsTest {
 
-    private val entries: Map<String, ImageVector> =
-        IslandIcons::class.java.declaredMethods
+    private fun entriesOf(owner: Any): Map<String, ImageVector> =
+        owner::class.java.declaredMethods
             .filter { it.returnType == ImageVector::class.java && it.parameterCount == 0 }
-            .associate { it.name.removePrefix("get") to it.invoke(IslandIcons) as ImageVector }
+            .associate { it.name.removePrefix("get") to it.invoke(owner) as ImageVector }
+
+    private val entries = entriesOf(IslandIcons)
+    private val compact = entriesOf(IslandIcons.Compact)
 
     @Test
     fun catalogueIsNotEmpty() {
@@ -20,21 +26,27 @@ class IslandIconsTest {
     }
 
     @Test
-    fun everyEntryIsRounded() {
-        val notRounded = entries.filterValues { v ->
-            !(v.name.startsWith("Rounded.") || v.name.startsWith("AutoMirrored.Rounded."))
-        }.mapValues { it.value.name }
-        assertEquals("entries outside the Rounded family", emptyMap<String, String>(), notRounded)
+    fun everyEntryIsAMaterialSymbol() {
+        val other = entries.filterValues { !it.name.startsWith("Symbols.") || it.name.endsWith(".20") }.mapValues { it.value.name }
+        assertEquals("card entries outside Material Symbols at optical size 24", emptyMap<String, String>(), other)
+        val otherCompact = compact.filterValues { !(it.name.startsWith("Symbols.") && it.name.endsWith(".20")) }.mapValues { it.value.name }
+        assertEquals("compact entries outside Material Symbols at optical size 20", emptyMap<String, String>(), otherCompact)
+    }
+
+    @Test
+    fun compactMirrorsTheCatalogue() {
+        assertEquals(entries.keys, compact.keys)
+        entries.forEach { (k, v) -> assertEquals(k, v.name + ".20", compact.getValue(k).name) }
     }
 
     @Test
     fun islandCodeUsesTheCatalogueOnly() {
         val src = File("src/main/java/com/droidbubble/app/island")
-        val pattern = Regex("""\bIcons\.(Default|Filled|Rounded|Outlined|Sharp|TwoTone|AutoMirrored)\b|material\.icons\.filled""")
+        val pattern = Regex("""\bIcons\.(Default|Filled|Rounded|Outlined|Sharp|TwoTone|AutoMirrored)\b|material\.icons|\bIslandGlyphs\b""")
         val hits = src.walkTopDown()
             .filter { it.isFile && it.extension == "kt" && it.name != "IslandIcons.kt" }
             .flatMap { f -> f.readLines().mapIndexedNotNull { i, line -> if (pattern.containsMatchIn(line)) "${f.name}:${i + 1}: ${line.trim()}" else null } }
             .toList()
-        assertEquals("use IslandIcons instead of Icons.* directly", emptyList<String>(), hits)
+        assertEquals("use IslandIcons instead of Icons.* or IslandGlyphs directly", emptyList<String>(), hits)
     }
 }

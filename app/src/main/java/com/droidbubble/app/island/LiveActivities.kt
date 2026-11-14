@@ -1322,7 +1322,7 @@ fun LiveActivityCompactIcon(
 ) {
     val accent = LiveActivityColors.accentFor(kind)
     when (kind) {
-        LiveActivityKind.CALL -> Icon(IslandIcons.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(glyph))
+        LiveActivityKind.CALL -> Icon(IslandIcons.Compact.Call, contentDescription = "Call", tint = accent, modifier = Modifier.size(glyph))
         LiveActivityKind.RECORDING -> LiveWaveform(
             color = accent,
             active = notification.liveTimerBaseMs > 0L,
@@ -1337,23 +1337,23 @@ fun LiveActivityCompactIcon(
         LiveActivityKind.STOPWATCH -> if (notification.liveTimerBaseMs > 0L) {
             TimerClockIcon(baseMs = notification.liveTimerBaseMs, countDown = notification.liveTimerCountDown, size = glyph, color = accent)
         } else {
-            Icon(IslandIcons.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
+            Icon(IslandIcons.Compact.Timer, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
         }
         LiveActivityKind.ALERT -> Icon(
-            if (isTimerAlert(notification)) IslandIcons.Timer else IslandIcons.Alarm,
+            if (isTimerAlert(notification)) IslandIcons.Compact.Timer else IslandIcons.Compact.Alarm,
             contentDescription = null,
             tint = accent,
             modifier = Modifier.size(glyph)
         )
-        LiveActivityKind.ALARM -> Icon(IslandIcons.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
+        LiveActivityKind.ALARM -> Icon(IslandIcons.Compact.Alarm, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
         LiveActivityKind.TRACKING -> NotificationAvatar(
             notification = notification,
             size = art,
             showAppBadge = false,
-            fallback = { Icon(IslandIcons.Delivery, contentDescription = null, tint = accent, modifier = Modifier.size(glyph)) }
+            fallback = { Icon(IslandIcons.Compact.Delivery, contentDescription = null, tint = accent, modifier = Modifier.size(glyph)) }
         )
-        LiveActivityKind.SPORTS -> Icon(IslandIcons.Sports, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
-        LiveActivityKind.NONE -> Icon(IslandIcons.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(glyph).opticalCenter(IslandIcons.Mic))
+        LiveActivityKind.SPORTS -> Icon(IslandIcons.Compact.Sports, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
+        LiveActivityKind.NONE -> Icon(IslandIcons.Compact.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(glyph).opticalCenter(IslandIcons.Compact.Mic))
     }
 }
 
