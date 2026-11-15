@@ -81,9 +81,9 @@ object IslandBoundsGolden {
         "media_app_in_foreground|expandedScale_1_0" to "pill=- bubble=- card=- | pill:- bubble:- card1:- card2:-",
         "charging_glance|expandedScale_1_0" to "pill=105.5,12.0,200.0x36.0 bubble=- card=- | pill:- bubble:- card1:- card2:-",
         "ringer_glance|expandedScale_1_0" to "pill=120.0,12.0,171.0x36.0 bubble=- card=- | pill:- bubble:- card1:- card2:-",
-        "expanded_media|expandedScale_1_0" to "pill=- bubble=- card=35.5,64.0,340.0x195.0 | pill:- bubble:- card1:MEDIA card2:-",
+        "expanded_media|expandedScale_1_0" to "pill=- bubble=- card=35.5,64.0,340.0x197.0 | pill:- bubble:- card1:MEDIA card2:-",
         "expanded_message|expandedScale_1_0" to "pill=- bubble=- card=35.5,64.0,340.0x161.5 | pill:- bubble:- card1:POP_NOTIFICATION card2:-",
-        "expanded_dual|expandedScale_1_0" to "pill=- bubble=- card=35.5,64.0,340.0x195.0 | pill:- bubble:- card1:MEDIA card2:POP_NOTIFICATION",
+        "expanded_dual|expandedScale_1_0" to "pill=- bubble=- card=35.5,64.0,340.0x197.0 | pill:- bubble:- card1:MEDIA card2:POP_NOTIFICATION",
         "idle_alwaysShowPill|high_contrast" to "pill=115.5,12.0,180.0x36.0 bubble=- card=- | pill:IDLE bubble:- card1:- card2:-",
         "media_playing|high_contrast" to "pill=115.5,12.0,180.0x36.0 bubble=- card=- | pill:MEDIA bubble:- card1:- card2:-",
         "media_paused|high_contrast" to "pill=115.5,12.0,180.0x36.0 bubble=- card=- | pill:MEDIA bubble:- card1:- card2:-",
@@ -119,8 +119,8 @@ object IslandBoundsGolden {
         "media_app_in_foreground|font_1_3" to "pill=- bubble=- card=- | pill:- bubble:- card1:- card2:-",
         "charging_glance|font_1_3" to "pill=105.5,12.0,200.0x36.0 bubble=- card=- | pill:- bubble:- card1:- card2:-",
         "ringer_glance|font_1_3" to "pill=120.0,12.0,171.0x36.0 bubble=- card=- | pill:- bubble:- card1:- card2:-",
-        "expanded_media|font_1_3" to "pill=- bubble=- card=18.5,64.0,374.0x246.5 | pill:- bubble:- card1:MEDIA card2:-",
+        "expanded_media|font_1_3" to "pill=- bubble=- card=18.5,64.0,374.0x219.5 | pill:- bubble:- card1:MEDIA card2:-",
         "expanded_message|font_1_3" to "pill=- bubble=- card=18.5,64.0,374.0x190.5 | pill:- bubble:- card1:POP_NOTIFICATION card2:-",
-        "expanded_dual|font_1_3" to "pill=- bubble=- card=18.5,64.0,374.0x246.5 | pill:- bubble:- card1:MEDIA card2:POP_NOTIFICATION",
+        "expanded_dual|font_1_3" to "pill=- bubble=- card=18.5,64.0,374.0x219.5 | pill:- bubble:- card1:MEDIA card2:POP_NOTIFICATION",
     )
 }

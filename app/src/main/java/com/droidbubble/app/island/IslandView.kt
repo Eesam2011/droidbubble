@@ -1399,11 +1399,14 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
         label = "seekThumbHeight"
     )
 
-    val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
+    // V4.1: the sizes the card's measured height is computed from
+    val mediaFontScale = LocalDensity.current.fontScale
+    val mediaMetrics = remember(scale, mediaFontScale) { MediaCardMetrics(scale, mediaFontScale) }
+    val artSize = mediaMetrics.artSize
     val titleSize = type.title
     val artistSize = type.secondary
-    val sliderGapTop = (IslandTokens.SpaceSm * scale).coerceIn(4.dp, 10.dp)
-    val sliderGapBottom = (IslandTokens.SpaceXs * scale).coerceIn(2.dp, 8.dp)
+    val sliderGapTop = mediaMetrics.sliderGapTop
+    val sliderGapBottom = mediaMetrics.sliderGapBottom
     val prevNextSize = (42.dp * scale).coerceIn(34.dp, 48.dp)
     val prevNextIcon = (24.dp * scale).coerceIn(18.dp, 28.dp)
     val playBtnSize = (50.dp * scale).coerceIn(40.dp, 58.dp)
@@ -1417,7 +1420,8 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
         modifier = Modifier
             .fillMaxSize()
             .cardInset(IslandPriority.MEDIA, scale, LocalDensity.current.fontScale),
-        verticalArrangement = Arrangement.SpaceBetween
+        // V4.1: rows stacked; the card is measured to exactly their height
+        verticalArrangement = Arrangement.Top
     ) {
         // Header: Album cover / app icon + Title & Artist + Equalizer
         IslandHeader(
@@ -1427,7 +1431,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
             subtitleSize = artistSize,
             titleLineHeight = type.titleLineHeight,
             subtitleLineHeight = type.secondaryLineHeight,
-            subtitleSpacing = 3.dp,
+            subtitleSpacing = mediaMetrics.subtitleSpacing,
             titleMarquee = true,
             icon = {
                 // Album cover (larger, tap to open app and collapse island); flips on song change

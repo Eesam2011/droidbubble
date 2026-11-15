@@ -204,7 +204,9 @@ data class IslandActionItem(
  * `expandedScale`, clamped to a per-priority minimum. Single source of truth used
  * by BOTH the primary (Card 1) and secondary (Card 2) slots so the tables can't drift.
  */
-fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, progressHeight: Dp? = null, fontScale: Float = 1f): Dp {
+fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, progressHeight: Dp? = null, fontScale: Float = 1f, mediaHeight: Dp? = null): Dp {
+    // V4.1: media cards are measured from their rows (see measureMediaCardHeight)
+    if (priority == IslandPriority.MEDIA && mediaHeight != null) return mediaHeight
     // Notification cards are measured from their content (see measureNotificationCardHeight)
     if (priority == IslandPriority.POP_NOTIFICATION) return notifHeight
     // So are download cards (see measureProgressCardHeight)
@@ -292,6 +294,54 @@ class ProgressCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType 
     val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp)
     val buttonFontSize = type.button
     val buttonLineHeight = type.buttonLineHeight
+}
+
+/**
+ * Sizes of the expanded media card (V4.1), shared by [ExpandedMediaView] and
+ * [measureMediaCardHeight] so the card is exactly as tall as its rows.
+ */
+class MediaCardMetrics(scale: Float, fontScale: Float = 1f) {
+    val inset = cardInsetDp(IslandPriority.MEDIA, scale, fontScale)
+    val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
+    val subtitleSpacing = 3.dp
+    /**
+     * Song info to seek bar, and seek bar to controls: the room the old fixed-height layout gave
+     * them, kept by the owner (2026-11-15). The card is still measured from its rows.
+     */
+    /** The room the owner asked back between the info, the bar and the controls (whole dp, so no rounding). */
+    private val restoredRoom = (11f * scale).roundToInt().coerceIn(8, 15).dp
+    val sliderGapTop = (IslandTokens.SpaceSm * scale).coerceIn(4.dp, 10.dp) + restoredRoom
+    val sliderGapBottom = (IslandTokens.SpaceXs * scale).coerceIn(2.dp, 8.dp) + restoredRoom
+    /** The seek bar's track row (the thumb is at most 18 dp, inside it while seeking). */
+    val sliderHeight = 20.dp
+    val prevNextSize = (42.dp * scale).coerceIn(34.dp, 48.dp)
+    val playBtnSize = (50.dp * scale).coerceIn(40.dp, 58.dp)
+    val sideControlSize = (36.dp * scale).coerceIn(30.dp, 42.dp)
+    val controlsHeight get() = maxOf(playBtnSize, prevNextSize, sideControlSize)
+}
+
+/**
+ * V4.1: the media card's height from its rows: header (cover beside title and artist), the seek
+ * row, the controls, and the inset all round. No slack: the rows used to be spread over a fixed
+ * table height (195 × scale) with SpaceBetween.
+ */
+fun measureMediaCardHeight(
+    scale: Float,
+    textMeasurer: TextMeasurer,
+    baseStyle: TextStyle,
+    density: Density
+): Dp = with(density) {
+    val m = MediaCardMetrics(scale, density.fontScale)
+    val type = IslandType(scale, density.fontScale)
+    fun lineHeight(style: TextStyle): Dp = textMeasurer.measure(text = "Ag", style = baseStyle.merge(style), maxLines = 1).size.height.toDp()
+    // The weights IslandHeader draws them in
+    val title = lineHeight(TextStyle(fontSize = type.title, lineHeight = type.titleLineHeight, fontWeight = FontWeight.SemiBold))
+    val artist = lineHeight(TextStyle(fontSize = type.secondary, lineHeight = type.secondaryLineHeight, fontWeight = FontWeight.Medium))
+    val header = maxOf(m.artSize, title + m.subtitleSpacing + artist)
+    val slider = maxOf(m.sliderHeight, lineHeight(type.timeLabel))
+    val content = m.inset * 2 + header + m.sliderGapTop + slider + m.sliderGapBottom + m.controlsHeight
+    // Never shorter than a capsule of the card's own radius
+    content.coerceAtLeast(liveActivityCornerRadius(scale, density.fontScale) * 2)
 }
 
 /** Detail line of a download ("12 MB of 40 MB"), without stray leading / trailing bullets. */

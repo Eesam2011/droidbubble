@@ -553,7 +553,11 @@ internal fun IslandShell(
     val compactSide: Dp? = null
     // V3.5: the glance pills fit their widest content
     val alertSides = com.droidbubble.app.island.layout.rememberAlertSides()
-    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides)
+    // V4.1: the media card is as tall as its rows
+    val mediaBaseHeight = remember(settings.expandedScale, notifBaseTextStyle, notifDensity) {
+        com.droidbubble.app.island.measureMediaCardHeight(settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
+    }
+    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides, mediaBaseHeight)
     val compactMainHalf = com.droidbubble.app.island.scene.mainPillWidth(settings, compactMeasured) / 2f
 
     val shouldEmergeSecondary = scene.emergesBubble

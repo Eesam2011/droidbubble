@@ -23,6 +23,8 @@ data class MeasuredHeights(
     val cameraZone: Dp = IslandTokens.Shell.CameraZone,
     /** V3.5: the glance pills' widest content, measured; null uses a generous estimate (the window). */
     val alertSides: AlertSides? = null,
+    /** V4.1: the media card's measured height; null keeps the old table (the window maths). */
+    val media: Dp? = null,
 )
 
 /**
@@ -137,7 +139,7 @@ fun deriveIslandTargets(
 
     val cardOpen = isExpanded && !hasAlert
     val card1Width = if (cardOpen) expandedCardWidth(settings, env) else 0.dp
-    val card1ContentHeight = cardHeightFor(scene.primary, settings.expandedScale, measured.notification, measured.progress, env.fontScale)
+    val card1ContentHeight = cardHeightFor(scene.primary, settings.expandedScale, measured.notification, measured.progress, env.fontScale, measured.media)
     val card1Height = if (isExpanded) card1ContentHeight else settings.heightDp.dp
     // One corner radius for every expanded card, concentric with the round controls of the live
     // activity cards (see LiveLayout). The squircle caps it at half the height.
@@ -146,7 +148,7 @@ fun deriveIslandTargets(
     val top = if (cardOpen) settings.topOffsetDp.dp + IslandTokens.Shell.ExpandedDrop else settings.topOffsetDp.dp
 
     val card2Height = if (card2Expanded && scene.showSecondaryCard) {
-        cardHeightFor(scene.secondary, settings.expandedScale, measured.notification, measured.progress, env.fontScale)
+        cardHeightFor(scene.secondary, settings.expandedScale, measured.notification, measured.progress, env.fontScale, measured.media)
     } else 0.dp
 
     return IslandTargets(

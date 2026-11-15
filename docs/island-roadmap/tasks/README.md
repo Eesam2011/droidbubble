@@ -190,7 +190,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V3.3 | Oval bubble and readable ring | done (bubble in the squircle family, pixel-identical; width rule H to 1.25 H, but nothing the bubble shows today is wider than the circle, so it stays round; the ring readability came with B9.2) |
 | V3.4 | Flashlight trailing value | done (level 25–100 % on the empty side, rolling; "On" without steps; 12 sp like the download pill at the owner's request) |
 | V3.5 | System alert pills hug their content | done (owner's exact-width decision: glance pills keep today's widths and only grow to fit their widest content, never shrink; ringer fits "Vibrate", charging fits bolt + widest wattage + "100%", one width in every state; no ellipsis; unlock and connection pills hold icons only; checked on the owner's phone 2026-11-15) |
-| V4.1 | Measured card heights | todo |
+| V4.1 | Measured card heights | done (media card measured from its rows; flashlight and idle keep the table; spacing between info, bar and controls kept as before per owner) |
 | V4.2 | One header, padding and button rhythm | todo |
 | V5.1 | Semantic color roles | todo |
 | V5.2 | Album accent via Palette with clamps | todo |
