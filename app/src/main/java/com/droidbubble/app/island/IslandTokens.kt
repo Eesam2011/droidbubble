@@ -29,10 +29,7 @@ object IslandTokens {
     val SpaceXl: Dp = 24.dp   // outer breathing room
 
     // ---- Corner radii ----
-    val RadiusIcon: Dp = 10.dp
     val RadiusChip: Dp = 12.dp
-    val RadiusButton: Dp = 14.dp
-    val RadiusCard: Dp = 28.dp
     /** Corner radius the collapsed pill morphs toward (the squircle caps it at half the height). */
     val CompactCornerRadius: Dp = 22.dp
 

@@ -63,7 +63,7 @@ class CardGeometry(scale: Float, fontScale: Float = 1f) {
 }
 
 /** The card geometry for the island's current scale and font size, provided by `IslandOverlayRoot`. */
-val LocalCardGeometry = staticCompositionLocalOf<CardGeometry> { error("no CardGeometry provided") }
+val LocalCardGeometry = staticCompositionLocalOf { CardGeometry(1.1f) }
 
 /** Clips to the concentric squircle for a [w] × [h] element inset by [inset] from the card edge (V2.1). */
 fun Modifier.concentricClip(inset: Dp, w: Dp, h: Dp): Modifier = composed {

@@ -62,7 +62,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -805,7 +804,7 @@ fun CompactContent(
                         contentDescription = "Media Art",
                         modifier = Modifier
                             .size(IslandTokens.Glyph.CompactArt)
-                            .clip(RoundedCornerShape(5.dp)),
+                            .clip(islandShape(IslandTokens.Glyph.CompactArt * com.droidbubble.app.island.layout.CardGeometry.SQUARE_CAP)),
                         placeholder = {
                             Icon(
                                 imageVector = IslandIcons.Compact.MusicNote,
@@ -1385,7 +1384,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     trackKey = mediaTrackKey(media),
                     modifier = Modifier
                         .size(artSize)
-                        .clip(RoundedCornerShape(IslandTokens.RadiusChip))
+                        .clip(islandShape(com.droidbubble.app.island.layout.LocalCardGeometry.current.let { it.radiusFor(it.insetRoomy, artSize, artSize) }))
                         .background(IslandTokens.SurfaceMuted)
                         .clickable {
                             openTarget(context, media?.sessionActivity, media?.packageName)
@@ -1469,7 +1468,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                             modifier = Modifier
                                 .width(thumbWidth)
                                 .height(thumbHeight)
-                                .clip(RoundedCornerShape(thumbWidth / 2))
+                                .clip(islandShape(thumbWidth / 2))
                                 .background(sliderActiveTint)
                         )
                     }
@@ -1753,7 +1752,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                     smartChoices.take(3).forEach { choice ->
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(IslandTokens.RadiusChip))
+                                .clip(islandShape(IslandTokens.RadiusChip))
                                 .background(IslandTokens.SurfaceRaised)
                                 .clickable { sendReply(choice) }
                                 .padding(horizontal = 10.dp, vertical = metrics.replyChipVerticalPadding)
@@ -1774,7 +1773,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(metrics.replyInputHeight)
-                        .clip(RoundedCornerShape(metrics.replyInputHeight / 2))
+                        .clip(islandShape(metrics.replyInputHeight / 2))
                         .background(IslandTokens.SurfaceMuted)
                         .padding(horizontal = IslandTokens.SpaceMd),
                     verticalAlignment = Alignment.CenterVertically
@@ -1928,7 +1927,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
                 Box(
                     modifier = Modifier
                         .size(m.iconSize)
-                        .clip(RoundedCornerShape(IslandTokens.RadiusIcon))
+                        .clip(islandShape(com.droidbubble.app.island.layout.LocalCardGeometry.current.let { it.radiusFor(it.insetRoomy, m.iconSize, m.iconSize) }))
                         .background(IslandTokens.SurfaceMuted)
                         .clickable { openProgressApp() },
                     contentAlignment = Alignment.Center
@@ -2055,7 +2054,7 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
         Spacer(modifier = Modifier.height(IslandTokens.SpaceMd))
         FilledTonalButton(
             onClick = onCollapse,
-            shape = RoundedCornerShape(16.dp),
+            shape = islandShape(com.droidbubble.app.island.layout.LocalCardGeometry.current.let { it.inner(it.insetRoomy) }),
             colors = ButtonDefaults.filledTonalButtonColors(
                 containerColor = IslandTokens.ActionSecondaryContainer,
                 contentColor = Color.White

@@ -43,7 +43,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -584,7 +583,7 @@ private fun StopSquareButton(size: Dp, color: Color, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(size * 0.30f)
-                .clip(RoundedCornerShape(size * 0.07f))
+                .clip(islandShape(size * 0.07f))
                 .background(Color.White)
         )
     }
@@ -1084,7 +1083,7 @@ private fun AlertPillButton(
     Box(
         modifier = modifier
             .height(height)
-            .clip(RoundedCornerShape(height / 2))
+            .clip(islandShape(height / 2))
             .background(container)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center

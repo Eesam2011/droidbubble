@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Surface
@@ -146,7 +145,7 @@ fun InfoChip(
     fontSize: TextUnit = IslandType.CompactLabel
 ) {
     Surface(
-        shape = RoundedCornerShape(IslandTokens.RadiusChip),
+        shape = islandShape(IslandTokens.RadiusChip),
         color = containerColor,
         modifier = modifier
     ) {
@@ -182,7 +181,7 @@ fun InfoChip(
     content: @Composable RowScope.() -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(IslandTokens.RadiusChip),
+        shape = islandShape(IslandTokens.RadiusChip),
         color = containerColor,
         modifier = modifier
     ) {
@@ -462,6 +461,7 @@ fun IslandActionButtonRow(
 ) {
     if (items.isEmpty()) return
     val total = items.size
+    val geometry = com.droidbubble.app.island.layout.LocalCardGeometry.current
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -470,21 +470,14 @@ fun IslandActionButtonRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         items.forEachIndexed { index, item ->
+            // V2.3: outer corners concentric with the card (a near-capsule), inner corners small
+            val outer = geometry.inner(geometry.insetRoomy)
+            val inner = IslandTokens.SpaceXs
             val shape = when {
-                total <= 1 -> RoundedCornerShape(IslandTokens.RadiusButton)
-                index == 0 -> RoundedCornerShape(
-                    topStart = IslandTokens.RadiusButton,
-                    bottomStart = IslandTokens.RadiusButton,
-                    topEnd = IslandTokens.SpaceXs,
-                    bottomEnd = IslandTokens.SpaceXs
-                )
-                index == total - 1 -> RoundedCornerShape(
-                    topStart = IslandTokens.SpaceXs,
-                    bottomStart = IslandTokens.SpaceXs,
-                    topEnd = IslandTokens.RadiusButton,
-                    bottomEnd = IslandTokens.RadiusButton
-                )
-                else -> RoundedCornerShape(IslandTokens.SpaceXs)
+                total <= 1 -> islandShape(outer)
+                index == 0 -> islandShape(topStart = outer, topEnd = inner, bottomEnd = inner, bottomStart = outer)
+                index == total - 1 -> islandShape(topStart = inner, topEnd = outer, bottomEnd = outer, bottomStart = inner)
+                else -> islandShape(inner)
             }
 
             FilledTonalButton(

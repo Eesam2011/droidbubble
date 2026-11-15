@@ -184,7 +184,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V1.5 | Landscape anchors to the camera | done, minus the minimised ring (pill on the top edge 8 dp from the side camera, top 6, gap 8; only the height fine-tune carries over; no migration while sideways; owner decided 2026-11-15: no ring at the side cutout, the minimised circle stays on top; check later on the phone with "Show in landscape" on) |
 | V2.1 | CardGeometry, `inner()`, per-corner squircle | done (settled S2 pixel-identical; one mid-motion frame differs by anti-aliasing at a capsule's ends, from the new capsule fast path, re-recorded; tests pass) |
 | V2.2 | One margin system | done (owner chose the even R/2 inset, CP1 questions 2026-11-15; S2 and bounds golden re-recorded: message card +3.5 dp at font 1.0, +8 at 1.3; no Robolectric parity test, the views and the measures share one cardInsetDp) |
-| V2.3 | Concentric inner radii in squircles | todo |
+| V2.3 | Concentric inner radii in squircles | done (all island corners in the squircle family; art and tiles rounded squares under the 0.42 cap, owner's CP1 answer; pill album art a rounded square too, not the table's circle; buttons near-capsules; one commit, not one per family; S2 re-recorded, 13 images; CP1 images in review/CP1) |
 | V3.1 | Content-hugging compact width | todo |
 | V3.2 | Matched type; squeeze, abbreviate, drop | todo |
 | V3.3 | Oval bubble and readable ring | todo |
@@ -201,8 +201,8 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V7.2 | Icon size tokens and optical centering | done (CP4 approved: pill glyphs 18 dp, bubble 16 dp, six glyphs centred from measured centroids; full suite passes) |
 | V7.3 | (optional) Material Symbols drawables | done (compiles; icon, optical-centre, crash and S2 screenshot tests pass; check later: the full suite, owner look at the new glyphs, APK size vs 3,655,255 bytes before) |
 | D1.1 | Liquid SDF math and shader asset | done (pure mirror in `island/liquid/LiquidSdf.kt`, AGSL in `LiquidBodyShader` behind API 33; the AGSL compiles and takes its uniforms under Robolectric, which can't draw it; unused; check later on the phone: drawn in D1.2) |
-| D1.2 | Split and merge with the shader | todo |
-| D1.3 | (optional) Drip on expand | todo |
+| D1.2 | Split and merge with the shader | on hold (owner, 2026-11-15: not approved, risk without the one body; ask again) |
+| D1.3 | (optional) Drip on expand | dropped (owner, 2026-11-15: needs the one body, which stays cancelled) |
 | D2.1 | Alert bump replaces swapSquash | todo |
 | D2.2 | Banners peek, then recede | todo |
 | D2.3 | "Same app, new event" signal | todo |
@@ -210,7 +210,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | D3.1 | Rolling numbers in compact and bubble | todo |
 | D3.2 | Rolling numbers in expanded cards | todo |
 | D3.3 | Spring on progress rings | todo |
-| D4.1 | Shared art, avatar and icon between compact and expanded | todo |
+| D4.1 | Shared art, avatar and icon between compact and expanded | on hold (owner, 2026-11-15: not approved, risk without the one body; ask again) |
 | D4.2 | Consistent placement audit | todo |
 | D5.1 | Duration and bounce model, with migration | done (curves stored as duration and bounce in schema 2; old spring keys read once to migrate and left for rollback; collapse is a stored curve; the old editor bridges through the conversion until D5.2; S2 unchanged, tests pass) |
 | D5.2 | Curve editor v2 with honest preview | todo |
@@ -328,6 +328,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
   - `ScreenRecordingService` and `FOREGROUND_SERVICE_MEDIA_PROJECTION`; the manifest `PowerConnectionReceiver` (the A9.2 receiver half); Shizuku (`ShizukuHelper`, both dependencies, the exported `ShizukuProvider`, `WRITE_SECURE_SETTINGS`).
   - Dead code: `morphBlurEffect`, `expandedCornerRadiusFor`, `CellularSignalBars`, `toggleExpand`, `activeExpandedPriority`, `IslandOverlayRoot`'s `onBoundsChange` parameter.
   - Kept on purpose: the unused tokens `SpaceLg`, `SpaceXl`, `RadiusCard`, `SurfaceSunken`, `AccentPurple`, `AccentYellow` (their values still appear as literals, so F2.2/F2.5 route those literals into them), `HighContrastOutline` (B5.1), `IslandTouchManager` (B2.3).
+- **Owner decision (2026-11-15): one-body-dependent D tasks.** One body (M1.3–M1.5) stays cancelled, so the D tasks built on it are adapted to today's two bodies. Approved (low risk): D2.1 (alert bump on the pill's own width), D2.2 (peek then recede, with today's expand and collapse), D2.3 (same-app pulse), D2.4 (haptics at today's neck), D4.2 (placement audit, without waiting for D4.1). Not approved (risk): D1.2 (liquid shader, per-frame cost without M2.6/M2.7) and D4.1 (shared art travel); D1.3 (drip) dropped, it needs the one body. Ask again before any of these three.
 - **Owner decision (2026-11-12):** the island's Reduced motion tier turns on automatically only at a system animator scale of 0 ("Remove animations"), not at 0.5x (people set that for speed). M5.1 implements it; 05 R11 and the M5.1 entry still say "below 1".
 - **Owner decisions (2026-11-11):** Decision D1 = **no**: `minSdk` stays 29. Features that need a newer Android are gated in `island/IslandApi.kt` and keep a fallback (squircle corners and AGSL need API 33, blur needs API 31). The liquid shader (epic D1) must check `IslandApi.hasRuntimeShader` and fall back to the current neck. Decision D7 = **yes**: MATCH_PARENT on expand, with the envelope window as a flag-gated trial (F5.4).
 - **Owner decisions (2026-11-08):** D5 = yes, D6 = yes, adb debug control = **no** (B1.1 registers `RECEIVER_NOT_EXPORTED` only; the Test panel covers manual testing).

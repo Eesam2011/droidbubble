@@ -200,10 +200,5 @@ fun notchBridgePath(width: Float, height: Float, ear: Float): Path {
     }
 }
 
-/** Notch-style pill: square top (it hangs from the screen edge), round bottom corners. */
-fun notchPillShape(bottomRadius: Dp): Shape = RoundedCornerShape(
-    topStart = 0.dp,
-    topEnd = 0.dp,
-    bottomStart = bottomRadius,
-    bottomEnd = bottomRadius
-)
+/** Notch-style pill: square top (it hangs from the screen edge), round bottom corners (V2.3: squircle family). */
+fun notchPillShape(bottomRadius: Dp): Shape = islandShape(0.dp, 0.dp, bottomRadius, bottomRadius)
