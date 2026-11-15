@@ -63,11 +63,15 @@ class IslandMotionTest {
 
     @Test
     fun userCurves_comeFromTheSettings_unchanged() {
-        val m = IslandMotion.from(defaults.copy(expandDamping = 0.7f, expandStiffness = 300f, appearDamping = 0.5f, appearStiffness = 200f, splitDamping = 0.9f, splitStiffness = 500f))
-        assertEquals(MotionToken.Physical(0.7f, 300f), m.expand)
-        assertEquals(MotionToken.Physical(0.5f, 200f), m.appear)
-        assertEquals(MotionToken.Physical(0.9f, 500f), m.split)
-        assertEquals(MotionToken.Physical(1f, 300f * 1.4f), m.collapse)
+        // D5.1: the settings store duration and bounce; the motion turns them into springs
+        val m = IslandMotion.from(defaults.copy(
+            expandDuration = 0.36f, expandBounce = 0.3f, collapseDuration = 0.3f, collapseBounce = 0f,
+            appearDuration = 0.44f, appearBounce = 0.5f, splitDuration = 0.28f, splitBounce = 0.1f,
+        ))
+        assertEquals(MotionToken.Perceptual(0.36f, 0.3f).toPhysical(), m.expand)
+        assertEquals(MotionToken.Perceptual(0.44f, 0.5f).toPhysical(), m.appear)
+        assertEquals(MotionToken.Perceptual(0.28f, 0.1f).toPhysical(), m.split)
+        assertEquals(MotionToken.Perceptual(0.3f, 0f).toPhysical(), m.collapse)
     }
 
     @Test
@@ -76,9 +80,10 @@ class IslandMotionTest {
             val m = motion(speed)
             val spec: SpringSpec<Float> = m.spring(m.expand)
             assertEquals(0.8f, spec.dampingRatio, 0f)
-            // The exact float expression the view used: stiffness * (speed * speed)
-            assertEquals(380f * (speed * speed), spec.stiffness, 0f)
-            assertEquals(380f * 1.4f * (speed * speed), m.spring<Float>(m.collapse).stiffness, 0f)
+            // stiffness * (speed * speed). Since D5.1 the curve is stored as duration and bounce, so
+            // the stiffness comes back from 2π/d with float rounding (1e-7 relative)
+            assertEquals(380f * (speed * speed), spec.stiffness, 380f * speed * speed * 1e-5f)
+            assertEquals(380f * 1.4f * (speed * speed), m.spring<Float>(m.collapse).stiffness, 532f * speed * speed * 1e-5f)
         }
     }
 
@@ -147,8 +152,8 @@ class IslandMotionTest {
 
     @Test
     fun droidCollapse_onlyWhileExpandIsAtItsDefault() {
-        val custom = IslandMotion.from(defaults.copy(expandStiffness = 300f), profile = IslandMotion.Profile.Droid)
-        assertEquals(MotionToken.Physical(1f, 300f * 1.4f), custom.collapse)
+        val custom = IslandMotion.from(defaults.copy(expandDuration = 0.36f), profile = IslandMotion.Profile.Droid)
+        assertEquals(MotionToken.Perceptual(defaults.collapseDuration, defaults.collapseBounce).toPhysical(), custom.collapse)
     }
 
     @Test

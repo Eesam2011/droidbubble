@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.droidbubble.app.model.CurveMigration
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.parseFeaturePriorities
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +20,7 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "island_settings")
 
-private object PreferencesKeys {
+internal object PreferencesKeys {
     val IS_ENABLED = booleanPreferencesKey("is_enabled")
     val WIDTH_DP = intPreferencesKey("width_dp")
     val HEIGHT_DP = intPreferencesKey("height_dp")
@@ -64,17 +65,51 @@ private object PreferencesKeys {
     val APPEAR_STIFFNESS = floatPreferencesKey("appear_stiffness")
     val SPLIT_DAMPING = floatPreferencesKey("split_damping")
     val SPLIT_STIFFNESS = floatPreferencesKey("split_stiffness")
+    // D5.1: the curves by feel. The six spring keys above are only read, to migrate (kept one
+    // release so an older build still finds them).
+    val MOTION_SCHEMA = intPreferencesKey("motion_schema")
+    val EXPAND_DURATION = floatPreferencesKey("expand_duration")
+    val EXPAND_BOUNCE = floatPreferencesKey("expand_bounce")
+    val COLLAPSE_DURATION = floatPreferencesKey("collapse_duration")
+    val COLLAPSE_BOUNCE = floatPreferencesKey("collapse_bounce")
+    val APPEAR_DURATION = floatPreferencesKey("appear_duration")
+    val APPEAR_BOUNCE = floatPreferencesKey("appear_bounce")
+    val SPLIT_DURATION = floatPreferencesKey("split_duration")
+    val SPLIT_BOUNCE = floatPreferencesKey("split_bounce")
     val FEATURE_PRIORITIES = stringPreferencesKey("feature_priorities")
     val ISLAND_STYLE = stringPreferencesKey("island_style")
     val ENVELOPE_WINDOW_TRIAL = booleanPreferencesKey("envelope_window_trial")
     val SWIPE_RESISTANCE = booleanPreferencesKey("swipe_resistance")
 }
 
+private fun Preferences.hasLegacyCurves() = listOf(
+    PreferencesKeys.EXPAND_DAMPING, PreferencesKeys.EXPAND_STIFFNESS, PreferencesKeys.APPEAR_DAMPING,
+    PreferencesKeys.APPEAR_STIFFNESS, PreferencesKeys.SPLIT_DAMPING, PreferencesKeys.SPLIT_STIFFNESS,
+).any { contains(it) }
+
 /**
  * B8.6: the one place preferences become [IslandSettings]. Every key is read here and written in
  * [write], and `SettingsRepositoryRoundTripTest` checks each field survives the trip.
  */
 internal fun Preferences.toIslandSettings(): IslandSettings {
+    // D5.1: before motion schema 2 the curves were stored as springs; convert them on read
+    val curves = if ((this[PreferencesKeys.MOTION_SCHEMA] ?: 0) < CurveMigration.SCHEMA && hasLegacyCurves()) {
+        val d = CurveMigration.Legacy()
+        val result = CurveMigration.migrate(
+            CurveMigration.Legacy(
+                expandDamping = this[PreferencesKeys.EXPAND_DAMPING] ?: d.expandDamping,
+                expandStiffness = this[PreferencesKeys.EXPAND_STIFFNESS] ?: d.expandStiffness,
+                appearDamping = this[PreferencesKeys.APPEAR_DAMPING] ?: d.appearDamping,
+                appearStiffness = this[PreferencesKeys.APPEAR_STIFFNESS] ?: d.appearStiffness,
+                splitDamping = this[PreferencesKeys.SPLIT_DAMPING] ?: d.splitDamping,
+                splitStiffness = this[PreferencesKeys.SPLIT_STIFFNESS] ?: d.splitStiffness,
+            )
+        )
+        if (result.clamped) com.droidbubble.app.util.CrashLog.breadcrumb("settings", "curve migration clamped: ${result.curves}")
+        result.curves
+    } else {
+        CurveMigration.DROID
+    }
     val resolvedSpeed = this[PreferencesKeys.ANIMATION_SPEED_MULTIPLIER] ?: run {
         when (this[PreferencesKeys.LEGACY_ANIMATION_SPEED]) {
             "FAST" -> 1.5f
@@ -121,12 +156,14 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         autoDismissNotifications = this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] ?: false,
         blurredAlbumArtBackground = this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] ?: false,
         hideOnLockScreen = this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
-        expandDamping = this[PreferencesKeys.EXPAND_DAMPING] ?: 0.8f,
-        expandStiffness = this[PreferencesKeys.EXPAND_STIFFNESS] ?: 380f,
-        appearDamping = this[PreferencesKeys.APPEAR_DAMPING] ?: 0.6f,
-        appearStiffness = this[PreferencesKeys.APPEAR_STIFFNESS] ?: 280f,
-        splitDamping = this[PreferencesKeys.SPLIT_DAMPING] ?: 0.63f,
-        splitStiffness = this[PreferencesKeys.SPLIT_STIFFNESS] ?: 320f,
+        expandDuration = this[PreferencesKeys.EXPAND_DURATION] ?: curves.expand.duration,
+        expandBounce = this[PreferencesKeys.EXPAND_BOUNCE] ?: curves.expand.bounce,
+        collapseDuration = this[PreferencesKeys.COLLAPSE_DURATION] ?: curves.collapse.duration,
+        collapseBounce = this[PreferencesKeys.COLLAPSE_BOUNCE] ?: curves.collapse.bounce,
+        appearDuration = this[PreferencesKeys.APPEAR_DURATION] ?: curves.appear.duration,
+        appearBounce = this[PreferencesKeys.APPEAR_BOUNCE] ?: curves.appear.bounce,
+        splitDuration = this[PreferencesKeys.SPLIT_DURATION] ?: curves.split.duration,
+        splitBounce = this[PreferencesKeys.SPLIT_BOUNCE] ?: curves.split.bounce,
         islandStyle = IslandSettings.normalizeStyle(this[PreferencesKeys.ISLAND_STYLE]),
         featurePriorities = parseFeaturePriorities(this[PreferencesKeys.FEATURE_PRIORITIES]),
         envelopeWindowTrial = this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] ?: false,
@@ -174,12 +211,15 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] = s.autoDismissNotifications
     this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] = s.blurredAlbumArtBackground
     this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] = s.hideOnLockScreen
-    this[PreferencesKeys.EXPAND_DAMPING] = s.expandDamping
-    this[PreferencesKeys.EXPAND_STIFFNESS] = s.expandStiffness
-    this[PreferencesKeys.APPEAR_DAMPING] = s.appearDamping
-    this[PreferencesKeys.APPEAR_STIFFNESS] = s.appearStiffness
-    this[PreferencesKeys.SPLIT_DAMPING] = s.splitDamping
-    this[PreferencesKeys.SPLIT_STIFFNESS] = s.splitStiffness
+    this[PreferencesKeys.MOTION_SCHEMA] = CurveMigration.SCHEMA
+    this[PreferencesKeys.EXPAND_DURATION] = s.expandDuration
+    this[PreferencesKeys.EXPAND_BOUNCE] = s.expandBounce
+    this[PreferencesKeys.COLLAPSE_DURATION] = s.collapseDuration
+    this[PreferencesKeys.COLLAPSE_BOUNCE] = s.collapseBounce
+    this[PreferencesKeys.APPEAR_DURATION] = s.appearDuration
+    this[PreferencesKeys.APPEAR_BOUNCE] = s.appearBounce
+    this[PreferencesKeys.SPLIT_DURATION] = s.splitDuration
+    this[PreferencesKeys.SPLIT_BOUNCE] = s.splitBounce
     this[PreferencesKeys.FEATURE_PRIORITIES] = s.featurePriorities.joinToString(",")
     this[PreferencesKeys.ISLAND_STYLE] = IslandSettings.normalizeStyle(s.islandStyle)
     this[PreferencesKeys.ENVELOPE_WINDOW_TRIAL] = s.envelopeWindowTrial

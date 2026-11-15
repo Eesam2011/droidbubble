@@ -372,8 +372,9 @@ fun IslandOverlayRoot(
     // F3.1: one motion object, rebuilt only when the speed, a curve or the motion tier (M5.1) changes
     val tier = rememberMotionTier(settings.reduceMotion)
     val motion = remember(
-        settings.animationSpeed, settings.expandDamping, settings.expandStiffness,
-        settings.appearDamping, settings.appearStiffness, settings.splitDamping, settings.splitStiffness, tier,
+        settings.animationSpeed, settings.expandDuration, settings.expandBounce, settings.collapseDuration,
+        settings.collapseBounce, settings.appearDuration, settings.appearBounce, settings.splitDuration,
+        settings.splitBounce, tier,
     ) { IslandMotion.from(settings, tier) }
     // F4.1: text sizes by role, for the card scale and the phone's font size
     val fontScale = LocalDensity.current.fontScale

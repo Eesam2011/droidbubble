@@ -1,6 +1,7 @@
 package com.droidbubble.app.ui.main
 
 
+import com.droidbubble.app.island.motion.toPhysical
 import com.droidbubble.app.icons.AppIcons
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -2510,20 +2511,34 @@ fun AnimationCurveEditor(
 ) {
     val targets = listOf("Expand", "Appear", "Split")
     var selected by remember { mutableStateOf(0) }
-    val defaults = listOf(0.8f to 380f, 0.60f to 280f, 0.63f to 320f)
-    val damping = when (selected) { 0 -> settings.expandDamping; 1 -> settings.appearDamping; else -> settings.splitDamping }
-    val stiffness = when (selected) { 0 -> settings.expandStiffness; 1 -> settings.appearStiffness; else -> settings.splitStiffness }
-    val isDefault = damping == defaults[selected].first && stiffness == defaults[selected].second
+    // D5.1: the curves are stored by feel; this editor still edits the spring until D5.2
+    val droid = com.droidbubble.app.model.CurveMigration.DROID
+    val defaults = listOf(droid.expand, droid.appear, droid.split)
+    val curve = when (selected) {
+        0 -> com.droidbubble.app.model.Curve(settings.expandDuration, settings.expandBounce)
+        1 -> com.droidbubble.app.model.Curve(settings.appearDuration, settings.appearBounce)
+        else -> com.droidbubble.app.model.Curve(settings.splitDuration, settings.splitBounce)
+    }
+    val spring = com.droidbubble.app.island.motion.MotionToken.Perceptual(curve.duration, curve.bounce).toPhysical()
+    val damping = spring.dampingRatio
+    val stiffness = spring.stiffness
+    val isDefault = curve == defaults[selected]
 
-    fun setCurve(d: Float, k: Float) {
+    fun setCurveByFeel(c: com.droidbubble.app.model.Curve) {
         onUpdateSettings {
             when (selected) {
-                0 -> it.copy(expandDamping = d, expandStiffness = k)
-                1 -> it.copy(appearDamping = d, appearStiffness = k)
-                else -> it.copy(splitDamping = d, splitStiffness = k)
+                0 -> it.copy(expandDuration = c.duration, expandBounce = c.bounce)
+                1 -> it.copy(appearDuration = c.duration, appearBounce = c.bounce)
+                else -> it.copy(splitDuration = c.duration, splitBounce = c.bounce)
             }
         }
     }
+
+    fun setCurve(d: Float, k: Float) {
+        val c = com.droidbubble.app.model.CurveMigration.run { clamp(fromSpring(d, k)) }
+        setCurveByFeel(c)
+    }
+
 
     SettingsCardItem(position = GroupPosition.SINGLE) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
@@ -2534,7 +2549,7 @@ fun AnimationCurveEditor(
                 Icon(AppIcons.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(16.dp))
                 Text("Animation Curves", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                TextButton(onClick = { setCurve(defaults[selected].first, defaults[selected].second) }, enabled = !isDefault) {
+                TextButton(onClick = { setCurveByFeel(defaults[selected]) }, enabled = !isDefault) {
                     Icon(AppIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Reset")

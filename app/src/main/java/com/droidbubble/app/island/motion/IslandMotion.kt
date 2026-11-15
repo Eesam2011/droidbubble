@@ -120,6 +120,8 @@ data class IslandMotion(
     /** User curve: the pill appearing, hiding and minimizing, and the bubble splitting off. */
     val split: MotionToken.Physical,
     val profile: Profile = Profile.Legacy,
+    /** User curve (D5.1): the card closing. Null: critically damped at 1.4× the expand stiffness. */
+    val collapseCurve: MotionToken.Physical? = null,
 ) {
     /** [Legacy]: the values the island shipped with. [Droid]: "eager in, calm out" (M5.3). */
     enum class Profile { Legacy, Droid }
@@ -129,7 +131,8 @@ data class IslandMotion(
 
     /** The card closing: no overshoot, 1.4× the expand stiffness. */
     val collapse: MotionToken.Physical
-        get() = if (droid && expand == DEFAULT_EXPAND) DROID_COLLAPSE else MotionToken.Physical(1f, expand.stiffness * 1.4f)
+        get() = if (droid && expand == DEFAULT_EXPAND) DROID_COLLAPSE
+            else collapseCurve ?: MotionToken.Physical(1f, expand.stiffness * 1.4f)
 
     // ---- Fixed tokens (today's values) ----
     /** The pill shrinking away while the card opens. */
@@ -289,7 +292,7 @@ data class IslandMotion(
         /** The rolling digits' curve. */
         val ROLL_EASING: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
-        private val DEFAULT_EXPAND = MotionToken.Physical(IslandSettings().expandDamping, IslandSettings().expandStiffness)
+        private val DEFAULT_EXPAND = IslandSettings().let { MotionToken.Perceptual(it.expandDuration, it.expandBounce).toPhysical() }
 
         // The Droid profile (research 03 §6), at speed 1
         val DROID_COLLAPSE = MotionToken.Perceptual(0.38f, 0f).toPhysical()
@@ -306,10 +309,11 @@ data class IslandMotion(
         fun from(settings: IslandSettings, tier: MotionTier = MotionTier.FULL, profile: Profile = Profile.Legacy) = IslandMotion(
             speed = settings.animationSpeed.coerceIn(0.5f, 2f),
             tier = tier,
-            expand = MotionToken.Physical(settings.expandDamping, settings.expandStiffness),
-            appear = MotionToken.Physical(settings.appearDamping, settings.appearStiffness),
-            split = MotionToken.Physical(settings.splitDamping, settings.splitStiffness),
+            expand = MotionToken.Perceptual(settings.expandDuration, settings.expandBounce).toPhysical(),
+            appear = MotionToken.Perceptual(settings.appearDuration, settings.appearBounce).toPhysical(),
+            split = MotionToken.Perceptual(settings.splitDuration, settings.splitBounce).toPhysical(),
             profile = profile,
+            collapseCurve = MotionToken.Perceptual(settings.collapseDuration, settings.collapseBounce).toPhysical(),
         )
     }
 }

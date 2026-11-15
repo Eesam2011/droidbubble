@@ -212,7 +212,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | D3.3 | Spring on progress rings | todo |
 | D4.1 | Shared art, avatar and icon between compact and expanded | todo |
 | D4.2 | Consistent placement audit | todo |
-| D5.1 | Duration and bounce model, with migration | todo |
+| D5.1 | Duration and bounce model, with migration | done (curves stored as duration and bounce in schema 2; old spring keys read once to migrate and left for rollback; collapse is a stored curve; the old editor bridges through the conversion until D5.2; S2 unchanged, tests pass) |
 | D5.2 | Curve editor v2 with honest preview | todo |
 | D5.3 | Calm, Droid and Lively presets | todo |
 | D6.1 | (optional) Orbit ring | todo |
