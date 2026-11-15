@@ -1699,7 +1699,7 @@ internal fun IslandShell(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
+                            com.droidbubble.app.island.layout.CameraGap()
 
                             // Right: Current battery percentage in green
                             Box(
@@ -1737,7 +1737,7 @@ internal fun IslandShell(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
+                            com.droidbubble.app.island.layout.CameraGap()
 
                             // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
                             Box(
@@ -1776,7 +1776,7 @@ internal fun IslandShell(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
+                            com.droidbubble.app.island.layout.CameraGap()
 
                             // Right: Checkmark at the slight edge of the island with smooth bounce growth animation
                             Box(
@@ -1847,7 +1847,7 @@ internal fun IslandShell(
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
-                            Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
+                            com.droidbubble.app.island.layout.CameraGap()
 
                             // Right: Text label (Silent, Vibrate, Ring) with smooth bounce scaling & alpha
                             Box(

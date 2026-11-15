@@ -963,6 +963,7 @@ fun MainScreen(
             }
             // F5.4: the envelope window trial (decision D7), in debug builds only
             if (com.droidbubble.app.BuildConfig.DEBUG) {
+                item { CameraOutlineSwitch() }
                 item {
                     EnvelopeWindowTrialSwitch(
                         checked = settings.envelopeWindowTrial,

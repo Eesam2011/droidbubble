@@ -1,5 +1,6 @@
 package com.droidbubble.app.ui.main
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -107,6 +108,23 @@ fun LiveActivityTestPanel(islandRunning: Boolean, settings: IslandSettings = Isl
                 IconEffectCatalog(settings, tierOverride, onTierOverride = { tierOverride = it })
             }
         }
+    }
+}
+
+/**
+ * V1.3: debug builds only. Draws a thin red ring where the camera was measured, to check on a
+ * phone that the pill sits on the lens. Not stored: it resets when the app restarts.
+ */
+@Composable
+fun CameraOutlineSwitch() {
+    val on by com.droidbubble.app.island.IslandStateManager.showCameraOutline.collectAsState()
+    SettingsCardItem(position = GroupPosition.SINGLE) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = { Text("Show camera outline", fontWeight = FontWeight.SemiBold) },
+            supportingContent = { Text("Debug only. A red ring where the camera was measured.") },
+            trailingContent = { Switch(checked = on, onCheckedChange = { com.droidbubble.app.island.IslandStateManager.showCameraOutline.value = it }) }
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 package com.droidbubble.app.service
 
+import com.droidbubble.app.island.layout.withCalibration
 import com.droidbubble.app.island.IslandStateManager.ChargingInfo
 import com.droidbubble.app.island.IslandStateManager.ConnectionAlert
 import com.droidbubble.app.island.IslandStateManager.RingerMode
@@ -137,6 +138,26 @@ class OverlayWindowMathTest {
         Row("ringing call, Phone Calls off", IslandInputs(notification = ringing), WindowSpec.Gone, d.copy(showCalls = false)),
         Row("timer, Live Activities off", IslandInputs(notification = timer), WindowSpec.Gone, d.copy(showLiveActivities = false)),
     )
+
+    /** V1.3: with calibrated settings the compact window still contains the pill, at the extreme deltas. */
+    @Test
+    fun calibratedPill_staysInsideTheWindow() {
+        val cam = com.droidbubble.app.island.layout.CameraGeometry(
+            com.droidbubble.app.island.layout.CutoutKind.PUNCH_HOLE, com.droidbubble.app.island.layout.CameraSide.START,
+            centerXDp = 60f, centerYDp = 30f, diameterDp = 30f, rotation = 0, screenWidthDp = 360f,
+        )
+        for ((dTop, dX, dH) in listOf(Triple(12f, 24f, 8f), Triple(-12f, -24f, -8f), Triple(0f, 0f, 0f))) {
+            val s = d.copy(calibrationMigrated = true, topOffsetDeltaDp = dTop, horizontalOffsetDeltaDp = dX, heightDeltaDp = dH)
+            val calibrated = s.withCalibration(cam)
+            for (inputs in listOf(IslandInputs(media = song), IslandInputs(media = song, notification = message))) {
+                val w = spec(inputs, calibrated, settled = true) as WindowSpec.Compact
+                assertTrue("height for $dTop/$dX/$dH", w.heightDp >= calibrated.topOffsetDp + calibrated.heightDp)
+                w.widthDp?.let { width ->
+                    assertTrue("width for $dTop/$dX/$dH", width / 2f >= kotlin.math.abs(calibrated.horizontalOffsetDp) + calibrated.widthDp / 2f)
+                }
+            }
+        }
+    }
 
     @Test
     fun morphHold_scalesWithAnimationSpeed() {

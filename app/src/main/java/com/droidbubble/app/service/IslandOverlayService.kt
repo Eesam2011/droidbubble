@@ -1,5 +1,10 @@
 package com.droidbubble.app.service
 
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.drop
+import com.droidbubble.app.island.layout.withCalibration
+import com.droidbubble.app.island.layout.effective
+import com.droidbubble.app.island.layout.LocalCameraZone
 import android.app.KeyguardManager
 import android.media.AudioManager
 import com.droidbubble.app.island.IslandStateManager.RingerMode
@@ -139,6 +144,10 @@ class IslandOverlayService : Service() {
 
     private val lifecycleOwner = CustomLifecycleOwner()
     private var currentSettings = IslandSettings()
+
+    /** V1.3: the settings the window is sized from, calibrated to the camera like the island's. */
+    private val layoutSettings: IslandSettings
+        get() = currentSettings.withCalibration(IslandStateManager.cameraGeometry.value)
     private var spokenAlerts: SpokenAlerts? = null
     private var spokenAlertsJob: kotlinx.coroutines.Job? = null
 
@@ -576,6 +585,11 @@ class IslandOverlayService : Service() {
     private fun initOverlay() {
         if (composeView != null) return
         IslandStateManager.setCameraGeometry(CutoutReader.read(this))
+        // V1.3: a new camera reading (rotation, foldable) resizes the window
+        cameraWindowJob?.cancel()
+        cameraWindowJob = serviceScope.launch {
+            IslandStateManager.cameraGeometry.drop(1).collect { updateWindowState(IslandStateManager.isExpanded.value) }
+        }
         runCatching {
             getSystemService(android.hardware.display.DisplayManager::class.java)
                 ?.registerDisplayListener(displayListener, android.os.Handler(android.os.Looper.getMainLooper()))
@@ -597,7 +611,7 @@ class IslandOverlayService : Service() {
         // F1.4: the first window comes from the same scene as every later one. Not settled: the
         // pill may still be appearing.
         val initialWindow = windowScene(expanded = false)
-            .let { compactWindowSpec(it.scene, it.targets, currentSettings, settled = false) }
+            .let { compactWindowSpec(it.scene, it.targets, layoutSettings, settled = false) }
             .toWindowPx(density)
         val initialWidth = initialWindow.width
         val initialHeight = initialWindow.height
@@ -651,6 +665,8 @@ class IslandOverlayService : Service() {
                     .collectAsState(initial = com.droidbubble.app.util.readHighTextContrast(contentResolver))
                 val highContrast = storedSettings.highContrast || systemHighContrast
                 SideEffect { com.droidbubble.app.island.IslandTokens.highContrast = highContrast }
+                // V1.3: the pill's top, height and offset follow the measured camera
+                val camera by IslandStateManager.cameraGeometry.collectAsState()
                 val liveSettings = if (highContrast) {
                     storedSettings.copy(
                         // The colour comes from IslandTokens.HighContrastOutline in the view (B5.1)
@@ -659,7 +675,8 @@ class IslandOverlayService : Service() {
                     )
                 } else {
                     storedSettings
-                }
+                }.withCalibration(camera)
+                val cameraZone = storedSettings.effective(camera).cameraZoneDp.dp
 
                 MaterialExpressiveTheme(
                     colorScheme = darkColorScheme(),
@@ -674,11 +691,13 @@ class IslandOverlayService : Service() {
                     val systemDensity = LocalDensity.current
                     CompositionLocalProvider(
                         LocalTextStyle provides LocalTextStyle.current.copy(fontFeatureSettings = "tnum", letterSpacing = 0.sp),
-                        LocalDensity provides Density(systemDensity.density, systemDensity.fontScale.coerceIn(0.85f, 1.5f))
+                        LocalDensity provides Density(systemDensity.density, systemDensity.fontScale.coerceIn(0.85f, 1.5f)),
+                        LocalCameraZone provides cameraZone,
                     ) {
                         IslandOverlayRoot(
                             settings = liveSettings
                         )
+                        if (com.droidbubble.app.BuildConfig.DEBUG) CameraOutlineDebug(camera)
                     }
                 }
             }
@@ -757,6 +776,7 @@ class IslandOverlayService : Service() {
      * real settings (B8.4): it starts telemetry and adds the overlay.
      */
     private var calibrationJob: Job? = null
+    private var cameraWindowJob: Job? = null
 
     /**
      * V1.2: the first time a usable camera and unmigrated settings meet, store the calibration
@@ -900,12 +920,12 @@ class IslandOverlayService : Service() {
     /** The scene the view is drawing and its targets, derived from the current state and settings (F1.4). */
     private fun windowScene(expanded: Boolean): WindowScene {
         val env = currentEnv()
-        val scene = deriveIslandScene(IslandStateManager.snapshotInputs().copy(isExpanded = expanded), currentSettings, env)
-        return WindowScene(scene, windowTargets(scene, currentSettings, env))
+        val scene = deriveIslandScene(IslandStateManager.snapshotInputs().copy(isExpanded = expanded), layoutSettings, env)
+        return WindowScene(scene, windowTargets(scene, layoutSettings, env))
     }
 
     private fun windowSpec(ws: WindowScene): WindowSpec =
-        compactWindowSpec(ws.scene, ws.targets, currentSettings, settled = android.os.SystemClock.uptimeMillis() >= morphUntilMs)
+        compactWindowSpec(ws.scene, ws.targets, layoutSettings, settled = android.os.SystemClock.uptimeMillis() >= morphUntilMs)
 
     // B2.2: until this time the compact window keeps the wide envelope (a shape change animates)
     private var morphUntilMs = 0L
@@ -954,7 +974,7 @@ class IslandOverlayService : Service() {
             isCollapsing = false
             wasExpanded = true
             val envelope = if (currentSettings.envelopeWindowTrial) {
-                EnvelopeWindow.envelopeFor(ws.scene, currentSettings, currentEnv(), IslandStateManager.measuredCardHeights.value)
+                EnvelopeWindow.envelopeFor(ws.scene, layoutSettings, currentEnv(), IslandStateManager.measuredCardHeights.value)
             } else null
             if (envelope != null) {
                 // F5.4 trial: an envelope around the cards; a tap outside arrives as ACTION_OUTSIDE.

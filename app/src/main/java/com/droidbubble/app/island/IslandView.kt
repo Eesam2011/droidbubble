@@ -348,6 +348,9 @@ object IslandTestTags {
     const val CARD = "island_card"
     /** Card 2, the second activity's card in dual mode (not part of the S1 golden). */
     const val CARD2 = "island_card2"
+    /** V1.3: the pill's two sides, either side of the camera gap. */
+    const val COMPACT_LEADING = "island_compact_leading"
+    const val COMPACT_TRAILING = "island_compact_trailing"
 
     /** Content slots that tests can ask "which activity is drawn here?" (see [content]). */
     val CONTENT_SLOTS = listOf("pill", "bubble", "card1", "card2")
@@ -682,7 +685,7 @@ fun CompactContent(
     ) {
         // Leading content: Pinned strictly to the left of the camera punch hole
         Box(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_LEADING),
             contentAlignment = Alignment.CenterStart
         ) {
             when (priority) {
@@ -822,11 +825,11 @@ fun CompactContent(
 
         // Camera punch-hole deadzone: STRICTLY 36dp EMPTY SPACE IN THE MIDDLE!
         // No UI elements will EVER enter or overlap the camera cutout area
-        Spacer(modifier = Modifier.width(IslandTokens.Shell.CameraZone))
+        com.droidbubble.app.island.layout.CameraGap()
 
         // Trailing content: Pinned strictly to the right of the camera punch hole
         Box(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_TRAILING),
             contentAlignment = Alignment.CenterEnd
         ) {
             when (priority) {

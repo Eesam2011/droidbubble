@@ -53,6 +53,9 @@ object IslandStateManager {
     private val _cameraGeometry = MutableStateFlow(com.droidbubble.app.island.layout.CameraGeometry.None)
     val cameraGeometry: StateFlow<com.droidbubble.app.island.layout.CameraGeometry> = _cameraGeometry.asStateFlow()
 
+    /** V1.3, debug builds: draw a thin ring where the camera was measured (Test panel switch). */
+    val showCameraOutline = MutableStateFlow(false)
+
     fun setCameraGeometry(geometry: com.droidbubble.app.island.layout.CameraGeometry) {
         if (_cameraGeometry.value == geometry) return
         android.util.Log.d("IslandStateManager", "camera: $geometry")
