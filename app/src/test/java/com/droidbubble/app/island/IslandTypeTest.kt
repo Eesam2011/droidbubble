@@ -61,8 +61,9 @@ class IslandTypeTest {
 
     @Test
     fun compactRoles_neverScale() {
-        assertEquals(13.sp, IslandType.CompactValue)
-        assertEquals(12.sp, IslandType.CompactLabel)
+        assertEquals(14.sp, IslandType.CompactValue) // V3.2: values 14, labels 13, units 11
+        assertEquals(13.sp, IslandType.CompactLabel)
+        assertEquals(11.sp, IslandType.CompactUnit)
         assertEquals(11.sp, IslandType.BubbleValue)
         for (scale in scales) {
             val t = IslandType(scale)

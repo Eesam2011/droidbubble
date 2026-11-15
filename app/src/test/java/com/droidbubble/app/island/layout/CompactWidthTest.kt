@@ -38,7 +38,7 @@ class CompactWidthTest {
         assertEquals("Sam", msg.trailText)
         assertEquals(CompactSlots.minOfArt(h), msg.lead.value, 0.01f)
         val dl = CompactSlots.sides(IslandPriority.PROGRESS, null, IslandFixtures.progress(42), rec, h)
-        assertEquals("Google Play", dl.leadText); assertEquals("100%", dl.trailText)
+        assertEquals("Google Play", dl.leadText); assertEquals("100", dl.trailText); assertEquals("%", dl.trailUnit)
         val torch = CompactSlots.sides(IslandPriority.FLASHLIGHT, null, null, rec, h)
         assertNull(torch.trailText)
         val idle = CompactSlots.sides(IslandPriority.IDLE, null, null, rec, h)

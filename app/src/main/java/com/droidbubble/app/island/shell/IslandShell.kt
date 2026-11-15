@@ -545,14 +545,11 @@ internal fun IslandShell(
 
     val bubbleSize = settings.heightDp.dp
     // V3.1: the pill hugs its content; measured here (once per activity, not per tick)
-    val compactSide = com.droidbubble.app.island.layout.rememberCompactSide(
-        priority = primaryPriority,
-        media = currentMedia,
-        notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-        recording = recording,
-        pillHeight = settings.heightDp.dp,
-    )
     val cameraZone = com.droidbubble.app.island.layout.LocalCameraZone.current
+    // V3.2: the most a side can hold, at the pill's widest
+    val compactMaxSide = ((settings.widthDp.dp - cameraZone) / 2f - com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp)).coerceAtLeast(0.dp)
+    // V3.1's content measurement is off (HUG_CONTENT): the pill is exactly the Width setting
+    val compactSide: Dp? = null
     val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone)
     val compactMainHalf = com.droidbubble.app.island.scene.mainPillWidth(settings, compactMeasured) / 2f
 
@@ -1953,7 +1950,8 @@ internal fun IslandShell(
                                         flashlightLevel = flashlightLevel,
                                         maxFlashlightLevel = maxFlashlightLevel,
                                         secondaryPriority = secondaryPriority,
-                                        horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
+                                        horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp),
+                                        maxSide = compactMaxSide,
                                     )
                                 }
                             }

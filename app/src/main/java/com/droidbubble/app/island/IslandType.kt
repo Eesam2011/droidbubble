@@ -134,11 +134,14 @@ class IslandType(
     companion object {
         // ---- Compact pill and bubble: never scaled ----
 
-        /** A compact value next to the camera: charging wattage and percentage. */
-        val CompactValue: TextUnit = 13.sp
+        /** A compact value next to the camera: timers, percentages, wattage (V3.2: 14 sp, weight 600). */
+        val CompactValue: TextUnit = 14.sp
 
-        /** A compact label: chips, the ringer mode, short status text. */
-        val CompactLabel: TextUnit = 12.sp
+        /** A compact label: names, app names, the ringer mode (V3.2: 13 sp, weight 600, both sides). */
+        val CompactLabel: TextUnit = 13.sp
+
+        /** A unit beside a compact value: %, W (V3.2: 11 sp, weight 500, secondary colour). */
+        val CompactUnit: TextUnit = 11.sp
 
         /** The bubble's numeral (B9.2: 11 sp is the floor). */
         val BubbleValue: TextUnit = 11.sp

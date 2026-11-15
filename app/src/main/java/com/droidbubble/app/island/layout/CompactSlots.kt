@@ -31,10 +31,17 @@ object CompactSlots {
     val MIN_WIDTH: Dp = 120.dp
 
     /**
+     * Whether the pill shrinks to its content. Off: the owner wants the pill exactly the Width
+     * setting (2026-11-15, after seeing V3.1). The width model stays for V3.3's bubble and as the
+     * one switch to turn it back on.
+     */
+    const val HUG_CONTENT = false
+
+    /**
      * Content sits against the camera on both sides (true) or against the pill's outer ends
      * (false, today's placement). One flag, for CP2.
      */
-    const val SNUG_TO_CAMERA = true
+    const val SNUG_TO_CAMERA = false
 
     /** The gap between the pill's edge and its content: today's rule. */
     fun inset(pillHeight: Dp): Dp = ((pillHeight - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
@@ -53,8 +60,18 @@ object CompactSlots {
         return text.map { if (it.isDigit()) '0' else it }.joinToString("")
     }
 
-    /** What the pill's two sides hold, as widths (dp); the text parts are measured by the caller. */
-    data class Sides(val lead: Dp, val leadText: String?, val trail: Dp, val trailText: String?)
+    /**
+     * What the pill's two sides hold, as widths (dp); the text parts are measured by the caller.
+     * A [trailValue] is a number (value size, never shortened) with an optional [trailUnit].
+     */
+    data class Sides(
+        val lead: Dp,
+        val leadText: String?,
+        val trail: Dp,
+        val trailText: String?,
+        val trailValue: Boolean = false,
+        val trailUnit: String? = null,
+    )
 
     /**
      * The pill's two sides for an activity, mirroring CompactContent: icon, art and fixed widths
@@ -70,14 +87,15 @@ object CompactSlots {
         val glyph = IslandTokens.Glyph.Compact
         val art = IslandTokens.Glyph.CompactArt
         return when (priority) {
-            IslandPriority.CALL -> Sides(glyph, null, 0.dp, "00:00")
-            IslandPriority.SCREEN_RECORDING -> Sides(RECORDING_DOT, null, 0.dp, template(formatDuration(recording.durationSeconds)))
+            IslandPriority.CALL -> Sides(glyph, null, 0.dp, "00:00", trailValue = true)
+            IslandPriority.SCREEN_RECORDING -> Sides(RECORDING_DOT, null, 0.dp, template(formatDuration(recording.durationSeconds)), trailValue = true)
             IslandPriority.FLASHLIGHT -> Sides(FLASHLIGHT_GLOW, null, 0.dp, null)
             IslandPriority.MEDIA -> Sides(art, null, EQUALIZER, null)
             IslandPriority.PROGRESS -> {
                 val icon = if (notification?.iconBitmap != null) art else glyph
-                Sides(icon + PROGRESS_LABEL_GAP, notification?.appName ?: "Download", if (notification?.isIndeterminate == true) PROGRESS_SPINNER else 0.dp,
-                    if (notification?.isIndeterminate == true) null else "100%")
+                val indeterminate = notification?.isIndeterminate == true
+                Sides(icon, notification?.appName ?: "Download", if (indeterminate) PROGRESS_SPINNER else 0.dp,
+                    if (indeterminate) null else "100", trailValue = true, trailUnit = if (indeterminate) null else "%")
             }
             IslandPriority.POP_NOTIFICATION -> {
                 val kind = liveActivityKind(notification)
@@ -95,7 +113,7 @@ object CompactSlots {
                 val live = notification?.let { liveCompactText(it, kind) }
                     ?: notification?.takeIf { timed || it.liveTimerBaseMs > 0L }?.let { staticLiveTimeText(it) ?: "00:00" }
                 val text = live?.let { template(it) } ?: notification?.title ?: "Notification"
-                Sides(lead, null, 0.dp, text)
+                Sides(lead, null, 0.dp, text, trailValue = live != null)
             }
             IslandPriority.IDLE -> Sides(0.dp, null, 0.dp, null)
         }
@@ -119,9 +137,22 @@ object CompactSlots {
     val PROGRESS_LABEL_GAP: Dp = 6.dp
 }
 
+/** The compact text roles (V3.2): one family on both sides of the camera. */
+object CompactText {
+    fun label(type: com.droidbubble.app.island.IslandType) =
+        TextStyle(fontSize = IslandType.CompactLabel, lineHeight = type.compactLabelLineHeight, fontWeight = FontWeight.SemiBold)
+
+    fun value(type: com.droidbubble.app.island.IslandType) =
+        TextStyle(fontSize = IslandType.CompactValue, lineHeight = type.compactLabelLineHeight, fontWeight = FontWeight.SemiBold)
+
+    fun unit(type: com.droidbubble.app.island.IslandType) =
+        TextStyle(fontSize = IslandType.CompactUnit, lineHeight = type.compactLabelLineHeight, fontWeight = FontWeight.Medium)
+}
+
 /**
  * The larger of the pill's two sides for what it shows now (V3.1), with the text measured in the
- * pill's own style. Recomputed only when the activity changes, never per tick.
+ * pill's own style and fitted the way the pill fits it (V3.2), within [maxSide]. Recomputed only
+ * when the activity changes, never per tick.
  */
 @Composable
 fun rememberCompactSide(
@@ -130,6 +161,7 @@ fun rememberCompactSide(
     notification: NotificationInfo?,
     recording: ScreenRecordingState,
     pillHeight: Dp,
+    maxSide: Dp,
 ): Dp {
     val measurer = rememberTextMeasurer()
     val base = LocalTextStyle.current
@@ -138,13 +170,21 @@ fun rememberCompactSide(
     val sides = remember(priority, media, notification, recording.durationSeconds / 60, pillHeight) {
         CompactSlots.sides(priority, media, notification, recording, pillHeight)
     }
-    return remember(sides, base, type, density) {
-        fun measure(text: String?, weight: FontWeight): Dp = if (text == null) 0.dp else with(density) {
-            val style = base.merge(TextStyle(fontSize = IslandType.CompactLabel, lineHeight = type.compactLabelLineHeight, fontWeight = weight))
-            measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp()
+    return remember(sides, base, type, density, maxSide) {
+        fun width(text: String, style: TextStyle, squeeze: Boolean = false) =
+            CompactFit.measure(measurer, density, text, base.merge(style), squeeze).dp
+        fun fitted(text: String?, available: Dp): Dp {
+            if (text == null) return 0.dp
+            val r = CompactFit.fit(text, available.value) { t, sq -> width(t, CompactText.label(type), sq).value }
+            return if (r.text == null) 0.dp else width(r.text, CompactText.label(type), r.scaleX < 1f)
         }
-        val lead = sides.lead + measure(sides.leadText, FontWeight.Medium)
-        val trail = sides.trail + measure(sides.trailText, FontWeight.SemiBold)
+        val leadText = fitted(sides.leadText, maxSide - sides.lead - CompactSlots.PROGRESS_LABEL_GAP)
+        val lead = sides.lead + if (leadText > 0.dp) CompactSlots.PROGRESS_LABEL_GAP + leadText else 0.dp
+        val trail = sides.trail + when {
+            sides.trailText == null -> 0.dp
+            sides.trailValue -> width(sides.trailText, CompactText.value(type)) + (sides.trailUnit?.let { width(it, CompactText.unit(type)) } ?: 0.dp)
+            else -> fitted(sides.trailText, maxSide - sides.trail)
+        }
         max(lead.value, trail.value).dp
     }
 }

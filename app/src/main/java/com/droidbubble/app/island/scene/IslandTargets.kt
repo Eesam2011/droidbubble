@@ -23,9 +23,12 @@ data class MeasuredHeights(
     val cameraZone: Dp = IslandTokens.Shell.CameraZone,
 )
 
-/** V3.1: the pill hugs its content when it's measured, up to the width setting. */
+/**
+ * The compact pill's width. Owner decision (2026-11-15): always exactly the Width setting, like
+ * the reference island, so V3.1's content-hugging is off ([com.droidbubble.app.island.layout.CompactSlots.HUG_CONTENT]).
+ */
 fun mainPillWidth(settings: IslandSettings, measured: MeasuredHeights): Dp =
-    measured.compactSide?.let {
+    measured.compactSide?.takeIf { com.droidbubble.app.island.layout.CompactSlots.HUG_CONTENT }?.let {
         com.droidbubble.app.island.layout.CompactSlots.width(
             side = it,
             cameraZone = measured.cameraZone,

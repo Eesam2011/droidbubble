@@ -671,8 +671,11 @@ fun CompactContent(
     flashlightLevel: Int = 1,
     maxFlashlightLevel: Int = 1,
     secondaryPriority: IslandPriority? = null,
-    horizontalInset: Dp = 10.dp
+    horizontalInset: Dp = 10.dp,
+    /** V3.2: the most one side may hold; text past it squeezes, shortens or drops, never "…". */
+    maxSide: Dp = Dp.Infinity,
 ) {
+    val compactType = LocalIslandType.current
     // Keep showing the last activity while the pill animates away, instead of a generic bell
     val notification = rememberLastNonNull(notification)
     Row(
@@ -784,16 +787,23 @@ fun CompactContent(
                             )
                         }
                         if (!isCompactDual) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = notification?.appName ?: "Download",
-                                color = IslandTokens.ControlLight,
-                                fontSize = IslandType.CompactLabel,
-                                lineHeight = LocalIslandType.current.compactLabelLineHeight,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                            // V3.2: squeeze, shorten ("Google Play" → "Play") or drop; never "…"
+                            val iconWidth = if (notification?.iconBitmap != null) IslandTokens.Glyph.CompactArt else IslandTokens.Glyph.Compact
+                            val fit = com.droidbubble.app.island.layout.rememberCompactFit(
+                                notification?.appName ?: "Download",
+                                maxSide - iconWidth - com.droidbubble.app.island.layout.CompactSlots.PROGRESS_LABEL_GAP,
+                                com.droidbubble.app.island.layout.CompactText.label(compactType),
                             )
+                            if (fit.text != null) {
+                                Spacer(modifier = Modifier.width(com.droidbubble.app.island.layout.CompactSlots.PROGRESS_LABEL_GAP))
+                                Text(
+                                    text = fit.text,
+                                    color = IslandTokens.ControlLight,
+                                    style = com.droidbubble.app.island.layout.CompactFit.squeezed(com.droidbubble.app.island.layout.CompactText.label(compactType), fit),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
                         }
                     }
                 }
@@ -838,7 +848,7 @@ fun CompactContent(
                     RollingNumberText(
                         text = String.format(Locale.US, "%02d:%02d", call.durationSeconds / 60, call.durationSeconds % 60),
                         color = LiveActivityColors.CallGreen,
-                        fontSize = IslandType.CompactLabel,
+                        fontSize = IslandType.CompactValue,
                         lineHeight = LocalIslandType.current.compactLabelLineHeight,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -849,7 +859,7 @@ fun CompactContent(
                     RollingNumberText(
                         text = String.format(Locale.US, "%02d:%02d", minutes, seconds),
                         color = LiveActivityColors.RecordingRed,
-                        fontSize = IslandType.CompactLabel,
+                        fontSize = IslandType.CompactValue,
                         lineHeight = LocalIslandType.current.compactLabelLineHeight,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -866,14 +876,30 @@ fun CompactContent(
                         ?: notification?.takeIf { isTimedKind }?.let { staticLiveTimeText(it) }
                     // Recorder red, timer blue, call timer green; names and alerts stay white.
                     // Live values roll digit by digit with steady-width numbers.
-                    RollingNumberText(
-                        text = liveTimer ?: notification?.title ?: "Notification",
-                        color = if (liveKind != LiveActivityKind.NONE && liveTimer != null) LiveActivityColors.accentFor(liveKind) else IslandTokens.ControlLight,
-                        fontSize = IslandType.CompactLabel,
-                        lineHeight = LocalIslandType.current.compactLabelLineHeight,
-                        fontWeight = FontWeight.SemiBold,
-                        countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
-                    )
+                    if (liveTimer != null) {
+                        RollingNumberText(
+                            text = liveTimer,
+                            color = if (liveKind != LiveActivityKind.NONE) LiveActivityColors.accentFor(liveKind) else IslandTokens.ControlLight,
+                            fontSize = IslandType.CompactValue,
+                            lineHeight = LocalIslandType.current.compactLabelLineHeight,
+                            fontWeight = FontWeight.SemiBold,
+                            countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
+                        )
+                    } else {
+                        // V3.2: a name squeezes, shortens to its first word, or drops; never "…"
+                        val fit = com.droidbubble.app.island.layout.rememberCompactFit(
+                            notification?.title ?: "Notification", maxSide, com.droidbubble.app.island.layout.CompactText.label(compactType)
+                        )
+                        fit.text?.let {
+                            Text(
+                                text = it,
+                                color = IslandTokens.ControlLight,
+                                style = com.droidbubble.app.island.layout.CompactFit.squeezed(com.droidbubble.app.island.layout.CompactText.label(compactType), fit),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
                 }
 
                 IslandPriority.PROGRESS -> {
@@ -887,15 +913,23 @@ fun CompactContent(
                             trackColor = IslandTokens.ControlTrack
                         )
                     } else {
-                        Text(
-                            text = "${(pct * 100).roundToInt()}%",
-                            color = IslandTokens.ControlLight,
-                            fontSize = IslandType.CompactLabel,
-                            lineHeight = LocalIslandType.current.compactLabelLineHeight,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        // V3.2: the number in the value role, the % beside it as a unit
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "${(pct * 100).roundToInt()}",
+                                color = IslandTokens.ControlLight,
+                                style = com.droidbubble.app.island.layout.CompactText.value(compactType),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Text(
+                                text = "%",
+                                color = IslandTokens.TextSecondary,
+                                style = com.droidbubble.app.island.layout.CompactText.unit(compactType),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
 
