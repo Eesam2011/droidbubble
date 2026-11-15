@@ -189,7 +189,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V3.2 | Matched type; squeeze, abbreviate, drop | done (compact labels 13 sp, values 14 sp, units 11 sp, weight 600 both sides; no ellipsis in the pill: squeeze 92%, then a shorter form or first word, then drop; S2 re-recorded) |
 | V3.3 | Oval bubble and readable ring | todo |
 | V3.4 | Flashlight trailing value | todo |
-| V3.5 | System alert pills hug their content | todo (owner, 2026-11-15: the ringer pill clips "Vibrate" to "Vibrat" and its label sits in a different place in Ring and Vibrate mode; fix here: labels never clipped, same trailing position in every mode) |
+| V3.5 | System alert pills hug their content | doing (the owner's "Vibrat" fix landed first, 2026-11-15: the ringer and charging pills are never narrower than their widest content and keep one width in every state; the rest of V3.5 (width model for every glance, value templates) still to do) |
 | V4.1 | Measured card heights | todo |
 | V4.2 | One header, padding and button rhythm | todo |
 | V5.1 | Semantic color roles | todo |

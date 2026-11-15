@@ -550,7 +550,9 @@ internal fun IslandShell(
     val compactMaxSide = ((settings.widthDp.dp - cameraZone) / 2f - com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp)).coerceAtLeast(0.dp)
     // V3.1's content measurement is off (HUG_CONTENT): the pill is exactly the Width setting
     val compactSide: Dp? = null
-    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone)
+    // V3.5: the glance pills fit their widest content
+    val alertSides = com.droidbubble.app.island.layout.rememberAlertSides()
+    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides)
     val compactMainHalf = com.droidbubble.app.island.scene.mainPillWidth(settings, compactMeasured) / 2f
 
     val shouldEmergeSecondary = scene.emergesBubble
@@ -1671,7 +1673,7 @@ internal fun IslandShell(
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 14.dp)
+                                .padding(horizontal = IslandTokens.Shell.ChargingContentPadding)
                                 .graphicsLayer { alpha = chargingContentAlpha },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1694,14 +1696,23 @@ internal fun IslandShell(
                                     )
                                     Spacer(Modifier.width(ChargingBolt.GAP))
                                 }
-                                Text(
-                                    text = chargingLabel,
-                                    color = IslandTokens.ChargingGreen,
-                                    fontSize = IslandType.CompactValue,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                // V3.5: the wattage always fits (the pill is sized for "000W");
+                                // "Charging" squeezes or drops, leaving the bolt, never "…"
+                                val chargingStyle = TextStyle(fontSize = IslandType.CompactValue, fontWeight = FontWeight.SemiBold)
+                                val chargingFit = com.droidbubble.app.island.layout.rememberCompactFit(
+                                    chargingLabel,
+                                    alertSides.charging - (IslandTokens.Glyph.Compact - ChargingBolt.SHRINK) - ChargingBolt.GAP,
+                                    chargingStyle,
                                 )
+                                chargingFit.text?.let {
+                                    Text(
+                                        text = it,
+                                        color = IslandTokens.ChargingGreen,
+                                        style = com.droidbubble.app.island.layout.CompactFit.squeezed(chargingStyle, chargingFit),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
                             }
 
                             // Center: 36dp deadzone strictly over camera cutout
@@ -1799,7 +1810,7 @@ internal fun IslandShell(
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 8.dp)
+                                .padding(horizontal = IslandTokens.Shell.AlertContentPadding)
                                 .graphicsLayer { alpha = ringerContentAlpha },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1881,12 +1892,14 @@ internal fun IslandShell(
                                             scaleY = ringerSecondaryScale.value
                                         }
                                     ) {
+                                        // V3.5: the pill is sized for "Vibrate", so every label fits whole
                                         Text(
                                             text = labelText,
                                             color = labelColor,
                                             fontSize = IslandType.CompactLabel,
                                             fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
                                 }

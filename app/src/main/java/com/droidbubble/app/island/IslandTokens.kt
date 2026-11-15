@@ -150,6 +150,9 @@ object IslandTokens {
         const val UnlockWidthFactor = 0.82f
         val UnlockMinWidth = 108.dp
         const val RingerWidthFactor = 0.95f
+        /** Edge padding inside the ringer, unlock and connection pills, and inside the charging pill. */
+        val AlertContentPadding = 8.dp
+        val ChargingContentPadding = 14.dp
         val RingerMinWidth = 130.dp
     }
 

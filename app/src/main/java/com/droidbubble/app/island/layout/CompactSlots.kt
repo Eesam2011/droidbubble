@@ -188,3 +188,28 @@ fun rememberCompactSide(
         max(lead.value, trail.value).dp
     }
 }
+
+/** V3.5: the glance pills' widest content, measured in their own styles. */
+@Composable
+fun rememberAlertSides(): com.droidbubble.app.island.scene.AlertSides {
+    val measurer = rememberTextMeasurer()
+    val base = LocalTextStyle.current
+    val density = LocalDensity.current
+    return remember(base, density) {
+        fun w(text: String, size: androidx.compose.ui.unit.TextUnit) = CompactFit.measure(
+            measurer, density, text, base.merge(TextStyle(fontSize = size, fontWeight = FontWeight.SemiBold)), squeeze = false
+        )
+        val ringer = listOf("Ring", "Vibrate", "Silent").maxOf { w(it, IslandType.CompactLabel) }
+        val wattage = listOf("0.0W", "000W").maxOf { w(it, IslandType.CompactValue) }
+        val bolt = IslandTokens.Glyph.Compact.value - CHARGING_BOLT_SHRINK + CHARGING_BOLT_GAP
+        val charging = maxOf(bolt + wattage, w("100%", IslandType.CompactValue))
+        com.droidbubble.app.island.scene.AlertSides(
+            ringer = maxOf(IslandTokens.Glyph.Compact.value, ringer).dp,
+            charging = charging.dp,
+        )
+    }
+}
+
+/** The charging bolt: the compact glyph size minus this, then this gap before the wattage. */
+const val CHARGING_BOLT_SHRINK = 4f
+const val CHARGING_BOLT_GAP = 3f

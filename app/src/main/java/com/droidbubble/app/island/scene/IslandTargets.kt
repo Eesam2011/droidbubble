@@ -21,7 +21,29 @@ data class MeasuredHeights(
     val progress: Dp? = null,
     val compactSide: Dp? = null,
     val cameraZone: Dp = IslandTokens.Shell.CameraZone,
+    /** V3.5: the glance pills' widest content, measured; null uses a generous estimate (the window). */
+    val alertSides: AlertSides? = null,
 )
+
+/**
+ * V3.5: the widest content one side of a glance pill can hold: the ringer's longest label
+ * ("Vibrate"), and the charging pill's bolt and widest wattage or its "100%".
+ */
+@Immutable
+data class AlertSides(val ringer: Dp, val charging: Dp)
+
+/**
+ * A generous [AlertSides] without a text measurer (0.62 em per character, wider than the island's
+ * font), so the window is never narrower than the pill the view measures.
+ */
+fun estimatedAlertSides(fontScale: Float): AlertSides {
+    val em = 0.62f * fontScale
+    val ringerLabel = 7 * em * com.droidbubble.app.island.IslandType.CompactLabel.value
+    val value = com.droidbubble.app.island.IslandType.CompactValue.value
+    val chargingLead = (IslandTokens.Glyph.Compact.value - 4f) + 3f + 4 * em * value
+    val chargingTrail = 4 * em * value
+    return AlertSides(maxOf(IslandTokens.Glyph.Compact.value, ringerLabel).dp, maxOf(chargingLead, chargingTrail).dp)
+}
 
 /**
  * The compact pill's width. Owner decision (2026-11-15): always exactly the Width setting, like
@@ -82,9 +104,18 @@ fun deriveIslandTargets(
     val isExpanded = scene.isExpanded
     val hasAlert = scene.hasAlert
 
-    val chargingIslandWidth = (settings.widthDp + IslandTokens.Shell.ChargingExtraWidthDp).dp.coerceAtLeast(IslandTokens.Shell.ChargingMinWidth)
+    // V3.5: a glance pill is never narrower than its widest content, the same width in every
+    // state (Ring, Vibrate and Silent alike), so nothing is clipped and the label never moves
+    val alertSides = measured.alertSides ?: estimatedAlertSides(env.fontScale)
+    val chargingIslandWidth = maxOf(
+        (settings.widthDp + IslandTokens.Shell.ChargingExtraWidthDp).dp.coerceAtLeast(IslandTokens.Shell.ChargingMinWidth),
+        IslandTokens.Shell.ChargingContentPadding * 2 + measured.cameraZone + alertSides.charging * 2,
+    )
     val unlockIslandWidth = (settings.widthDp * IslandTokens.Shell.UnlockWidthFactor).dp.coerceAtLeast(IslandTokens.Shell.UnlockMinWidth)
-    val ringerIslandWidth = (settings.widthDp * IslandTokens.Shell.RingerWidthFactor).dp.coerceAtLeast(IslandTokens.Shell.RingerMinWidth)
+    val ringerIslandWidth = maxOf(
+        (settings.widthDp * IslandTokens.Shell.RingerWidthFactor).dp.coerceAtLeast(IslandTokens.Shell.RingerMinWidth),
+        IslandTokens.Shell.AlertContentPadding * 2 + measured.cameraZone + alertSides.ringer * 2,
+    )
     val alertWidth = when {
         v.isCharging -> chargingIslandWidth
         v.isRingerMode -> ringerIslandWidth
