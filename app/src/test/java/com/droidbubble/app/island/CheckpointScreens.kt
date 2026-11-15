@@ -145,6 +145,9 @@ class CheckpointScreens(private val case: Case) {
             Case("compact_idle", COMPACT, settings = BASE.copy(alwaysShowPill = true)) {},
             Case("compact_media", COMPACT) { IslandStateManager.updateMedia(IslandFixtures.song) },
             Case("compact_message", COMPACT) { IslandStateManager.updateNotification(IslandFixtures.message()) },
+            Case("compact_message_contact_photo", COMPACT) {
+                IslandStateManager.updateNotification(IslandFixtures.message().copy(avatarBitmap = IslandFixtures.art))
+            },
             Case("compact_timer", COMPACT) { IslandStateManager.updateNotification(IslandFixtures.timer) },
             Case("compact_call", COMPACT) { IslandStateManager.updateNotification(ongoingCall) },
             Case("compact_recorder", COMPACT) { IslandStateManager.updateNotification(IslandFixtures.recorder) },

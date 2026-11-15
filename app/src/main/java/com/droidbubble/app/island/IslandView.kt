@@ -749,9 +749,11 @@ fun CompactContent(
                             if (notification?.avatarBitmap != null || notification?.iconBitmap != null) {
                                 CompactContactAvatar(
                                     notification = notification,
-                                    edgeReach = if (isCompactDual) IslandTokens.SpaceSm else horizontalInset,
-                                    // A contact photo fills the pill's end; a bare app icon stays icon-sized
-                                    maxDiameter = if (notification.avatarBitmap != null) Dp.Infinity else IslandTokens.Glyph.CompactArt
+                                    // One layout for every leading picture (owner, CP2 2026-11-15): a contact
+                                    // photo and an app icon sit exactly where the song cover does, the same
+                                    // size, with the same gap on every side
+                                    edgeReach = 0.dp,
+                                    maxDiameter = IslandTokens.Glyph.CompactArt
                                 )
                             } else {
                                 Icon(

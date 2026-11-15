@@ -113,8 +113,8 @@ object CompactSlots {
                     kind == LiveActivityKind.TRACKING -> art
                     kind != LiveActivityKind.NONE -> glyph
                     notification.liveTimerBaseMs > 0L -> glyph
-                    notification.avatarBitmap != null -> avatarFootprint(pillHeight)
-                    notification.iconBitmap != null -> minOf(avatarFootprint(pillHeight), art)
+                    // One size for every leading picture (owner, CP2): cover, app icon, contact photo
+                    notification.avatarBitmap != null || notification.iconBitmap != null -> art
                     else -> glyph
                 }
                 val timed = kind != LiveActivityKind.NONE && kind != LiveActivityKind.CALL
