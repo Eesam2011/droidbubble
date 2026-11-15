@@ -4,7 +4,6 @@ package com.droidbubble.app.ui.main
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
-import com.droidbubble.app.island.motion.toPhysical
 import com.droidbubble.app.icons.AppIcons
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -41,6 +40,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -2507,52 +2507,40 @@ private fun CrashReportItem() {
 }
 
 
-private fun springStep(damping: Float, stiffness: Float, t: Float): Float {
-    val w = Math.sqrt(stiffness.toDouble())
-    val z = damping.toDouble()
-    return if (z < 1.0) {
-        val wd = w * Math.sqrt(1.0 - z * z)
-        (1.0 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t))).toFloat()
-    } else {
-        (1.0 - Math.exp(-w * t) * (1.0 + w * t)).toFloat()
-    }
-}
-
+/**
+ * D5.2: the user's four motion curves by feel. Duration and Bounce are what's stored (D5.1); the
+ * preview plots the spring the island runs (speed² included) and prints its settle time and
+ * overshoot. The sliders move the preview live and write once, when the drag ends.
+ */
 @Composable
 fun AnimationCurveEditor(
     settings: IslandSettings,
     onUpdateSettings: ((IslandSettings) -> IslandSettings) -> Unit
 ) {
-    val targets = listOf("Expand", "Appear", "Split")
-    var selected by remember { mutableStateOf(0) }
-    // D5.1: the curves are stored by feel; this editor still edits the spring until D5.2
-    val droid = com.droidbubble.app.model.CurveMigration.DROID
-    val defaults = listOf(droid.expand, droid.appear, droid.split)
-    val curve = when (selected) {
-        0 -> com.droidbubble.app.model.Curve(settings.expandDuration, settings.expandBounce)
-        1 -> com.droidbubble.app.model.Curve(settings.appearDuration, settings.appearBounce)
-        else -> com.droidbubble.app.model.Curve(settings.splitDuration, settings.splitBounce)
-    }
-    val spring = com.droidbubble.app.island.motion.MotionToken.Perceptual(curve.duration, curve.bounce).toPhysical()
-    val damping = spring.dampingRatio
-    val stiffness = spring.stiffness
-    val isDefault = curve == defaults[selected]
+    val targets = CurveTarget.entries
+    var selected by remember { mutableStateOf(CurveTarget.EXPAND) }
+    val curve = selected.curveOf(settings)
+    val isDefault = curve == selected.droid
+    val speed = islandSpeed(settings)
+    val speedText = String.format(Locale.US, "%.1f", speed).removeSuffix(".0")
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val travelDp = selected.travelDp(settings, screenWidthDp)
+    val reduced = com.droidbubble.app.island.motion.rememberMotionTier(settings.reduceMotion) ==
+        com.droidbubble.app.island.motion.MotionTier.REDUCED
+    val view = LocalView.current
 
-    fun setCurveByFeel(c: com.droidbubble.app.model.Curve) {
-        onUpdateSettings {
-            when (selected) {
-                0 -> it.copy(expandDuration = c.duration, expandBounce = c.bounce)
-                1 -> it.copy(appearDuration = c.duration, appearBounce = c.bounce)
-                else -> it.copy(splitDuration = c.duration, splitBounce = c.bounce)
-            }
-        }
+    // What the sliders show while a finger is on them; the stored curve otherwise
+    var liveDuration by remember(selected, curve.duration) { mutableFloatStateOf(curve.duration) }
+    var liveBounce by remember(selected, curve.bounce) { mutableFloatStateOf(curve.bounce) }
+    val readout = remember(liveDuration, liveBounce, speed, travelDp) {
+        SpringReadout.of(liveDuration, liveBounce, speed, travelDp)
     }
 
-    fun setCurve(d: Float, k: Float) {
-        val c = com.droidbubble.app.model.CurveMigration.run { clamp(fromSpring(d, k)) }
-        setCurveByFeel(c)
+    fun setCurve(c: com.droidbubble.app.model.Curve) {
+        val target = selected
+        onUpdateSettings { target.withCurve(it, c) }
     }
-
+    fun round2(v: Float) = (v * 100f).roundToInt() / 100f
 
     SettingsCardItem(position = GroupPosition.SINGLE) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
@@ -2563,7 +2551,7 @@ fun AnimationCurveEditor(
                 Icon(AppIcons.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(16.dp))
                 Text("Animation Curves", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                TextButton(onClick = { setCurveByFeel(defaults[selected]) }, enabled = !isDefault) {
+                TextButton(onClick = { setCurve(selected.droid) }, enabled = !isDefault) {
                     Icon(AppIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Reset")
@@ -2571,7 +2559,8 @@ fun AnimationCurveEditor(
             }
             Spacer(Modifier.height(10.dp))
 
-            // Expand / Appear / Split segmented buttons matching screen record & live progress cards
+            // Expand / Collapse / Appear / Split, matching the screen record & live progress cards.
+            // The selected one changes only its color and fill, so no label changes width.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2579,8 +2568,8 @@ fun AnimationCurveEditor(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                targets.forEachIndexed { i, label ->
-                    val isSelected = selected == i
+                targets.forEachIndexed { i, target ->
+                    val isSelected = selected == target
                     val shape = when (i) {
                         0 -> RoundedCornerShape(
                             topStart = 14.dp,
@@ -2598,7 +2587,7 @@ fun AnimationCurveEditor(
                     }
 
                     FilledTonalButton(
-                        onClick = { selected = i },
+                        onClick = { selected = target },
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp),
@@ -2610,9 +2599,9 @@ fun AnimationCurveEditor(
                         )
                     ) {
                         Text(
-                            text = label,
+                            text = target.label,
                             fontSize = 13.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2621,8 +2610,24 @@ fun AnimationCurveEditor(
             }
             Spacer(Modifier.height(14.dp))
 
+            if (reduced) {
+                Text(
+                    "Reduced motion is on, so the island uses gentle fades",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f))
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+
             val lineColor = MaterialTheme.colorScheme.primary
             val guideColor = MaterialTheme.colorScheme.outlineVariant
+            val plotSeconds = readout.plotSeconds
             Box(
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
@@ -2646,7 +2651,7 @@ fun AnimationCurveEditor(
                     val n = 80
                     for (i in 0..n) {
                         val tt = i / n.toFloat()
-                        val v = springStep(damping, stiffness, tt * 1.0f).coerceIn(0f, maxV)
+                        val v = readout.step(tt * plotSeconds).toFloat().coerceIn(0f, maxV)
                         val x = padX + w * tt
                         val y = padY + h * (1f - v / maxV)
                         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
@@ -2661,25 +2666,61 @@ fun AnimationCurveEditor(
                     )
                 }
             }
+            // The time axis, in seconds, under the plot's ends and middle
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 34.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                listOf(0.0, plotSeconds / 2.0, plotSeconds).forEach { t ->
+                    Text(
+                        if (t == 0.0) "0 s" else String.format(Locale.US, "%.2f s", t),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Text(
+                buildString {
+                    append(String.format(Locale.US, "Settles in %.2f s", readout.settleSeconds))
+                    append(" · ")
+                    if (readout.overshootDp < 0.05) append("no overshoot")
+                    else append(String.format(Locale.US, "overshoot %.1f dp", readout.overshootDp))
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+            )
 
-            val bounce = ((1f - damping) / 0.7f).coerceIn(0f, 1f)
             SliderSettingItemPct(
-                label = "Bounce",
-                valueText = { b -> "${(b * 100).toInt()}%" },
-                value = bounce,
-                valueRange = 0f..1f,
-                onCommit = { b -> setCurve((1f - 0.7f * b), stiffness) }
+                label = "Duration",
+                valueText = { d -> String.format(Locale.US, "%.2f s at %s× speed", d / speed, speedText) },
+                spokenValue = { d -> String.format(Locale.US, "%.2f seconds at current speed", d / speed) },
+                value = curve.duration,
+                valueRange = com.droidbubble.app.model.CurveMigration.MIN_DURATION..com.droidbubble.app.model.CurveMigration.MAX_DURATION,
+                onValueChange = { liveDuration = it },
+                onCommit = { d -> setCurve(com.droidbubble.app.model.Curve(round2(d), curve.bounce)) }
             )
             SliderSettingItemPct(
-                label = "Snap",
-                valueText = { k -> "${k.toInt()}" },
-                value = stiffness,
-                valueRange = 150f..700f,
-                onCommit = { k -> setCurve(damping, k.roundToInt().toFloat()) }
+                label = "Bounce",
+                valueText = { b -> bounceLabel(b) },
+                spokenValue = { b -> bounceLabel(b) },
+                value = curve.bounce,
+                valueRange = com.droidbubble.app.model.CurveMigration.MIN_BOUNCE..com.droidbubble.app.model.CurveMigration.MAX_BOUNCE,
+                onValueChange = { b ->
+                    // A tick when the finger crosses the 0.4 soft cap
+                    if ((liveBounce < BOUNCE_SOFT_CAP) != (b < BOUNCE_SOFT_CAP)) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    }
+                    liveBounce = b
+                },
+                onCommit = { b -> setCurve(com.droidbubble.app.model.Curve(curve.duration, round2(b))) }
             )
         }
     }
 }
+
+/** Bounce above this is more than the island's own curves use (research 03's soft cap). */
+private const val BOUNCE_SOFT_CAP = 0.4f
 
 @Composable
 private fun SliderSettingItemPct(
@@ -2687,6 +2728,10 @@ private fun SliderSettingItemPct(
     valueText: (Float) -> String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
+    /** What TalkBack reads after the label; null: the slider's own percentage. */
+    spokenValue: ((Float) -> String)? = null,
+    /** Follows the finger (the setting itself is only written by [onCommit]). */
+    onValueChange: (Float) -> Unit = {},
     onCommit: (Float) -> Unit
 ) {
     // B8.7: as SliderSettingItem, the setting is written once when the drag ends
@@ -2709,10 +2754,15 @@ private fun SliderSettingItemPct(
         }
         Slider(
             value = dragValue,
-            onValueChange = { dragValue = it },
+            onValueChange = { dragValue = it; onValueChange(it) },
             onValueChangeFinished = { onCommit(dragValue) },
             valueRange = valueRange,
-            modifier = Modifier.height(28.dp)
+            modifier = Modifier
+                .height(28.dp)
+                .semantics {
+                    contentDescription = label
+                    if (spokenValue != null) stateDescription = spokenValue(dragValue)
+                }
         )
     }
 }
