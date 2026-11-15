@@ -177,7 +177,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | ID | Title | Status |
 |---|---|---|
 | VD0.1 | Owner checkpoint screenshot set | done (89 states on a grey photo, plus black and white variants; FPS, weather and network left out because they were removed) |
-| V1.1 | CutoutCalibration reader and CameraGeometry | todo |
+| V1.1 | CutoutCalibration reader and CameraGeometry | done (pure maths in `island/layout/CameraGeometry.kt`, reader in `service/CutoutReader.kt`, `IslandStateManager.cameraGeometry`; 12 table cases pass; nothing reads it yet; check later on the phone: logcat "camera:" line matches the lens within 1 dp) |
 | V1.2 | Settings become fine-tune deltas, with migration | todo |
 | V1.3 | Apply calibration (cameraZone, window) | todo |
 | V1.4 | "Fit to camera" switch and labels | todo |
@@ -189,7 +189,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V3.2 | Matched type; squeeze, abbreviate, drop | todo |
 | V3.3 | Oval bubble and readable ring | todo |
 | V3.4 | Flashlight trailing value | todo |
-| V3.5 | System alert pills hug their content | todo |
+| V3.5 | System alert pills hug their content | todo (owner, 2026-11-15: the ringer pill clips "Vibrate" to "Vibrat" and its label sits in a different place in Ring and Vibrate mode; fix here: labels never clipped, same trailing position in every mode) |
 | V4.1 | Measured card heights | todo |
 | V4.2 | One header, padding and button rhythm | todo |
 | V5.1 | Semantic color roles | todo |

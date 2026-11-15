@@ -445,6 +445,8 @@ class IslandOverlayService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        // V1.1: the camera moves with the rotation
+        IslandStateManager.setCameraGeometry(CutoutReader.read(this))
         envState.value = currentEnv()
         updateWindowState(IslandStateManager.isExpanded.value)
     }
@@ -558,9 +560,25 @@ class IslandOverlayService : Service() {
         }
     }
 
+    // V1.1: foldables and resolution changes move the camera without a configuration change
+    private val displayListener = object : android.hardware.display.DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId == android.view.Display.DEFAULT_DISPLAY) {
+                IslandStateManager.setCameraGeometry(CutoutReader.read(this@IslandOverlayService))
+            }
+        }
+    }
+
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private fun initOverlay() {
         if (composeView != null) return
+        IslandStateManager.setCameraGeometry(CutoutReader.read(this))
+        runCatching {
+            getSystemService(android.hardware.display.DisplayManager::class.java)
+                ?.registerDisplayListener(displayListener, android.os.Handler(android.os.Looper.getMainLooper()))
+        }
 
         val aService = IslandAccessibilityService.instance
         windowManager = if (aService != null) {
@@ -1025,6 +1043,7 @@ class IslandOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        runCatching { getSystemService(android.hardware.display.DisplayManager::class.java)?.unregisterDisplayListener(displayListener) }
         spokenAlertsJob?.cancel()
         spokenAlertsJob = null
         spokenAlerts?.shutdown()

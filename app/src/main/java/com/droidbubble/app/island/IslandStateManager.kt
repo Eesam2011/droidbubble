@@ -49,6 +49,16 @@ object IslandStateManager {
     val isUnlocked: StateFlow<Boolean> = _isUnlocked.asStateFlow()
     private var unlockJob: Job? = null
 
+    // V1.1: the hardware camera, measured from the display cutout by the overlay service
+    private val _cameraGeometry = MutableStateFlow(com.droidbubble.app.island.layout.CameraGeometry.None)
+    val cameraGeometry: StateFlow<com.droidbubble.app.island.layout.CameraGeometry> = _cameraGeometry.asStateFlow()
+
+    fun setCameraGeometry(geometry: com.droidbubble.app.island.layout.CameraGeometry) {
+        if (_cameraGeometry.value == geometry) return
+        android.util.Log.d("IslandStateManager", "camera: $geometry")
+        _cameraGeometry.value = geometry
+    }
+
     private val _isDeviceLocked = MutableStateFlow(false)
     val isDeviceLocked: StateFlow<Boolean> = _isDeviceLocked.asStateFlow()
 
@@ -833,6 +843,7 @@ object IslandStateManager {
         listOf(popInJob, chargingJob, unlockJob, bluetoothJob, ringerJob, autoDismissNotificationJob, torchConfirmJob)
             .forEach { it?.cancel() }
         _activeCharging.value = null
+        _cameraGeometry.value = com.droidbubble.app.island.layout.CameraGeometry.None
         _iconSignals.value = com.droidbubble.app.island.icon.IconSignals()
         _isUnlocked.value = false
         _isBluetoothConnected.value = false
