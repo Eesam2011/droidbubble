@@ -1,6 +1,9 @@
 package com.droidbubble.app.ui.main
 
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import com.droidbubble.app.island.motion.toPhysical
 import com.droidbubble.app.icons.AppIcons
 import android.content.ClipData
@@ -1676,6 +1679,7 @@ fun SliderSettingItem(
     unit: String,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
+    signed: Boolean = false,
     onCommit: (Float) -> Unit
 ) {
     // B8.7: the drag moves a value held here (the label follows it live); the setting is written
@@ -1704,7 +1708,8 @@ fun SliderSettingItem(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${if (unit == "x" || unit == "dp") String.format(Locale.US, "%.1f", dragValue).replace(".0", "") else dragValue.toInt()} $unit",
+                    text = if (signed) DimensionBindings.valueText(dragValue, signed = true)
+                    else "${if (unit == "x" || unit == "dp") String.format(Locale.US, "%.1f", dragValue).replace(".0", "") else dragValue.toInt()} $unit",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1718,7 +1723,11 @@ fun SliderSettingItem(
             onValueChangeFinished = { onCommit(dragValue) },
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.height(24.dp)
+            // V1.4: TalkBack reads "Vertical fine-tune, plus 2 dp"
+            modifier = Modifier.height(24.dp).semantics {
+                contentDescription = label
+                if (signed) stateDescription = DimensionBindings.spokenValue(dragValue, signed = true)
+            }
         )
     }
 }
@@ -1751,6 +1760,9 @@ fun DimensionsPage(
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onBack)
+    // V1.4: read here, so the page knows the camera even while the island isn't running
+    val context = LocalContext.current
+    val camera = remember { com.droidbubble.app.service.CutoutReader.read(context) }
 
     Scaffold(
         modifier = modifier,
@@ -1797,6 +1809,22 @@ fun DimensionsPage(
             }
 
             item {
+                SettingsCardItem(position = GroupPosition.SINGLE) {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = { Text("Fit to camera", fontWeight = FontWeight.SemiBold) },
+                        supportingContent = { Text(DimensionBindings.detectedText(camera)) },
+                        trailingContent = {
+                            Switch(
+                                checked = settings.autoCalibrate,
+                                onCheckedChange = { on -> onUpdateSettings { s -> DimensionBindings.setFitToCamera(s, on, camera) } }
+                            )
+                        }
+                    )
+                }
+            }
+
+            item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -1811,34 +1839,19 @@ fun DimensionsPage(
                         )
                     }
 
-                    SettingsCardItem(position = GroupPosition.MIDDLE) {
-                        SliderSettingItem(
-                            label = "Height",
-                            value = settings.heightDp.toFloat(),
-                            unit = "dp",
-                            valueRange = 12f..56f,
-                            onCommit = { onUpdateSettings { s -> s.copy(heightDp = it.roundToInt()) } }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE) {
-                        SliderSettingItem(
-                            label = "Top Offset (Notch Line-up)",
-                            value = settings.topOffsetDp.toFloat(),
-                            unit = "dp",
-                            valueRange = 0f..60f,
-                            onCommit = { onUpdateSettings { s -> s.copy(topOffsetDp = it.roundToInt()) } }
-                        )
-                    }
-
-                    SettingsCardItem(position = GroupPosition.MIDDLE) {
-                        SliderSettingItem(
-                            label = "Horizontal Offset",
-                            value = settings.horizontalOffsetDp.toFloat(),
-                            unit = "dp",
-                            valueRange = -50f..50f,
-                            onCommit = { onUpdateSettings { s -> s.copy(horizontalOffsetDp = it.roundToInt()) } }
-                        )
+                    // V1.4: with "Fit to camera" these are fine-tune deltas around the lens
+                    for (field in listOf(DimensionBindings.Field.HEIGHT, DimensionBindings.Field.TOP, DimensionBindings.Field.HORIZONTAL)) {
+                        val slider = DimensionBindings.slider(field, settings, camera)
+                        SettingsCardItem(position = GroupPosition.MIDDLE) {
+                            SliderSettingItem(
+                                label = slider.label,
+                                value = slider.value,
+                                unit = "dp",
+                                valueRange = slider.range,
+                                signed = slider.signed,
+                                onCommit = { v -> onUpdateSettings { s -> DimensionBindings.apply(field, s, camera, v) } }
+                            )
+                        }
                     }
 
                     SettingsCardItem(position = GroupPosition.MIDDLE) {
