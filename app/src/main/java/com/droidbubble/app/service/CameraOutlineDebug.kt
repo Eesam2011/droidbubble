@@ -17,7 +17,6 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.unit.dp
 import com.droidbubble.app.island.IslandStateManager
 import com.droidbubble.app.island.layout.CameraGeometry
-import com.droidbubble.app.island.layout.CutoutKind
 
 /**
  * V1.3, debug builds: a 1 dp red ring where the camera was measured, drawn in the island window,
@@ -26,7 +25,7 @@ import com.droidbubble.app.island.layout.CutoutKind
 @Composable
 internal fun CameraOutlineDebug(camera: CameraGeometry) {
     val show by IslandStateManager.showCameraOutline.collectAsState()
-    if (!show || camera.kind == CutoutKind.NONE) return
+    if (!show || !camera.isUsable) return
     // The window isn't at the screen origin: place the ring in screen coordinates
     var origin by remember { mutableStateOf(Offset.Zero) }
     Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionOnScreen() }) {

@@ -63,11 +63,16 @@ object CutoutCalibration {
     private const val EDGE_TOUCH_DP = 1f
     /** A camera this close to the middle of its edge counts as centred (fraction of the edge). */
     private const val CENTER_BAND = 0.12f
+    /** An outline covering this much of its bounds is a rectangle (a circle covers π/4 ≈ 0.79). */
+    const val RECTANGLE_FILL = 0.95f
 
     /**
      * @param rects the bounding rects (one per cutout), px
      * @param pathBounds the bounds of the cutout path (API 31+), px; preferred when present,
      *   because it hugs the hole instead of an OEM's stretched rect. Only used with one cutout.
+     * @param pathFill how much of [pathBounds] the path covers (0–1), when known. A round hole
+     *   covers about 0.79; a phone that reports a plain rectangle (some OPPO models describe the
+     *   whole status-bar box) covers 1, and the lens can't be measured from it.
      */
     fun fromRects(
         rects: List<CutoutRect>,
@@ -76,6 +81,7 @@ object CutoutCalibration {
         screenHpx: Int,
         density: Float,
         rotation: Int,
+        pathFill: Float? = null,
     ): CameraGeometry {
         if (rects.isEmpty() && pathBounds == null) return CameraGeometry.None
         val w = screenWpx / density
@@ -106,6 +112,8 @@ object CutoutCalibration {
         val aspect = if (across > 0f) along / across else Float.POSITIVE_INFINITY
         val kind = when {
             along > MAX_HOLE_DP -> CutoutKind.WIDE_NOTCH
+            // A rectangular outline is a padded box, not the lens: placement stays manual
+            pathFill != null && pathFill >= RECTANGLE_FILL -> CutoutKind.UNKNOWN
             aspect in 0.75f..1.35f -> CutoutKind.PUNCH_HOLE
             // Stretched to the edge: deeper than wide, but the lens is the square at the far side
             touches && aspect < 0.75f -> CutoutKind.PUNCH_HOLE

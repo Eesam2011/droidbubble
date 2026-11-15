@@ -1384,7 +1384,9 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                     trackKey = mediaTrackKey(media),
                     modifier = Modifier
                         .size(artSize)
-                        .clip(islandShape(com.droidbubble.app.island.layout.LocalCardGeometry.current.let { it.radiusFor(it.insetRoomy, artSize, artSize) }))
+                        .clip(islandShape(com.droidbubble.app.island.layout.LocalCardGeometry.current.let {
+                            minOf(it.radiusFor(it.insetRoomy, artSize, artSize), artSize * com.droidbubble.app.island.layout.CardGeometry.COVER_CAP)
+                        }))
                         .background(IslandTokens.SurfaceMuted)
                         .clickable {
                             openTarget(context, media?.sessionActivity, media?.packageName)

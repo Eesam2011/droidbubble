@@ -32,7 +32,7 @@ class OpticalCenterTest {
     @Test
     fun shiftedGlyphsAreCentredWithinHalfADp() {
         val shifted = catalogue.distinctBy { it.name }.filter { IslandIcons.opticalShiftOf(it) != null }
-        assertEquals("every glyph with an optical shift is in the catalogue, at both sizes", 12, shifted.size)
+        assertEquals("every glyph with an optical shift is in the catalogue, at both sizes", 10, shifted.size)
         for (glyph in shifted) {
             val (cx, cy) = GlyphCentroidProbe.measure(glyph)
             val (fx, fy) = IslandIcons.opticalShiftOf(glyph)!!

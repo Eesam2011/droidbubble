@@ -59,6 +59,8 @@ class CardGeometry(scale: Float, fontScale: Float = 1f) {
         val MIN_INNER = 6.dp
         /** Square-ish elements stop at this fraction of their short side. */
         const val SQUARE_CAP = 0.42f
+        /** The song cover in the media card stops lower: less round than a tile (owner, CP1 2026-11-15). */
+        const val COVER_CAP = 0.27f
     }
 }
 

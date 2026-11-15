@@ -53,6 +53,18 @@ class CutoutCalibrationTest {
     @Test fun pathBoundsBeatAStretchedRect() =
         assertCamera(portrait(px(150f, 0f, 210f, 40f), path = px(168f, 12f, 192f, 36f)), CutoutKind.PUNCH_HOLE, CameraSide.CENTER, 180f, 24f, 24f)
 
+    @Test fun rectangularOutline_isUnknown_soPlacementStaysManual() {
+        // OPPO CPH2631: cutoutSpec "M -38,0 L -38,65 L 38,65 L 38,0 Z" at 2×, a 38 × 32.5 dp box
+        val g = CutoutCalibration.fromRects(listOf(CutoutRect(322f, 0f, 398f, 65f)), CutoutRect(322f, 0f, 398f, 65f), 720, 1604, 2f, 0, pathFill = 1f)
+        assertEquals(CutoutKind.UNKNOWN, g.kind)
+        assertFalse(g.isUsable)
+    }
+
+    @Test fun roundOutline_isStillAHole() {
+        val g = CutoutCalibration.fromRects(listOf(px(168f, 12f, 192f, 36f)), px(168f, 12f, 192f, 36f), 1080, 2400, d, 0, pathFill = 0.785f)
+        assertEquals(CutoutKind.PUNCH_HOLE, g.kind)
+    }
+
     @Test fun rotation90_holeOnTheLeftEdge() {
         // 800 × 360 dp; the rect is stretched to x = 0, so trust its height and right edge
         val g = landscape(1, px(0f, 168f, 36f, 192f))

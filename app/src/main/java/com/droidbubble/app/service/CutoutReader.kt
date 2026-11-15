@@ -29,18 +29,36 @@ object CutoutReader {
             display.getRealSize(it)
         }
         val rects = cutout.boundingRects.map { CutoutRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
+        var pathFill: Float? = null
         val pathBounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             cutout.cutoutPath?.let { path ->
                 val bounds = RectF()
                 @Suppress("DEPRECATION")
                 path.computeBounds(bounds, true)
-                if (bounds.isEmpty) null else CutoutRect(bounds.left, bounds.top, bounds.right, bounds.bottom)
+                if (bounds.isEmpty) null else {
+                    pathFill = fillRatio(path, bounds)
+                    CutoutRect(bounds.left, bounds.top, bounds.right, bounds.bottom)
+                }
             }
         } else null
         val density = context.resources.displayMetrics.density
-        CutoutCalibration.fromRects(rects, pathBounds, size.x, size.y, density, display.rotation)
+        CutoutCalibration.fromRects(rects, pathBounds, size.x, size.y, density, display.rotation, pathFill)
     }.getOrElse {
         Log.w(TAG, "cutout read failed", it)
         CameraGeometry.None
     }
+
+    /** How much of [bounds] the [path] covers, from its pixel region (a circle ≈ 0.79, a rectangle 1). */
+    private fun fillRatio(path: android.graphics.Path, bounds: RectF): Float? = runCatching {
+        val clip = android.graphics.Region(
+            bounds.left.toInt(), bounds.top.toInt(), kotlin.math.ceil(bounds.right).toInt(), kotlin.math.ceil(bounds.bottom).toInt()
+        )
+        val region = android.graphics.Region().apply { setPath(path, clip) }
+        val it = android.graphics.RegionIterator(region)
+        val r = android.graphics.Rect()
+        var area = 0L
+        while (it.next(r)) area += r.width().toLong() * r.height()
+        val box = clip.bounds.width().toLong() * clip.bounds.height()
+        if (box > 0) area.toFloat() / box else null
+    }.getOrNull()
 }

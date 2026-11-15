@@ -93,19 +93,18 @@ object IslandIcons {
      * How far to shift a glyph so its ink sits on the centre of its box (V7.2), as fractions of
      * the glyph size (+x right, +y down). Measured from each glyph's ink centroid (see
      * GlyphCentroidProbe); only glyphs whose box is visibly framed (a round button, a tile, the
-     * bubble) are listed, the rest draw as designed.
+     * bubble) are listed, the rest draw as designed. Download is left out on purpose: its outline
+     * is already centred, and centring its ink (the heavy tray) pushed it visibly high (owner, CP1).
      */
     private val opticalShift: Map<String, Pair<Float, Float>> = mapOf(
         "Symbols.PlayArrow" to (0.013f to 0f),
         "Symbols.SkipNext" to (0.027f to 0f),
         "Symbols.SkipPrevious" to (-0.027f to 0f),
-        "Symbols.Download" to (0f to -0.104f),
         "Symbols.Notifications" to (0f to -0.015f),
         "Symbols.Mic" to (0f to 0.035f),
         "Symbols.PlayArrow.20" to (0.007f to 0f),
         "Symbols.SkipNext.20" to (0.018f to 0f),
         "Symbols.SkipPrevious.20" to (-0.018f to 0f),
-        "Symbols.Download.20" to (0f to -0.074f),
         "Symbols.Notifications.20" to (0f to -0.016f),
         "Symbols.Mic.20" to (0f to 0.037f),
     )
