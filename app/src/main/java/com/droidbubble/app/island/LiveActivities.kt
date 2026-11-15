@@ -356,22 +356,18 @@ object LiveActivityColors {
  *    tinted accent for the main toggle (pause / resume), glass for cancel / secondary.
  */
 class LiveLayout(scale: Float, fontScale: Float = 1f) {
-    /**
-     * How much the phone's font size setting grows the cards. Text follows the setting fully;
-     * controls and rows grow 60% as much, so big text still fits without the card ballooning.
-     */
-    private val textGrowth = fontScale.coerceIn(1f, 1.5f)
-    private val rowGrowth = 1f + (textGrowth - 1f) * 0.6f
+    /** V2.1: margin, control and radius come from the one card geometry. */
+    private val geometry = com.droidbubble.app.island.layout.CardGeometry(scale, fontScale)
 
-    val margin = (14.dp * scale).coerceIn(12.dp, 18.dp)
-    val gap = (10.dp * scale).coerceIn(10.dp, 14.dp)
+    val margin = geometry.m
+    val gap = geometry.gap
 
     /** Space between two buttons side by side: wide enough that a finger can't hit both. */
     val buttonGap = (gap * 1.2f).coerceAtLeast(12.dp)
 
     /** Round controls and avatars: never smaller than the 48dp minimum touch target. */
-    val control = ((50.dp * scale).coerceIn(48.dp, 58.dp) * rowGrowth)
-    val cornerRadius = control / 2 + margin
+    val control = geometry.control
+    val cornerRadius = geometry.R
 
     // Text sizes come from IslandType (F4.1). Hero numbers grow with the row, not with the font
     // setting, so they always fit the row.

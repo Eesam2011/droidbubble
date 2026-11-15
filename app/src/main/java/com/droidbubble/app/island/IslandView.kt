@@ -378,10 +378,15 @@ fun IslandOverlayRoot(
     // F4.1: text sizes by role, for the card scale and the phone's font size
     val fontScale = LocalDensity.current.fontScale
     val type = remember(settings.expandedScale, fontScale) { IslandType(settings.expandedScale, fontScale) }
+    // V2.1: the card margin and radius system, for nested corners
+    val cardGeometry = remember(settings.expandedScale, fontScale) {
+        com.droidbubble.app.island.layout.CardGeometry(settings.expandedScale, fontScale)
+    }
     CompositionLocalProvider(
         LocalIslandHaptics provides haptics,
         LocalIslandMotion provides motion,
         LocalIslandType provides type,
+        com.droidbubble.app.island.layout.LocalCardGeometry provides cardGeometry,
         // F4.2: every Text starts from the island's base (trimmed 20 sp box), not bodyLarge's 24 sp one
         LocalTextStyle provides LocalTextStyle.current.merge(type.base),
     ) {

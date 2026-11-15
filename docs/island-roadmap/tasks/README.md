@@ -182,7 +182,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V1.3 | Apply calibration (cameraZone, window) | todo |
 | V1.4 | "Fit to camera" switch and labels | todo |
 | V1.5 | Landscape anchors to the camera | todo |
-| V2.1 | CardGeometry, `inner()`, per-corner squircle | todo |
+| V2.1 | CardGeometry, `inner()`, per-corner squircle | done (settled S2 pixel-identical; one mid-motion frame differs by anti-aliasing at a capsule's ends, from the new capsule fast path, re-recorded; tests pass) |
 | V2.2 | One margin system | todo |
 | V2.3 | Concentric inner radii in squircles | todo |
 | V3.1 | Content-hugging compact width | todo |
