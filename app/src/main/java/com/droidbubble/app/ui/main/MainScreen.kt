@@ -131,6 +131,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.service.IslandOverlayService
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -2287,7 +2288,11 @@ fun AppearancePage(
             }
 
             item {
-                AnimationCurveEditor(settings = settings, onUpdateSettings = onUpdateSettings)
+                AnimationCurveEditor(
+                    settings = settings,
+                    onUpdateSettings = onUpdateSettings,
+                    islandRunning = settings.isEnabled
+                )
             }
         }
     }
@@ -2515,7 +2520,8 @@ private fun CrashReportItem() {
 @Composable
 fun AnimationCurveEditor(
     settings: IslandSettings,
-    onUpdateSettings: ((IslandSettings) -> IslandSettings) -> Unit
+    onUpdateSettings: ((IslandSettings) -> IslandSettings) -> Unit,
+    islandRunning: Boolean = true
 ) {
     val targets = CurveTarget.entries
     var selected by remember { mutableStateOf(CurveTarget.EXPAND) }
@@ -2528,6 +2534,10 @@ fun AnimationCurveEditor(
     val reduced = com.droidbubble.app.island.motion.rememberMotionTier(settings.reduceMotion) ==
         com.droidbubble.app.island.motion.MotionTier.REDUCED
     val view = LocalView.current
+    // D5.3: the preset the eight stored fields equal exactly; null shows "Custom"
+    val preset = com.droidbubble.app.model.MotionPreset.detect(settings)
+    val scope = rememberCoroutineScope()
+    var tryJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     // What the sliders show while a finger is on them; the stored curve otherwise
     var liveDuration by remember(selected, curve.duration) { mutableFloatStateOf(curve.duration) }
@@ -2555,6 +2565,45 @@ fun AnimationCurveEditor(
                     Icon(AppIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Reset")
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+
+            // D5.3: Calm / Droid / Lively set all four curves at once; any manual edit reads Custom
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                com.droidbubble.app.model.MotionPreset.entries.forEach { p ->
+                    FilterChip(
+                        selected = preset == p,
+                        onClick = { onUpdateSettings { p.applyTo(it) } },
+                        label = { Text(p.label, fontWeight = FontWeight.Medium) }
+                    )
+                }
+                if (preset == null) {
+                    // Not a button: it only says the curves match no preset
+                    FilterChip(
+                        selected = true,
+                        onClick = {},
+                        label = { Text("Custom", fontWeight = FontWeight.Medium) }
+                    )
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = {
+                        val previous = tryJob
+                        tryJob = scope.launch {
+                            previous?.cancelAndJoin()
+                            tryMotionOnIsland()
+                        }
+                    },
+                    enabled = islandRunning,
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text("Try on island")
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -2715,6 +2764,27 @@ fun AnimationCurveEditor(
                 },
                 onCommit = { b -> setCurve(com.droidbubble.app.model.Curve(curve.duration, round2(b))) }
             )
+        }
+    }
+}
+
+/**
+ * D5.3's "Try on island": a demo timer appears, the island expands, and after 1.5 s collapses,
+ * so a preset's motion can be judged on the real island. Cleans up if cancelled.
+ */
+private suspend fun tryMotionOnIsland() {
+    try {
+        com.droidbubble.app.island.LiveActivityTester.show(com.droidbubble.app.island.LiveActivityTester.Demo.TIMER)
+        kotlinx.coroutines.delay(800)
+        com.droidbubble.app.island.IslandStateManager.expand()
+        kotlinx.coroutines.delay(1500)
+        com.droidbubble.app.island.IslandStateManager.collapse()
+        // Let the collapse finish before the demo activity goes away
+        kotlinx.coroutines.delay(900)
+    } finally {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            com.droidbubble.app.island.IslandStateManager.collapse()
+            com.droidbubble.app.island.LiveActivityTester.clear()
         }
     }
 }

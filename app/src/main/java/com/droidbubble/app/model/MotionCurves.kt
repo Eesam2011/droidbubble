@@ -64,3 +64,54 @@ object CurveMigration {
     /** The default curves ("Droid"): the shipped springs, migrated. Fresh installs start here. */
     val DROID: Curves = migrate(Legacy()).curves
 }
+
+/**
+ * D5.3: three one-tap sets for all four curves (duration in s at speed 1, bounce). "Eager in, calm
+ * out" holds in each: Collapse bounces at most 0.05 and is quicker than Expand. [DROID] is the
+ * default, today's feel (the migrated shipped springs, see [CurveMigration.DROID]).
+ */
+enum class MotionPreset(val label: String, val curves: CurveMigration.Curves) {
+    CALM(
+        "Calm",
+        CurveMigration.Curves(
+            expand = Curve(0.37f, 0.05f),
+            collapse = Curve(0.31f, 0f),
+            appear = Curve(0.40f, 0.12f),
+            split = Curve(0.40f, 0.15f),
+        ),
+    ),
+    DROID("Droid", CurveMigration.DROID),
+    LIVELY(
+        "Lively",
+        CurveMigration.Curves(
+            expand = Curve(0.29f, 0.28f),
+            collapse = Curve(0.25f, 0.05f),
+            appear = Curve(0.32f, 0.38f),
+            split = Curve(0.32f, 0.40f),
+        ),
+    );
+
+    /** [s] with all eight curve fields set to this preset: one copy, so one write. */
+    fun applyTo(s: IslandSettings): IslandSettings = s.copy(
+        expandDuration = curves.expand.duration, expandBounce = curves.expand.bounce,
+        collapseDuration = curves.collapse.duration, collapseBounce = curves.collapse.bounce,
+        appearDuration = curves.appear.duration, appearBounce = curves.appear.bounce,
+        splitDuration = curves.split.duration, splitBounce = curves.split.bounce,
+    )
+
+    /** True when every one of [s]'s eight curve fields is exactly this preset's. */
+    fun matches(s: IslandSettings): Boolean = curvesOf(s) == curves
+
+    companion object {
+        /** The four curves stored in [s]. */
+        fun curvesOf(s: IslandSettings) = CurveMigration.Curves(
+            expand = Curve(s.expandDuration, s.expandBounce),
+            collapse = Curve(s.collapseDuration, s.collapseBounce),
+            appear = Curve(s.appearDuration, s.appearBounce),
+            split = Curve(s.splitDuration, s.splitBounce),
+        )
+
+        /** The preset [s] is on, or null ("Custom") after any manual edit. */
+        fun detect(s: IslandSettings): MotionPreset? = entries.firstOrNull { it.matches(s) }
+    }
+}
