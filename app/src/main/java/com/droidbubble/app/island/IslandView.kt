@@ -1006,7 +1006,7 @@ fun ExpandedFlashlightView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.FLASHLIGHT, scale),
+            .cardInset(IslandPriority.FLASHLIGHT, scale, LocalDensity.current.fontScale),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1365,7 +1365,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.MEDIA, scale),
+            .cardInset(IslandPriority.MEDIA, scale, LocalDensity.current.fontScale),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // Header: Album cover / app icon + Title & Artist + Equalizer
@@ -1661,7 +1661,8 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
         onCollapse()
     }
 
-    val metrics = remember(scale) { NotificationCardMetrics(scale) }
+    val fontScale = LocalDensity.current.fontScale
+    val metrics = remember(scale, fontScale) { NotificationCardMetrics(scale, fontScale) }
     val iconSize = metrics.iconSize
     val iconGap = metrics.iconGap
     val liveTimer = rememberLiveTimerText(notification)
@@ -1672,7 +1673,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.POP_NOTIFICATION, scale)
+            .cardInset(IslandPriority.POP_NOTIFICATION, scale, LocalDensity.current.fontScale)
     ) {
         // Top section: Header + Body text
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1891,7 +1892,8 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
     val context = LocalContext.current
     val progressFraction = notification?.progressFraction ?: 0f
     val isIndet = notification?.isIndeterminate == true
-    val m = remember(scale) { ProgressCardMetrics(scale) }
+    val progressFontScale = LocalDensity.current.fontScale
+    val m = remember(scale, progressFontScale) { ProgressCardMetrics(scale, progressFontScale) }
     val motion = LocalIslandMotion.current
     val animatedProgress by animateFloatAsState(
         targetValue = progressFraction,
@@ -1909,7 +1911,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.PROGRESS, scale)
+            .cardInset(IslandPriority.PROGRESS, scale, LocalDensity.current.fontScale)
     ) {
         IslandHeader(
             title = notification?.title?.ifBlank { "Downloading" } ?: "Downloading",
@@ -2032,7 +2034,7 @@ fun ExpandedIdleView(onCollapse: () -> Unit, scale: Float = 1.0f) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .islandCardContentPadding(IslandPriority.IDLE, scale),
+            .cardInset(IslandPriority.IDLE, scale, LocalDensity.current.fontScale),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

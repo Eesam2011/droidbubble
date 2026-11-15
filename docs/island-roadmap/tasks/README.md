@@ -27,8 +27,8 @@ This index lists every task in the roadmap, in order. Each task's full entry (go
 | Decision D7 | Keep MATCH_PARENT on expand; trial an envelope window behind a flag | Yes | F5.4, B2.3 |
 | — | Keep `adb shell am broadcast` debug control? If yes, keep it in debug builds only, guarded by `DUMP` | Your call | B1.1 |
 | — | Add a small bolt icon to the charging pill | Design check | I3.3 |
-| — | Margins: tall-card inset R/2 and tile radius cap (to keep today's look) | Review at CP1 | V2.2, V2.3 |
-| — | Pill height: max(36, camera+12) or max(36, camera+16) | Review at CP1 | V1.3 |
+| — | Margins: tall-card inset R/2 and tile radius cap (to keep today's look) | **Decided 2026-11-15 (CP1 questions): R/2 inset for every tall card; tiles and art keep the 0.42 cap (rounded squares)** | V2.2, V2.3 |
+| — | Pill height: max(36, camera+12) or max(36, camera+16) | **Decided 2026-11-15: max(36, camera+12)** | V1.3 |
 
 "Decision D1" (minSdk) is a different thing from epic **D1** (the liquid shader). They only share the name.
 
@@ -181,9 +181,9 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V1.2 | Settings become fine-tune deltas, with migration | done (deltas are Float so a migrated pill never moves by rounding; calibration applies only after the migration has run; nothing renders from it until V1.3; C2.3 must zero the deltas in its reset; check later on the phone: upgrade keeps the pill where it was) |
 | V1.3 | Apply calibration (cameraZone, window) | done (island and window draw from the calibrated settings; camera gap = measured zone; debug "Show camera outline" switch in the Test panel; the gap-follows-lens offset waits for V3.1, a Spacer offset has no visible effect; S2 unchanged; check later on the phone: the red ring sits on the lens, pill concentric, window holds the pill at extreme deltas) |
 | V1.4 | "Fit to camera" switch and labels | done (one new row on Dimensions; sliders become fine-tune deltas with signed values; toggling keeps the pill in place; TalkBack reads the label and "plus 2 dp"; C2.4 is this same switch; check later on the phone: the detected camera line, toggling with the island on) |
-| V1.5 | Landscape anchors to the camera | done, minus the minimised ring (pill on the top edge 8 dp from the side camera, top 6, gap 8; only the height fine-tune carries over; no migration while sideways; owner to decide at CP1 whether the minimised island becomes a ring at the side cutout, which needs a window reaching into the content area; check later on the phone with "Show in landscape" on) |
+| V1.5 | Landscape anchors to the camera | done, minus the minimised ring (pill on the top edge 8 dp from the side camera, top 6, gap 8; only the height fine-tune carries over; no migration while sideways; owner decided 2026-11-15: no ring at the side cutout, the minimised circle stays on top; check later on the phone with "Show in landscape" on) |
 | V2.1 | CardGeometry, `inner()`, per-corner squircle | done (settled S2 pixel-identical; one mid-motion frame differs by anti-aliasing at a capsule's ends, from the new capsule fast path, re-recorded; tests pass) |
-| V2.2 | One margin system | todo |
+| V2.2 | One margin system | done (owner chose the even R/2 inset, CP1 questions 2026-11-15; S2 and bounds golden re-recorded: message card +3.5 dp at font 1.0, +8 at 1.3; no Robolectric parity test, the views and the measures share one cardInsetDp) |
 | V2.3 | Concentric inner radii in squircles | todo |
 | V3.1 | Content-hugging compact width | todo |
 | V3.2 | Matched type; squeeze, abbreviate, drop | todo |

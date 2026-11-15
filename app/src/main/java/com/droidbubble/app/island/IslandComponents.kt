@@ -223,32 +223,33 @@ fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, prog
     return (baseH * scale * textGrowth).coerceAtLeast(minH)
 }
 
+/** V2.2: the two card insets of the one margin system ([CardGeometry]). */
+enum class CardInsetKind { ROOMY, TIGHT }
+
+/** Tall cards are roomy (R/2, so a corner-nested element is concentric); the one-row flashlight card is tight. */
+fun cardInsetKind(priority: IslandPriority): CardInsetKind =
+    if (priority == IslandPriority.FLASHLIGHT) CardInsetKind.TIGHT else CardInsetKind.ROOMY
+
+/** The inset of an expanded card's content from the card edge, the same on all four sides. */
+fun cardInsetDp(priority: IslandPriority, scale: Float, fontScale: Float): Dp {
+    val g = com.droidbubble.app.island.layout.CardGeometry(scale, fontScale)
+    return if (cardInsetKind(priority) == CardInsetKind.TIGHT) g.insetTight else g.insetRoomy
+}
+
 /**
- * Inner content padding for expanded cards. Each view applies this at its own root
- * so the card container stays layout-agnostic. Flashlight is the only card with
- * tighter insets; notification/progress get slightly less vertical room.
+ * Inner content padding for expanded cards (V2.2: one margin system). Each view applies it at its
+ * own root so the card container stays layout-agnostic.
  */
-fun Modifier.islandCardContentPadding(priority: IslandPriority, scale: Float): Modifier =
-    padding(
-        horizontal = islandCardHorizontalPadding(priority, scale),
-        vertical = islandCardVerticalPadding(priority, scale)
-    )
-
-fun islandCardHorizontalPadding(priority: IslandPriority, scale: Float): Dp =
-    ((if (priority == IslandPriority.FLASHLIGHT) 16.dp else 20.dp) * scale).coerceIn(14.dp, 24.dp)
-
-fun islandCardVerticalPadding(priority: IslandPriority, scale: Float): Dp =
-    ((if (priority == IslandPriority.FLASHLIGHT) 12.dp
-        else if (priority == IslandPriority.POP_NOTIFICATION || priority == IslandPriority.PROGRESS) 18.dp
-        else 20.dp) * scale).coerceIn(10.dp, 22.dp)
+fun Modifier.cardInset(priority: IslandPriority, scale: Float, fontScale: Float): Modifier =
+    padding(cardInsetDp(priority, scale, fontScale))
 
 /**
  * Sizes of the expanded notification card. Shared by [ExpandedNotificationView] and
  * [measureNotificationCardHeight] so the card is always exactly as tall as its content.
  */
-class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
-    val horizontalPadding = islandCardHorizontalPadding(IslandPriority.POP_NOTIFICATION, scale)
-    val verticalPadding = islandCardVerticalPadding(IslandPriority.POP_NOTIFICATION, scale)
+class NotificationCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType = IslandType(scale)) {
+    val horizontalPadding = cardInsetDp(IslandPriority.POP_NOTIFICATION, scale, fontScale)
+    val verticalPadding = horizontalPadding
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
     val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     val titleSize = type.title
@@ -274,8 +275,8 @@ class NotificationCardMetrics(scale: Float, type: IslandType = IslandType(scale)
 }
 
 /** Sizes of the expanded download / progress card, shared by the view and its height measurement. */
-class ProgressCardMetrics(scale: Float, type: IslandType = IslandType(scale)) {
-    val verticalPadding = islandCardVerticalPadding(IslandPriority.PROGRESS, scale)
+class ProgressCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType = IslandType(scale)) {
+    val verticalPadding = cardInsetDp(IslandPriority.PROGRESS, scale, fontScale)
     val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
     val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     val titleSize = type.title
@@ -319,7 +320,7 @@ fun measureProgressCardHeight(
     baseStyle: TextStyle,
     density: Density
 ): Dp = with(density) {
-    val m = ProgressCardMetrics(scale)
+    val m = ProgressCardMetrics(scale, density.fontScale)
     fun lineHeight(style: TextStyle): Dp = textMeasurer.measure(text = "Ag", style = style, maxLines = 1).size.height.toDp()
     val title = lineHeight(baseStyle.merge(TextStyle(fontSize = m.titleSize, lineHeight = m.titleLineHeight, fontWeight = FontWeight.SemiBold)))
     val subtitle = lineHeight(baseStyle.merge(TextStyle(fontSize = m.appNameSize, lineHeight = m.appNameLineHeight, fontWeight = FontWeight.Medium)))
@@ -351,7 +352,7 @@ fun measureNotificationCardHeight(
     baseStyle: TextStyle,
     density: Density
 ): Dp = with(density) {
-    val m = NotificationCardMetrics(scale)
+    val m = NotificationCardMetrics(scale, density.fontScale)
     // Call card: one row (photo, name, round answer / decline buttons)
     // Calls, recorders, timers: one native row (photo / time, round buttons)
     liveActivityKind(notification).takeIf { it != LiveActivityKind.NONE }?.let { return@with liveActivityCardHeight(it, scale, density.fontScale) }

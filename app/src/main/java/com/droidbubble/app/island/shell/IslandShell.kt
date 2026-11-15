@@ -1082,7 +1082,7 @@ internal fun IslandShell(
                                         .testTag(IslandTestTags.content("card1", primaryPriority))
                                         .wrapContentSize(Alignment.TopCenter, unbounded = true)
                                         .requiredSize(expandedCardWidth, card1ContentHeight)
-                                        // Inner padding lives in each view (islandCardContentPadding)
+                                        // Inner padding lives in each view (cardInset, V2.2)
                                         .graphicsLayer {
                                             val p = contentP()
                                             alpha = IslandChoreography.incomingAlpha(p)
@@ -1313,7 +1313,7 @@ internal fun IslandShell(
                                                 maxOf(1f - animatedCard2Alpha, shell.morphSpeed()), 10.dp.toPx()
                                             )
                                         }
-                                        // Inner padding lives in each view (islandCardContentPadding)
+                                        // Inner padding lives in each view (cardInset, V2.2)
                                 ) {
                                     ExpandedCardContent(
                                         priority = secondaryPriority,
