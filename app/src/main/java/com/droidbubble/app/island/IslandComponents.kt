@@ -249,21 +249,22 @@ fun Modifier.cardInset(priority: IslandPriority, scale: Float, fontScale: Float)
  * [measureNotificationCardHeight] so the card is always exactly as tall as its content.
  */
 class NotificationCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType = IslandType(scale)) {
+    private val rhythm = com.droidbubble.app.island.layout.CardRhythm(scale, fontScale)
     val horizontalPadding = cardInsetDp(IslandPriority.POP_NOTIFICATION, scale, fontScale)
     val verticalPadding = horizontalPadding
-    val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
-    val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
+    val iconSize = rhythm.tile
+    val iconGap = rhythm.iconGap
     val titleSize = type.title
     val titleLineHeight = type.titleLineHeight
     val appNameSize = type.secondary
     val appNameLineHeight = type.secondaryLineHeight
-    val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
+    val subtitleSpacing = rhythm.titleToSubtitle
     val bodySize = type.body
     val bodyLineHeight = type.bodyLineHeight
     val bodyMaxLines = if (scale < 0.88f) 2 else 3
-    val headerBodyGap = (IslandTokens.SpaceSm * scale).coerceIn(6.dp, 10.dp)
-    val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
-    val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp) // 44dp+ visual, inside a 48dp touch row
+    val headerBodyGap = rhythm.headerToBody
+    val actionsGap = rhythm.bodyToActions
+    val buttonHeight = rhythm.buttonHeight
     val buttonFontSize = type.button
     val buttonLineHeight = type.buttonLineHeight
     val replyChipFontSize = type.replyChip
@@ -277,21 +278,23 @@ class NotificationCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandT
 
 /** Sizes of the expanded download / progress card, shared by the view and its height measurement. */
 class ProgressCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType = IslandType(scale)) {
+    private val rhythm = com.droidbubble.app.island.layout.CardRhythm(scale, fontScale)
     val verticalPadding = cardInsetDp(IslandPriority.PROGRESS, scale, fontScale)
-    val iconSize = (40.dp * scale).coerceIn(32.dp, 48.dp)
-    val iconGap = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
+    val iconSize = rhythm.tile
+    val iconGap = rhythm.iconGap
     val titleSize = type.title
     val titleLineHeight = type.titleLineHeight
     val appNameSize = type.secondary
     val appNameLineHeight = type.secondaryLineHeight
-    val subtitleSpacing = (IslandTokens.SpaceXxs * scale).coerceIn(1.dp, 3.dp)
+    val subtitleSpacing = rhythm.titleToSubtitle
+    // Header to the detail line: still its own, larger gap (owner decision pending, CP3)
     val gap = (IslandTokens.SpaceMd * scale).coerceIn(9.dp, 14.dp)
     val bodySize = type.body
     val bodyLineHeight = type.bodyLineHeight
     val barGap = (IslandTokens.SpaceSm * scale).coerceIn(6.dp, 10.dp)
     val barHeight = 6.dp
-    val actionsGap = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
-    val buttonHeight = (42.dp * scale).coerceIn(44.dp, 50.dp)
+    val actionsGap = rhythm.bodyToActions
+    val buttonHeight = rhythm.buttonHeight
     val buttonFontSize = type.button
     val buttonLineHeight = type.buttonLineHeight
 }
@@ -303,6 +306,8 @@ class ProgressCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType 
 class MediaCardMetrics(scale: Float, fontScale: Float = 1f) {
     val inset = cardInsetDp(IslandPriority.MEDIA, scale, fontScale)
     val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
+    /** V4.2: cover to title, the shared rhythm (it was a fixed 12 dp). */
+    val iconGap = com.droidbubble.app.island.layout.CardRhythm(scale, fontScale).iconGap
     val subtitleSpacing = 3.dp
     /**
      * Song info to seek bar, and seek bar to controls: the room the old fixed-height layout gave

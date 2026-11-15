@@ -1432,6 +1432,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
             titleLineHeight = type.titleLineHeight,
             subtitleLineHeight = type.secondaryLineHeight,
             subtitleSpacing = mediaMetrics.subtitleSpacing,
+            iconSpacing = mediaMetrics.iconGap,
             titleMarquee = true,
             icon = {
                 // Album cover (larger, tap to open app and collapse island); flips on song change

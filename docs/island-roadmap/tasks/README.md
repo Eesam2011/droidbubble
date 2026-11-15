@@ -191,10 +191,10 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V3.4 | Flashlight trailing value | done (level 25–100 % on the empty side, rolling; "On" without steps; 12 sp like the download pill at the owner's request) |
 | V3.5 | System alert pills hug their content | done (owner's exact-width decision: glance pills keep today's widths and only grow to fit their widest content, never shrink; ringer fits "Vibrate", charging fits bolt + widest wattage + "100%", one width in every state; no ellipsis; unlock and connection pills hold icons only; checked on the owner's phone 2026-11-15) |
 | V4.1 | Measured card heights | done (media card measured from its rows; flashlight and idle keep the table; spacing between info, bar and controls kept as before per owner) |
-| V4.2 | One header, padding and button rhythm | todo |
-| V5.1 | Semantic color roles | todo |
-| V5.2 | Album accent via Palette with clamps | todo |
-| V5.3 | Legibility scrims | todo |
+| V4.2 | One header, padding and button rhythm | done (CardRhythm from the notification card's metrics; notification, download and song cards read it; the song cover-to-title gap now scales (12 → 13.2 dp at 1.1); FPS, weather and network cards no longer exist; download header gap and the screen gutter left for CP3) |
+| V5.1 | Semantic color roles | done (roles Recording, Success, Warning, Info, Timer, Stopwatch; LiveActivityColors aliases them; alarm yellow FFCC00 merged into FFD60A; SemanticColorTest) |
+| V5.2 | Album accent via Palette with clamps | done (island/color/MediaAccent.kt: Palette vibrant, light vibrant, dominant; L* 70–80, chroma 20+, else no accent; adds androidx.palette 1.0.0; still on the main thread, cached; MediaAccentTest) |
+| V5.3 | Legibility scrims | done (island/color/Scrim.kt: art scrim per top and bottom band from the brightest 8×8 cell, 0.38–0.85; glass with blur never clearer than 0.55 at the bottom; ScrimMathTest; the pixel-contrast VD0.1 states not added) |
 | V6.1 | Adaptive keyline | todo |
 | V6.2 | One outline rule, including notch | todo |
 | V7.1 | IslandIcons catalogue, Rounded only | done (owner kept Rounded; 7 glyphs changed, S2 re-recorded, full suite passes) |
