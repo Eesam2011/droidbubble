@@ -157,6 +157,88 @@ object LiveActivityTester {
         tickJob?.cancel()
         tickJob = null
         Demo.entries.forEach { remove(key(it)) }
+        remove(IconDemo.KEY_MESSAGE)
+        remove(IconDemo.KEY_DOWNLOAD)
+        if (iconDemoTorch) {
+            IslandStateManager.updateFlashlightState(false)
+            iconDemoTorch = false
+        }
+    }
+
+    /**
+     * I4.2: events that make the island's icons react, fired through the same public
+     * IslandStateManager calls as the real sources (never the debug broadcast receiver), so each
+     * row of the phase-5 wiring table can be checked on a phone without the hardware. The icon
+     * signal counters are left alone by [clear]: resetting one would itself look like an event.
+     */
+    enum class IconDemo(val label: String) {
+        SAME_APP("Same app ×3"),
+        BLUETOOTH("Connect Bluetooth"),
+        RINGER("Ringer cycle"),
+        CHARGING("Charging 40 %"),
+        DOWNLOAD("Download 0→100"),
+        TORCH("Torch levels");
+
+        companion object {
+            const val KEY_MESSAGE = PREFIX + "icon.message"
+            const val KEY_DOWNLOAD = PREFIX + "icon.download"
+            /** Gap between the steps of a demo, long enough to watch each effect play out. */
+            const val STEP_MS = 1_200L
+        }
+    }
+
+    private var iconDemoTorch = false
+
+    fun show(demo: IconDemo) {
+        clear()
+        tickJob = scope.launch { runIconDemo(demo) }
+    }
+
+    /** The steps of [demo]. Suspends between steps; public for tests. */
+    suspend fun runIconDemo(demo: IconDemo) {
+        val step = IconDemo.STEP_MS
+        when (demo) {
+            IconDemo.SAME_APP -> listOf("Are you coming?", "I'm outside", "Hello??").forEach { text ->
+                post(
+                    NotificationInfo(
+                        key = IconDemo.KEY_MESSAGE, packageName = "com.whatsapp", appName = "WhatsApp",
+                        title = "Sam Carter", text = text, actions = actions("Reply", "Mark as read"),
+                    )
+                )
+                delay(step)
+            }
+            IconDemo.BLUETOOTH -> IslandStateManager.triggerBluetoothEvent()
+            IconDemo.RINGER -> listOf(
+                IslandStateManager.RingerMode.RING, IslandStateManager.RingerMode.SILENT,
+                IslandStateManager.RingerMode.RING, IslandStateManager.RingerMode.VIBRATE,
+                IslandStateManager.RingerMode.RING,
+            ).forEach { mode ->
+                IslandStateManager.triggerRingerModeEvent(mode)
+                delay(step)
+            }
+            IconDemo.CHARGING -> IslandStateManager.triggerChargingEvent(40, 18.0)
+            IconDemo.DOWNLOAD -> {
+                val start = NotificationInfo(
+                    key = IconDemo.KEY_DOWNLOAD, packageName = "com.android.vending", appName = "Google Play",
+                    title = "Downloading Maps", text = "", progress = 0, maxProgress = 100, isOngoing = true,
+                )
+                for (pct in 0..100 step 10) {
+                    IslandStateManager.updateProgress(start.copy(progress = pct))
+                    delay(step / 3)
+                }
+                delay(step)
+                remove(IconDemo.KEY_DOWNLOAD)
+            }
+            IconDemo.TORCH -> {
+                iconDemoTorch = true
+                for (level in listOf(1, 2, 3, 4, 2)) {
+                    IslandStateManager.updateFlashlightState(true, level = level, maxLevel = 4)
+                    delay(step)
+                }
+                IslandStateManager.updateFlashlightState(false)
+                iconDemoTorch = false
+            }
+        }
     }
 
     /** Buttons of a fake activity (they have no PendingIntent to fire). */

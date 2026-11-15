@@ -233,7 +233,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I3.3 | Wire charging, download, network and flashlight | done (owner approved the bolt, the download fill and the torch level, 2026-11-15; charging fill read in the draw phase; network arrows dropped with the network widget; 4 S2 screenshots re-recorded as intended; check later on the phone: plug in, a Play Store download, torch brightness) |
 | I3.4 | Media: cover flip and play-state morph | done (flip follows the island speed, turn-in on Symbol.replace; Reduced motion crossfades the covers; play-state morph landed in I2.1; tests pass; check later on the phone: skip tracks 5× fast) |
 | I4.1 | Effect catalogue in the Test panel | doing (catalogue in the Test panel and offline clips in `review/icon-clips/`; waiting on the owner to tune the feel on the phone) |
-| I4.2 | Buttons that fire real events on the island | todo |
+| I4.2 | Buttons that fire real events on the island | done (same app ×3, Bluetooth, ringer cycle, charging 40 %, download 0→100, torch levels; through the public IslandStateManager calls; tests pass; check later on the phone: run each with the island on. `clear()` leaves the signal counters alone, since resetting one would itself fire an effect) |
 
 ### Phase 7: Live activities ([file](phase-7-live-activities.md))
 | ID | Title | Status |

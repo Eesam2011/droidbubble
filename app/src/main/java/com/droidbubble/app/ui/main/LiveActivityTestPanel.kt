@@ -72,6 +72,29 @@ fun LiveActivityTestPanel(islandRunning: Boolean, settings: IslandSettings = Isl
                     Text("Clear", fontWeight = FontWeight.Medium)
                 }
             }
+            // I4.2: events that make the island's own icons react
+            Text(
+                text = "Icon events on the island",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LiveActivityTester.IconDemo.entries.forEach { demo ->
+                    FilledTonalButton(
+                        onClick = { LiveActivityTester.show(demo) },
+                        enabled = islandRunning,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(demo.label, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
             // I4.1: preview and tune every icon effect (works with the island off too)
             OutlinedButton(
                 onClick = { showIconEffects = !showIconEffects },
