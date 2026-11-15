@@ -16,6 +16,7 @@ import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.parseFeaturePriorities
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "island_settings")
@@ -68,6 +69,12 @@ internal object PreferencesKeys {
     // D5.1: the curves by feel. The six spring keys above are only read, to migrate (kept one
     // release so an older build still finds them).
     val MOTION_SCHEMA = intPreferencesKey("motion_schema")
+    // V1.2: camera calibration
+    val AUTO_CALIBRATE = booleanPreferencesKey("auto_calibrate")
+    val TOP_OFFSET_DELTA_DP = floatPreferencesKey("top_offset_delta_dp")
+    val HORIZONTAL_OFFSET_DELTA_DP = floatPreferencesKey("horizontal_offset_delta_dp")
+    val HEIGHT_DELTA_DP = floatPreferencesKey("height_delta_dp")
+    val CALIBRATION_MIGRATED = booleanPreferencesKey("calibration_migrated")
     val EXPAND_DURATION = floatPreferencesKey("expand_duration")
     val EXPAND_BOUNCE = floatPreferencesKey("expand_bounce")
     val COLLAPSE_DURATION = floatPreferencesKey("collapse_duration")
@@ -156,6 +163,11 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         autoDismissNotifications = this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] ?: false,
         blurredAlbumArtBackground = this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] ?: false,
         hideOnLockScreen = this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
+        autoCalibrate = this[PreferencesKeys.AUTO_CALIBRATE] ?: true,
+        topOffsetDeltaDp = this[PreferencesKeys.TOP_OFFSET_DELTA_DP] ?: 0f,
+        horizontalOffsetDeltaDp = this[PreferencesKeys.HORIZONTAL_OFFSET_DELTA_DP] ?: 0f,
+        heightDeltaDp = this[PreferencesKeys.HEIGHT_DELTA_DP] ?: 0f,
+        calibrationMigrated = this[PreferencesKeys.CALIBRATION_MIGRATED] ?: false,
         expandDuration = this[PreferencesKeys.EXPAND_DURATION] ?: curves.expand.duration,
         expandBounce = this[PreferencesKeys.EXPAND_BOUNCE] ?: curves.expand.bounce,
         collapseDuration = this[PreferencesKeys.COLLAPSE_DURATION] ?: curves.collapse.duration,
@@ -211,6 +223,11 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] = s.autoDismissNotifications
     this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] = s.blurredAlbumArtBackground
     this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] = s.hideOnLockScreen
+    this[PreferencesKeys.AUTO_CALIBRATE] = s.autoCalibrate
+    this[PreferencesKeys.TOP_OFFSET_DELTA_DP] = s.topOffsetDeltaDp
+    this[PreferencesKeys.HORIZONTAL_OFFSET_DELTA_DP] = s.horizontalOffsetDeltaDp
+    this[PreferencesKeys.HEIGHT_DELTA_DP] = s.heightDeltaDp
+    this[PreferencesKeys.CALIBRATION_MIGRATED] = s.calibrationMigrated
     this[PreferencesKeys.MOTION_SCHEMA] = CurveMigration.SCHEMA
     this[PreferencesKeys.EXPAND_DURATION] = s.expandDuration
     this[PreferencesKeys.EXPAND_BOUNCE] = s.expandBounce
@@ -232,6 +249,11 @@ class SettingsRepository(private val context: Context) {
     val settingsFlow: Flow<IslandSettings> = context.dataStore.data
         .map { it.toIslandSettings() }
         .distinctUntilChanged()
+
+    /** V1.2: whether the user ever stored a pill position or height (an upgrade, not a fresh install). */
+    suspend fun hasStoredDimensions(): Boolean = context.dataStore.data.first().let { p ->
+        p.contains(PreferencesKeys.TOP_OFFSET_DP) || p.contains(PreferencesKeys.HEIGHT_DP) || p.contains(PreferencesKeys.HORIZONTAL_OFFSET_DP)
+    }
 
     suspend fun updateSettings(update: (IslandSettings) -> IslandSettings) {
         context.dataStore.edit { preferences ->

@@ -178,7 +178,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 |---|---|---|
 | VD0.1 | Owner checkpoint screenshot set | done (89 states on a grey photo, plus black and white variants; FPS, weather and network left out because they were removed) |
 | V1.1 | CutoutCalibration reader and CameraGeometry | done (pure maths in `island/layout/CameraGeometry.kt`, reader in `service/CutoutReader.kt`, `IslandStateManager.cameraGeometry`; 12 table cases pass; nothing reads it yet; check later on the phone: logcat "camera:" line matches the lens within 1 dp) |
-| V1.2 | Settings become fine-tune deltas, with migration | todo |
+| V1.2 | Settings become fine-tune deltas, with migration | done (deltas are Float so a migrated pill never moves by rounding; calibration applies only after the migration has run; nothing renders from it until V1.3; C2.3 must zero the deltas in its reset; check later on the phone: upgrade keeps the pill where it was) |
 | V1.3 | Apply calibration (cameraZone, window) | todo |
 | V1.4 | "Fit to camera" switch and labels | todo |
 | V1.5 | Landscape anchors to the camera | todo |

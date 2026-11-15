@@ -80,6 +80,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import com.droidbubble.app.util.traced
@@ -755,7 +756,28 @@ class IslandOverlayService : Service() {
      * itself, so it must survive removeOverlay() and not be duplicated. The first emission is the
      * real settings (B8.4): it starts telemetry and adds the overlay.
      */
+    private var calibrationJob: Job? = null
+
+    /**
+     * V1.2: the first time a usable camera and unmigrated settings meet, store the calibration
+     * migration (fresh installs centre on the lens; upgrades keep their pill exactly where it is).
+     */
+    private fun startCalibrationMigration() {
+        if (calibrationJob != null || settingsFlowForTest != null) return
+        calibrationJob = serviceScope.launch {
+            kotlinx.coroutines.flow.combine(settingsFlow, IslandStateManager.cameraGeometry) { s, cam -> s to cam }
+                .first { (s, cam) -> s.calibrationMigrated || com.droidbubble.app.island.layout.Calibration.applies(cam) }
+                .let { (s, cam) ->
+                    if (!s.calibrationMigrated) {
+                        val stored = settingsRepository.hasStoredDimensions()
+                        settingsRepository.updateSettings { com.droidbubble.app.island.layout.Calibration.migrate(it, cam, stored) }
+                    }
+                }
+        }
+    }
+
     private fun startSettingsCollector() {
+        startCalibrationMigration()
         if (settingsJob == null) settingsJob = serviceScope.launch {
             settingsFlow.collectLatest { settings ->
                 currentSettings = settings

@@ -29,6 +29,14 @@ data class IslandSettings(
     val heightDp: Int = 36,
     val topOffsetDp: Int = 12,
     val horizontalOffsetDp: Int = 0,
+    // V1.2: "Fit to camera". With a usable cutout the pill centres on the lens and these deltas
+    // fine-tune it (fractional: a migrated pill must not move by a rounding); the three absolute
+    // fields above stay as the manual mode and the rollback path.
+    val autoCalibrate: Boolean = true,
+    val topOffsetDeltaDp: Float = 0f,
+    val horizontalOffsetDeltaDp: Float = 0f,
+    val heightDeltaDp: Float = 0f,
+    val calibrationMigrated: Boolean = false,
     // Expanded cards fade from black to clear over a blur of what's behind them
     val liquidGlassCards: Boolean = false,
     val isLeftCutout: Boolean = false,

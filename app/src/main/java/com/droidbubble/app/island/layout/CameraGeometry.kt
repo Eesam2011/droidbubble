@@ -30,6 +30,8 @@ data class CameraGeometry(
     /** `Surface.ROTATION_*` the numbers were measured in. */
     val rotation: Int,
     val edge: CutoutEdge = CutoutEdge.TOP,
+    /** Screen width in this rotation, dp; 0 when unknown. */
+    val screenWidthDp: Float = 0f,
 ) {
     val isUsable: Boolean get() = kind == CutoutKind.PUNCH_HOLE || kind == CutoutKind.WATERDROP
 
@@ -119,7 +121,7 @@ object CutoutCalibration {
             CutoutEdge.LEFT -> CameraSide.START
             CutoutEdge.RIGHT -> CameraSide.END
         }
-        return CameraGeometry(kind, side, cx, cy, diameter, rotation, edge)
+        return CameraGeometry(kind, side, cx, cy, diameter, rotation, edge, w)
     }
 
     private fun CutoutRect.toDp(density: Float) = CutoutRect(left / density, top / density, right / density, bottom / density)
