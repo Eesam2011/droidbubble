@@ -32,8 +32,27 @@ object Calibration {
     const val HORIZONTAL_DELTA_RANGE = 24f
     const val HEIGHT_DELTA_RANGE = 8f
 
-    /** Calibration applies to a usable camera on the top edge (landscape side cameras: V1.5). */
+    /** The migration and the portrait rules need a usable camera on the top edge. */
     fun applies(cam: CameraGeometry): Boolean = cam.isUsable && cam.edge == CutoutEdge.TOP && cam.screenWidthDp > 0f
+
+    /** V1.5: in landscape the camera is on a side edge; the pill stays on top, beside it. */
+    fun appliesLandscape(cam: CameraGeometry): Boolean = cam.isUsable && cam.edge != CutoutEdge.TOP && cam.screenWidthDp > 0f
+
+    /** Landscape: the pill's top, and the gap from the camera's inner edge to the pill's near end. */
+    const val LANDSCAPE_TOP_DP = 6f
+    const val LANDSCAPE_SIDE_GAP_DP = 8f
+    /** Nothing physical sits under a landscape pill, so its middle gap is small. */
+    const val LANDSCAPE_ZONE_DP = 8f
+
+    /**
+     * Landscape (V1.5): the pill's offset from the screen centre that puts its near end
+     * [LANDSCAPE_SIDE_GAP_DP] from the camera's inner edge, on the camera's side.
+     */
+    fun landscapeHorizontal(cam: CameraGeometry, pillWidth: Float): Float = when (cam.edge) {
+        CutoutEdge.LEFT -> (cam.centerXDp + cam.diameterDp / 2f + LANDSCAPE_SIDE_GAP_DP + pillWidth / 2f) - cam.screenWidthDp / 2f
+        CutoutEdge.RIGHT -> (cam.centerXDp - cam.diameterDp / 2f - LANDSCAPE_SIDE_GAP_DP - pillWidth / 2f) - cam.screenWidthDp / 2f
+        CutoutEdge.TOP -> autoHorizontal(cam)
+    }
 
     fun cameraZone(cam: CameraGeometry): Float = when {
         !applies(cam) -> DEFAULT_ZONE_DP
@@ -73,6 +92,15 @@ object Calibration {
 
 /** The pill's real placement for this camera (V1.2): calibrated, or today's absolute values. */
 fun IslandSettings.effective(cam: CameraGeometry): EffectiveDimensions {
+    if (autoCalibrate && calibrationMigrated && Calibration.appliesLandscape(cam)) {
+        // V1.5: on the top edge, beside the side camera; only the height fine-tune carries over
+        return EffectiveDimensions(
+            topDp = Calibration.LANDSCAPE_TOP_DP,
+            horizontalDp = Calibration.landscapeHorizontal(cam, widthDp.toFloat()),
+            heightDp = Calibration.autoHeight(cam) + heightDeltaDp,
+            cameraZoneDp = Calibration.LANDSCAPE_ZONE_DP,
+        )
+    }
     if (autoCalibrate && calibrationMigrated && Calibration.applies(cam)) {
         val height = Calibration.autoHeight(cam) + heightDeltaDp
         return EffectiveDimensions(

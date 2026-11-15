@@ -54,8 +54,37 @@ class EffectiveDimensionsTest {
     @Test fun beforeMigration_nothingMoves() =
         assertDims(IslandSettings().effective(centreHole), 12f, 0f, 36f, 36f)
 
-    @Test fun sideEdgeCamera_waitsForLandscape() =
-        assertDims(calibrated.effective(cam(CutoutKind.PUNCH_HOLE, 24f, 180f, 24f, CutoutEdge.LEFT)), 12f, 0f, 36f, 36f)
+    // ---- landscape (V1.5): 800 × 360 dp, the camera on a side edge ----
+
+    private fun side(edge: CutoutEdge, cx: Float, kind: CutoutKind = CutoutKind.PUNCH_HOLE) =
+        CameraGeometry(kind, if (edge == CutoutEdge.LEFT) CameraSide.START else CameraSide.END, cx, 180f, 24f, 1, edge, screenWidthDp = 800f)
+
+    @Test fun landscape_rotation90_pillOnTopBesideTheLeftCamera() =
+        // inner edge 36, plus 8, plus half of 180: centre 134, so 266 left of the screen centre
+        assertDims(calibrated.effective(side(CutoutEdge.LEFT, 24f)), 6f, -266f, 36f, 8f)
+
+    @Test fun landscape_rotation270_pillOnTopBesideTheRightCamera() =
+        assertDims(calibrated.effective(side(CutoutEdge.RIGHT, 776f)), 6f, 266f, 36f, 8f)
+
+    @Test fun landscape_keepsTheHeightFineTuneOnly() =
+        assertDims(calibrated.copy(heightDeltaDp = 4f, topOffsetDeltaDp = 9f, horizontalOffsetDeltaDp = 20f).effective(side(CutoutEdge.LEFT, 24f)), 6f, -266f, 40f, 8f)
+
+    @Test fun landscape_withoutACutoutOrInManualMode_isToday() {
+        assertDims(calibrated.effective(CameraGeometry.None), 12f, 0f, 36f, 36f)
+        assertDims(calibrated.copy(autoCalibrate = false).effective(side(CutoutEdge.LEFT, 24f)), 12f, 0f, 36f, 36f)
+        assertDims(calibrated.effective(side(CutoutEdge.LEFT, 24f, CutoutKind.WIDE_NOTCH)), 12f, 0f, 36f, 36f)
+    }
+
+    @Test fun landscape_doesNotMigrate() {
+        // the migration waits for a portrait reading, so an upgrade never moves while sideways
+        val s = IslandSettings()
+        assertEquals(s, Calibration.migrate(s, side(CutoutEdge.LEFT, 24f), hasStoredDims = false))
+    }
+
+    @Test fun rotatingBack_restoresThePortraitPill() {
+        calibrated.effective(side(CutoutEdge.LEFT, 24f))
+        assertDims(calibrated.effective(centreHole), 6f, 0f, 36f, 36f)
+    }
 
     // ---- migration ----
 

@@ -28,7 +28,7 @@ fun CameraGap() {
  * values are already whole, so it doesn't move). Unchanged when calibration doesn't apply.
  */
 fun IslandSettings.withCalibration(cam: CameraGeometry): IslandSettings {
-    if (!(autoCalibrate && calibrationMigrated && Calibration.applies(cam))) return this
+    if (!(autoCalibrate && calibrationMigrated && (Calibration.applies(cam) || Calibration.appliesLandscape(cam)))) return this
     val e = effective(cam)
     return copy(
         topOffsetDp = e.topDp.roundToInt(),
