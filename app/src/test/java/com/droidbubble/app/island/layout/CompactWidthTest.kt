@@ -46,6 +46,16 @@ class CompactWidthTest {
     }
 
     @Test
+    fun bubbleIsACircleUntilItsContentNeedsMore() {
+        // V3.3: content + 6 dp each side, between H and 1.25 H
+        assertEquals(36f, CompactSlots.bubbleWidth(16.dp, 36.dp).value, 0f)
+        assertEquals(36f, CompactSlots.bubbleWidth(24.dp, 36.dp).value, 0f)
+        assertEquals(40f, CompactSlots.bubbleWidth(28.dp, 36.dp).value, 0f)
+        assertEquals(45f, CompactSlots.bubbleWidth(60.dp, 36.dp).value, 0f)
+        assertEquals(25f, CompactSlots.bubbleWidth(13.dp, 25.dp).value, 0f)
+    }
+
+    @Test
     fun tickingValuesKeepTheirTemplate() {
         assertEquals(CompactSlots.template("9:59"), CompactSlots.template("10:00"))
         assertEquals(CompactSlots.template("0:59:59"), CompactSlots.template("1:00:00"))

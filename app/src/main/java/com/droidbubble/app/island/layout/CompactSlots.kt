@@ -43,6 +43,14 @@ object CompactSlots {
      */
     const val SNUG_TO_CAMERA = false
 
+    /**
+     * V3.3: the bubble is a circle until its content (plus 6 dp each side) needs more, then an
+     * oval up to 1.25 × its height. Nothing it shows today is wider than the circle (the
+     * percentage sits inside its ring), so it stays round; the rule is for content that is.
+     */
+    fun bubbleWidth(contentWidth: Dp, height: Dp): Dp = (contentWidth + BUBBLE_PADDING * 2).coerceIn(height, height * 1.25f)
+    val BUBBLE_PADDING: Dp = 6.dp
+
     /** The gap between the pill's edge and its content: today's rule. */
     fun inset(pillHeight: Dp): Dp = ((pillHeight - 20.dp) / 2f).coerceIn(6.dp, 14.dp)
 
@@ -147,6 +155,10 @@ object CompactText {
 
     fun unit(type: com.droidbubble.app.island.IslandType) =
         TextStyle(fontSize = IslandType.CompactUnit, lineHeight = type.compactLabelLineHeight, fontWeight = FontWeight.Medium)
+
+    /** The download pill's app name and percentage: the smaller size it had before V3.2 (owner). */
+    fun small(type: com.droidbubble.app.island.IslandType, weight: FontWeight = FontWeight.SemiBold) =
+        TextStyle(fontSize = IslandType.CompactSmall, lineHeight = type.compactLabelLineHeight, fontWeight = weight)
 }
 
 /**

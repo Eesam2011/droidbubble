@@ -10,6 +10,7 @@ import com.droidbubble.app.island.icon.DynamicIconSwitch
 import com.droidbubble.app.island.icon.IconStrokes
 import com.droidbubble.app.island.icon.SlashOverlay
 import com.droidbubble.app.island.IslandIcons
+import com.droidbubble.app.island.IslandShapeCache
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
@@ -1392,14 +1393,15 @@ internal fun IslandShell(
                                 scaleX = bubblePressScale
                                 scaleY = bubblePressScale
                             }
-                            .clip(CircleShape)
+                            // V3.3: the pill's squircle family (a capsule, drawn by outline: identical to a circle)
+                            .clip(IslandShapeCache.get(bubbleSize / 2))
                             .background(Color.Black)
                             .then(
                                 if (settings.showOutline && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
                                     Modifier.border(
                                         width = settings.outlineThicknessDp.dp,
                                         color = secondaryOutlineColor,
-                                        shape = CircleShape
+                                        shape = IslandShapeCache.get(bubbleSize / 2)
                                     )
                                 } else Modifier
                             )

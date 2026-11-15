@@ -187,8 +187,8 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V2.3 | Concentric inner radii in squircles | done (all island corners in the squircle family; art and tiles rounded squares under the 0.42 cap, owner's CP1 answer; pill album art a rounded square too, not the table's circle; buttons near-capsules; one commit, not one per family; S2 re-recorded, 13 images; CP1 images in review/CP1; owner fixes after CP1: song cover capped at 0.27 (less round), download glyph not shifted, centred by its outline, checked on the phone) |
 | V3.1 | Content-hugging compact width | turned off (owner, 2026-11-15, after seeing it: the pill stays exactly the Width setting, like the reference; content back at the outer ends; the width model stays behind CompactSlots.HUG_CONTENT for V3.3 and as the switch back) |
 | V3.2 | Matched type; squeeze, abbreviate, drop | done (compact labels 13 sp, values 14 sp, units 11 sp, weight 600 both sides; no ellipsis in the pill: squeeze 92%, then a shorter form or first word, then drop; S2 re-recorded) |
-| V3.3 | Oval bubble and readable ring | todo |
-| V3.4 | Flashlight trailing value | todo |
+| V3.3 | Oval bubble and readable ring | done (bubble in the squircle family, pixel-identical; width rule H to 1.25 H, but nothing the bubble shows today is wider than the circle, so it stays round; the ring readability came with B9.2) |
+| V3.4 | Flashlight trailing value | done (level 25–100 % on the empty side, rolling; "On" without steps; 12 sp like the download pill at the owner's request) |
 | V3.5 | System alert pills hug their content | doing (the owner's "Vibrat" fix landed first, 2026-11-15: the ringer and charging pills are never narrower than their widest content and keep one width in every state; the rest of V3.5 (width model for every glance, value templates) still to do) |
 | V4.1 | Measured card heights | todo |
 | V4.2 | One header, padding and button rhythm | todo |

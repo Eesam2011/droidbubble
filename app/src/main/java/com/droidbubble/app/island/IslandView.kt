@@ -789,17 +789,19 @@ fun CompactContent(
                         if (!isCompactDual) {
                             // V3.2: squeeze, shorten ("Google Play" → "Play") or drop; never "…"
                             val iconWidth = if (notification?.iconBitmap != null) IslandTokens.Glyph.CompactArt else IslandTokens.Glyph.Compact
+                            // The download pill keeps its smaller text (owner, 2026-11-15)
+                            val nameStyle = com.droidbubble.app.island.layout.CompactText.small(compactType, FontWeight.Medium)
                             val fit = com.droidbubble.app.island.layout.rememberCompactFit(
                                 notification?.appName ?: "Download",
                                 maxSide - iconWidth - com.droidbubble.app.island.layout.CompactSlots.PROGRESS_LABEL_GAP,
-                                com.droidbubble.app.island.layout.CompactText.label(compactType),
+                                nameStyle,
                             )
                             if (fit.text != null) {
                                 Spacer(modifier = Modifier.width(com.droidbubble.app.island.layout.CompactSlots.PROGRESS_LABEL_GAP))
                                 Text(
                                     text = fit.text,
                                     color = IslandTokens.ControlLight,
-                                    style = com.droidbubble.app.island.layout.CompactFit.squeezed(com.droidbubble.app.island.layout.CompactText.label(compactType), fit),
+                                    style = com.droidbubble.app.island.layout.CompactFit.squeezed(nameStyle, fit),
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -865,7 +867,29 @@ fun CompactContent(
                     )
                 }
 
-                IslandPriority.FLASHLIGHT -> Unit
+                IslandPriority.FLASHLIGHT -> {
+                    // V3.4: the torch level on the empty side, so the pill is balanced; it rolls as
+                    // the strength changes. A torch without steps says "On". Small type, like the
+                    // download pill (owner, 2026-11-15).
+                    if (maxFlashlightLevel > 1) {
+                        val pct = (100f * flashlightLevel.coerceIn(1, maxFlashlightLevel) / maxFlashlightLevel).roundToInt()
+                        RollingNumberText(
+                            text = "$pct%",
+                            color = Color.White,
+                            fontSize = IslandType.CompactSmall,
+                            lineHeight = LocalIslandType.current.compactLabelLineHeight,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Text(
+                            text = "On",
+                            color = IslandTokens.TextSecondary,
+                            style = com.droidbubble.app.island.layout.CompactText.small(compactType),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
 
                 IslandPriority.POP_NOTIFICATION -> {
                     val liveKind = liveActivityKind(notification)
@@ -913,23 +937,14 @@ fun CompactContent(
                             trackColor = IslandTokens.ControlTrack
                         )
                     } else {
-                        // V3.2: the number in the value role, the % beside it as a unit
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                text = "${(pct * 100).roundToInt()}",
-                                color = IslandTokens.ControlLight,
-                                style = com.droidbubble.app.island.layout.CompactText.value(compactType),
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            Text(
-                                text = "%",
-                                color = IslandTokens.TextSecondary,
-                                style = com.droidbubble.app.island.layout.CompactText.unit(compactType),
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
+                        // The download pill keeps its smaller "42%" (owner, 2026-11-15)
+                        Text(
+                            text = "${(pct * 100).roundToInt()}%",
+                            color = IslandTokens.ControlLight,
+                            style = com.droidbubble.app.island.layout.CompactText.small(compactType),
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
 

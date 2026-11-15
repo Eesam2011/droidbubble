@@ -143,6 +143,9 @@ class IslandType(
         /** A unit beside a compact value: %, W (V3.2: 11 sp, weight 500, secondary colour). */
         val CompactUnit: TextUnit = 11.sp
 
+        /** The download pill keeps its smaller text, app name and percentage (owner, 2026-11-15). */
+        val CompactSmall: TextUnit = 12.sp
+
         /** The bubble's numeral (B9.2: 11 sp is the floor). */
         val BubbleValue: TextUnit = 11.sp
         val BubbleNumeral: TextStyle = TextStyle(fontSize = BubbleValue, fontWeight = FontWeight.Bold)
