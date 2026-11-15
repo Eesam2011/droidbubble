@@ -287,58 +287,8 @@ private fun fastBoxBlur(bitmap: Bitmap, radius: Int) {
     bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
 }
 
-private val accentColorCache = java.util.WeakHashMap<Bitmap, Color>()
-
-fun extractMediaAccentColor(bitmap: Bitmap?): Color {
-    if (bitmap == null) return Color.Transparent
-    synchronized(accentColorCache) {
-        accentColorCache[bitmap]?.let { return it }
-    }
-    return try {
-        // Sample with a small 16x16 scaled bitmap for ultra-fast, smooth calculation without JNI pixel bottlenecks
-        val scaled = if (bitmap.width > 16 || bitmap.height > 16) {
-            Bitmap.createScaledBitmap(bitmap, 16, 16, false)
-        } else {
-            bitmap
-        }
-        val pixels = IntArray(scaled.width * scaled.height)
-        scaled.getPixels(pixels, 0, scaled.width, 0, 0, scaled.width, scaled.height)
-        if (scaled != bitmap && !scaled.isRecycled) {
-            scaled.recycle()
-        }
-
-        var redSum = 0L
-        var greenSum = 0L
-        var blueSum = 0L
-        var count = 0L
-
-        for (pixel in pixels) {
-            val a = (pixel shr 24) and 0xff
-            if (a > 60) {
-                redSum += (pixel shr 16) and 0xff
-                greenSum += (pixel shr 8) and 0xff
-                blueSum += pixel and 0xff
-                count++
-            }
-        }
-
-        val color = if (count > 0L) {
-            val avgR = (redSum / count).toInt().coerceIn(0, 255)
-            val avgG = (greenSum / count).toInt().coerceIn(0, 255)
-            val avgB = (blueSum / count).toInt().coerceIn(0, 255)
-            Color(avgR, avgG, avgB)
-        } else {
-            Color.Transparent
-        }
-
-        synchronized(accentColorCache) {
-            accentColorCache[bitmap] = color
-        }
-        color
-    } catch (_: Exception) {
-        Color.Transparent
-    }
-}
+/** V5.2: the song's accent, from Palette with lightness and chroma clamps (see [com.droidbubble.app.island.color.MediaAccent]). */
+fun extractMediaAccentColor(bitmap: Bitmap?): Color = com.droidbubble.app.island.color.MediaAccent.extract(bitmap)
 
 /** Semantics tags for the island's touch targets (used by the crash tests). */
 object IslandTestTags {
