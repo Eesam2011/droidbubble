@@ -721,8 +721,8 @@ internal fun IslandShell(
     // Liquid glass: cards fade from black to clear and the overlay service blurs what's behind them
     val glassBlurAvailable by IslandStateManager.glassBlurAvailable.collectAsState()
     val cardBackgroundBrush: Brush = if (settings.liquidGlassCards) {
-        // With a real blur behind it the card can go nearly clear; without one keep it readable
-        val bottomAlpha = if (glassBlurAvailable) 0.3f else 0.72f
+        // V5.3: never clearer than 0.55 behind text, so white text keeps 4.5:1 over a bright wallpaper
+        val bottomAlpha = if (glassBlurAvailable) 0.55f else 0.72f
         Brush.verticalGradient(
             listOf(Color.Black.copy(alpha = 0.92f), Color.Black.copy(alpha = (bottomAlpha + 0.92f) / 2f), Color.Black.copy(alpha = bottomAlpha))
         )

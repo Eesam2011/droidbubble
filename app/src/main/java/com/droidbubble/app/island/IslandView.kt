@@ -2191,6 +2191,12 @@ fun <T : Any> rememberLastNonNull(value: T?): T? {
  */
 @Composable
 internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, glass: Boolean, shape: Shape) {
+    // V5.3: the scrim darkens only as much as the cover's brightest parts need for 4.5:1 text
+    val bands = remember(art) { com.droidbubble.app.island.color.Scrim.bands(art) }
+    val artAlpha = if (glass) 0.42f else 0.75f
+    val minScrim = if (glass) 0f else com.droidbubble.app.island.color.Scrim.MIN_SOLID
+    val topScrim = com.droidbubble.app.island.color.Scrim.alphaFor(bands.top, artAlpha, minScrim)
+    val bottomScrim = com.droidbubble.app.island.color.Scrim.alphaFor(bands.bottom, artAlpha, minScrim)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2206,14 +2212,14 @@ internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, gla
                 .graphicsLayer {
                     scaleX = 1.35f
                     scaleY = 1.35f
-                    this.alpha = alpha * (if (glass) 0.42f else 0.75f)
+                    this.alpha = alpha * artAlpha
                 }
         )
-        if (!glass) {
+        if (topScrim > 0f || bottomScrim > 0f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.38f))
+                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = topScrim), Color.Black.copy(alpha = bottomScrim))))
             )
         }
         // Gradient from the bottom keeps the controls readable
