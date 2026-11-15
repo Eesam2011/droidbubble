@@ -189,7 +189,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V3.2 | Matched type; squeeze, abbreviate, drop | done (compact labels 13 sp, values 14 sp, units 11 sp, weight 600 both sides; no ellipsis in the pill: squeeze 92%, then a shorter form or first word, then drop; S2 re-recorded) |
 | V3.3 | Oval bubble and readable ring | done (bubble in the squircle family, pixel-identical; width rule H to 1.25 H, but nothing the bubble shows today is wider than the circle, so it stays round; the ring readability came with B9.2) |
 | V3.4 | Flashlight trailing value | done (level 25–100 % on the empty side, rolling; "On" without steps; 12 sp like the download pill at the owner's request) |
-| V3.5 | System alert pills hug their content | doing (the owner's "Vibrat" fix landed first, 2026-11-15: the ringer and charging pills are never narrower than their widest content and keep one width in every state; the rest of V3.5 (width model for every glance, value templates) still to do) |
+| V3.5 | System alert pills hug their content | done (owner's exact-width decision: glance pills keep today's widths and only grow to fit their widest content, never shrink; ringer fits "Vibrate", charging fits bolt + widest wattage + "100%", one width in every state; no ellipsis; unlock and connection pills hold icons only; checked on the owner's phone 2026-11-15) |
 | V4.1 | Measured card heights | todo |
 | V4.2 | One header, padding and button rhythm | todo |
 | V5.1 | Semantic color roles | todo |
