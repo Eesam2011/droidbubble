@@ -685,7 +685,8 @@ fun CompactContent(
         // Leading content: Pinned strictly to the left of the camera punch hole
         Box(
             modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_LEADING),
-            contentAlignment = Alignment.CenterStart
+            // V3.1: against the camera, so a hugging pill reads balanced (CP2 flag)
+            contentAlignment = if (com.droidbubble.app.island.layout.CompactSlots.SNUG_TO_CAMERA) Alignment.CenterEnd else Alignment.CenterStart
         ) {
             when (priority) {
                 IslandPriority.CALL -> Icon(
@@ -829,7 +830,7 @@ fun CompactContent(
         // Trailing content: Pinned strictly to the right of the camera punch hole
         Box(
             modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_TRAILING),
-            contentAlignment = Alignment.CenterEnd
+            contentAlignment = if (com.droidbubble.app.island.layout.CompactSlots.SNUG_TO_CAMERA) Alignment.CenterStart else Alignment.CenterEnd
         ) {
             when (priority) {
                 IslandPriority.CALL -> {

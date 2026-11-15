@@ -11,9 +11,28 @@ import com.droidbubble.app.island.cardHeightFor
 import com.droidbubble.app.island.liveActivityCornerRadius
 import com.droidbubble.app.model.IslandSettings
 
-/** Card heights that need a TextMeasurer: measured in composition, passed in. */
+/**
+ * Sizes that need a TextMeasurer: measured in composition, passed in. [compactSide] is the larger
+ * side of the pill's content (V3.1); null (the window maths) keeps the pill at its full width.
+ */
 @Immutable
-data class MeasuredHeights(val notification: Dp, val progress: Dp? = null)
+data class MeasuredHeights(
+    val notification: Dp,
+    val progress: Dp? = null,
+    val compactSide: Dp? = null,
+    val cameraZone: Dp = IslandTokens.Shell.CameraZone,
+)
+
+/** V3.1: the pill hugs its content when it's measured, up to the width setting. */
+fun mainPillWidth(settings: IslandSettings, measured: MeasuredHeights): Dp =
+    measured.compactSide?.let {
+        com.droidbubble.app.island.layout.CompactSlots.width(
+            side = it,
+            cameraZone = measured.cameraZone,
+            inset = com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp),
+            wMax = settings.widthDp.dp,
+        )
+    } ?: settings.widthDp.dp
 
 /** Where every part of the island is heading, in dp. The view animates toward these. */
 @Immutable
@@ -40,9 +59,9 @@ data class IslandTargets(
 fun expandedCardWidth(settings: IslandSettings, env: IslandEnv): Dp =
     (IslandTokens.Shell.ExpandedCardWidth * settings.expandedScale).coerceAtMost(env.screenWidthDp.dp - IslandTokens.Shell.ScreenGutter)
 
-/** Centre of the settled secondary bubble, measured from the pill's centre. */
-fun bubbleRestCenterX(settings: IslandSettings): Dp =
-    settings.widthDp.dp / 2f + IslandTokens.Shell.BubbleGap + (settings.heightDp.dp / 2f)
+/** Centre of the settled secondary bubble, measured from the pill's centre (6 dp from its edge). */
+fun bubbleRestCenterX(settings: IslandSettings, pillWidth: Dp = settings.widthDp.dp): Dp =
+    pillWidth / 2f + IslandTokens.Shell.BubbleGap + (settings.heightDp.dp / 2f)
 
 /**
  * The target sizes for a scene (F1.3). [card2Expanded] and [bubbleEmerged] are the view's short
@@ -78,8 +97,8 @@ fun deriveIslandTargets(
         // Swiped right: gone. Swiped left: shrunk into a circle around the camera.
         scene.userHidden -> 0.dp
         scene.userMinimized -> settings.heightDp.dp
-        // Dual mode keeps the main pill at full size; the secondary bubble sits beside it
-        else -> settings.widthDp.dp
+        // V3.1: as wide as its content; the secondary bubble sits beside it
+        else -> mainPillWidth(settings, measured)
     }
 
     val cardOpen = isExpanded && !hasAlert
@@ -101,7 +120,7 @@ fun deriveIslandTargets(
         card1 = IslandGeometry(card1Width, card1Height, corner, top),
         card1ContentHeight = card1ContentHeight,
         card2Height = card2Height,
-        bubbleRestX = if (bubbleEmerged && scene.emergesBubble) bubbleRestCenterX(settings) else 0.dp,
+        bubbleRestX = if (bubbleEmerged && scene.emergesBubble) bubbleRestCenterX(settings, mainPillWidth(settings, measured)) else 0.dp,
         horizontalOffset = if (!isExpanded && !hasAlert) settings.horizontalOffsetDp.dp else 0.dp,
         cardSpacing = if (isExpanded && scene.showSecondaryCard) IslandTokens.Shell.CardSpacing else 0.dp,
         alertWidth = alertWidth,

@@ -544,7 +544,17 @@ internal fun IslandShell(
     val targetCard2OffsetY = if (card2Expanded && showSecondaryCard) 0.dp else -IslandTokens.Shell.Card2Rise
 
     val bubbleSize = settings.heightDp.dp
-    val compactMainHalf = settings.widthDp.dp / 2f
+    // V3.1: the pill hugs its content; measured here (once per activity, not per tick)
+    val compactSide = com.droidbubble.app.island.layout.rememberCompactSide(
+        priority = primaryPriority,
+        media = currentMedia,
+        notification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+        recording = recording,
+        pillHeight = settings.heightDp.dp,
+    )
+    val cameraZone = com.droidbubble.app.island.layout.LocalCameraZone.current
+    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone)
+    val compactMainHalf = com.droidbubble.app.island.scene.mainPillWidth(settings, compactMeasured) / 2f
 
     val shouldEmergeSecondary = scene.emergesBubble
     // The bubble emerges once the main pill has established itself (M3.2, set below the pill)
@@ -565,7 +575,7 @@ internal fun IslandShell(
         scene = scene,
         settings = settings,
         env = sceneEnv,
-        measured = MeasuredHeights(notifBaseHeight, progressBaseHeight),
+        measured = compactMeasured,
         card2Expanded = card2Expanded,
         bubbleEmerged = secondaryBubbleEmerged,
     )
@@ -590,7 +600,7 @@ internal fun IslandShell(
         scene = scene.copy(isExpanded = false),
         settings = settings,
         env = sceneEnv,
-        measured = MeasuredHeights(notifBaseHeight, progressBaseHeight),
+        measured = compactMeasured,
         card2Expanded = card2Expanded,
         bubbleEmerged = secondaryBubbleEmerged,
     )

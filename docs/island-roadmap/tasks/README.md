@@ -185,7 +185,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V2.1 | CardGeometry, `inner()`, per-corner squircle | done (settled S2 pixel-identical; one mid-motion frame differs by anti-aliasing at a capsule's ends, from the new capsule fast path, re-recorded; tests pass) |
 | V2.2 | One margin system | done (owner chose the even R/2 inset, CP1 questions 2026-11-15; S2 and bounds golden re-recorded: message card +3.5 dp at font 1.0, +8 at 1.3; no Robolectric parity test, the views and the measures share one cardInsetDp) |
 | V2.3 | Concentric inner radii in squircles | done (all island corners in the squircle family; art and tiles rounded squares under the 0.42 cap, owner's CP1 answer; pill album art a rounded square too, not the table's circle; buttons near-capsules; one commit, not one per family; S2 re-recorded, 13 images; CP1 images in review/CP1; owner fixes after CP1: song cover capped at 0.27 (less round), download glyph not shifted, centred by its outline, checked on the phone) |
-| V3.1 | Content-hugging compact width | todo |
+| V3.1 | Content-hugging compact width | done (pill = gap + 2 × larger side + insets, 120 dp to the width setting; sides measured once per activity with tick-stable templates; content snug to the camera behind one flag for CP2; bubble rests 6 dp from the measured edge; window keeps the width setting as upper bound; S2 and bounds golden re-recorded) |
 | V3.2 | Matched type; squeeze, abbreviate, drop | todo |
 | V3.3 | Oval bubble and readable ring | todo |
 | V3.4 | Flashlight trailing value | todo |
