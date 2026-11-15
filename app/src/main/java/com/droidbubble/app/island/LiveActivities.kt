@@ -312,15 +312,16 @@ fun liveActivityControls(n: NotificationInfo): LiveActivityControls {
 }
 
 object LiveActivityColors {
-    val RecordingRed = IslandTokens.RecordingRed
-    val TimerBlue = IslandTokens.LiveTimerBlue
-    val StopwatchOrange = IslandTokens.AccentOrange
-    val CallGreen = IslandTokens.AccentGreen
-    val CallRed = IslandTokens.AccentRed
+    // V5.1: the members alias the colour roles; the API is unchanged
+    val RecordingRed = IslandTokens.Recording
+    val TimerBlue = IslandTokens.Timer
+    val StopwatchOrange = IslandTokens.Stopwatch
+    val CallGreen = IslandTokens.Success
+    val CallRed = IslandTokens.Recording
     val AvatarPlaceholder = IslandTokens.SurfaceDivider
 
-    val AlarmYellow = IslandTokens.LiveAlarmYellow
-    val TrackingGreen = IslandTokens.AccentGreen
+    val AlarmYellow = IslandTokens.Warning
+    val TrackingGreen = IslandTokens.Success
     val SportsWhite = IslandTokens.TextBody
 
     /** Secondary ("glass") controls: a faint white tint that sits on the black island. */

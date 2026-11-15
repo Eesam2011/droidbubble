@@ -104,9 +104,21 @@ object IslandTokens {
 
     // ---- Live activity accents (used through LiveActivityColors) ----
     // F2.3: recording uses [RecordingRed], call uses [AccentGreen] (#34C759 merged, ΔE2000 2.7)
-    // and sports uses [TextBody]. The alarm yellow (#FFCC00 vs AccentYellow, ΔE2000 3.3) is V5.1's.
+    // and sports uses [TextBody]. V5.1: the alarm yellow (#FFCC00, ΔE2000 3.3) merged into AccentYellow.
     val LiveTimerBlue = Color(0xFF5B9BFF)
-    val LiveAlarmYellow = Color(0xFFFFCC00)
+    val LiveAlarmYellow = AccentYellow
+
+    // ---- V5.1: colours by meaning. Use these, not the raw accents, for anything new ----
+    /** Recording, the silent ringer, ending a call. */
+    val Recording = RecordingRed
+    /** Calls, charging, tracking: things going well. */
+    val Success = AccentGreen
+    /** Alarms and alerts. */
+    val Warning = AccentYellow
+    val Info = AccentBlue
+    /** Countdown timers: its own blue, not [Info]. */
+    val Timer = LiveTimerBlue
+    val Stopwatch = AccentOrange
 
     // ---- Outline strengths: the alpha of the thin tinted outline around a task's island ----
     const val OutlineAlphaTask = 0.15f

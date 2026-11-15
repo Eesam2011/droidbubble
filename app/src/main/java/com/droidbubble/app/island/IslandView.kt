@@ -506,7 +506,7 @@ fun AuxiliaryBubbleContent(
                     baseMs = notification.liveTimerBaseMs,
                     countDown = notification.liveTimerCountDown,
                     size = IslandTokens.Glyph.Bubble,
-                    color = IslandTokens.AccentOrange
+                    color = IslandTokens.Stopwatch
                 )
             } else {
                 // I3.2: the same app posting again bounces its picture
@@ -740,7 +740,7 @@ fun CompactContent(
                             baseMs = notification.liveTimerBaseMs,
                             countDown = notification.liveTimerCountDown,
                             size = IslandTokens.Glyph.Compact,
-                            color = IslandTokens.AccentOrange
+                            color = IslandTokens.Stopwatch
                         )
                     } else {
                         // I3.2: the same app posting again bounces its picture
