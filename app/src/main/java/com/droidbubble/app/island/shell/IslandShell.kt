@@ -474,11 +474,15 @@ internal fun IslandShell(
         }
     }
 
-    // I3.2: a light tick with the same-app bounce
+    // I3.2: a light tick with the same-app bounce; D2.3: and the pill pulses, half an alert bump
     val sameAppNudge = IslandStateManager.iconSignals.collectAsState().value.sameAppNudge
     val firstNudge = remember { sameAppNudge }
     LaunchedEffect(sameAppNudge) {
-        if (sameAppNudge != firstNudge) haptics.perform(IslandHapticEvent.NUDGE)
+        if (sameAppNudge == firstNudge) return@LaunchedEffect
+        haptics.perform(IslandHapticEvent.NUDGE)
+        if (!isExpanded && motion.tier != MotionTier.REDUCED) {
+            bumpRequest = BumpRequest(bumpRequest.id + 1, AlertBump.PULSE_FRACTION)
+        }
     }
 
     val chargingPct = charging?.percentage ?: 0

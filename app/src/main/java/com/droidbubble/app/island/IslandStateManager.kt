@@ -359,6 +359,9 @@ object IslandStateManager {
     val isPeeking: StateFlow<Boolean> = _isPeeking.asStateFlow()
     private val lastPeekByPackage = HashMap<String, Long>()
 
+    /** D2.3: "same app, new event", throttled per app. */
+    private val pulseDetector = PulseDetector()
+
     val isMediaActive: Boolean
         get() {
             val media = _activeMedia.value ?: return false
@@ -681,7 +684,9 @@ object IslandStateManager {
         val previous = _activeNotification.value
         val isNewNotification = notification != null && previous?.key != notification.key
         val wasRinging = isIncomingCallRinging
-        if (com.droidbubble.app.island.icon.isSameAppNudge(previous, notification)) {
+        // D2.3: the same app again with something new: one beat per 600 ms per app, which the
+        // icon (I3), the haptic tick and the pill's 3 % pulse all follow
+        if (pulseDetector.onUpdate(previous, notification, nowMs()) != null) {
             _iconSignals.update { it.copy(sameAppNudge = it.sameAppNudge + 1) }
         }
         _activeNotification.value = notification
@@ -926,5 +931,6 @@ object IslandStateManager {
         touchExplorationOn = false
         _isPeeking.value = false
         lastPeekByPackage.clear()
+        pulseDetector.reset()
     }
 }
