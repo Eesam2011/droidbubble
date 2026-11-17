@@ -7,6 +7,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -73,6 +75,19 @@ class RollingSlotTest {
             }
         }
         assertTrue(rule.onNodeWithTag("bare").getBoundsInRoot().width < rule.onNodeWithTag("slot").getBoundsInRoot().width)
+    }
+
+    /** D3.2: the download detail line rolls (a long line is drawn by the roll, not a plain Text). */
+    @Test
+    fun detailLine_rollsUpToItsLimit() {
+        rule.setContent {
+            Column {
+                RollingNumberText("12 MB of 40 MB", Color.White, 14.sp, FontWeight.Normal, modifier = Modifier.testTag("detail"), maxRollLength = 40)
+                RollingNumberText("12 MB of 40 MB", Color.White, 14.sp, FontWeight.Normal, modifier = Modifier.testTag("default"))
+            }
+        }
+        rule.onNodeWithTag("detail").assertContentDescriptionEquals("12 MB of 40 MB")
+        rule.onNodeWithTag("default").assertTextEquals("12 MB of 40 MB")
     }
 
     @Test

@@ -446,19 +446,13 @@ fun RollingNumberText(
      */
     slotTemplate: String? = null,
     slotAlign: Alignment.Horizontal = Alignment.End,
+    /** null: the tighter number tracking; [TextUnit.Unspecified] keeps the surrounding text's (D3.2). */
+    letterSpacing: TextUnit? = null,
+    /** Longer text is drawn plainly. A detail line ("12 MB of 40 MB") allows more (D3.2). */
+    maxRollLength: Int = 12,
 ) {
-    val style = LocalTextStyle.current.merge(
-        TextStyle(
-            color = color,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            fontFeatureSettings = TABULAR_NUMBERS,
-            letterSpacing = numberLetterSpacing(fontSize),
-            lineHeight = lineHeight,
-            lineHeightStyle = lineHeightStyle
-        )
-    )
-    if (text.length > 12 || text.none { it.isDigit() }) {
+    val style = rollingNumberStyle(color, fontSize, fontWeight, lineHeight, lineHeightStyle, letterSpacing)
+    if (text.length > maxRollLength || text.none { it.isDigit() }) {
         Text(text = text, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = modifier)
         return
     }
@@ -548,6 +542,27 @@ fun RollingNumberText(
             }
     )
 }
+
+/** The style [RollingNumberText] draws in, for callers that measure it first. */
+@Composable
+fun rollingNumberStyle(
+    color: Color,
+    fontSize: TextUnit,
+    fontWeight: FontWeight,
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    lineHeightStyle: LineHeightStyle? = null,
+    letterSpacing: TextUnit? = null,
+): TextStyle = LocalTextStyle.current.merge(
+    TextStyle(
+        color = color,
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        fontFeatureSettings = TABULAR_NUMBERS,
+        letterSpacing = letterSpacing ?: numberLetterSpacing(fontSize),
+        lineHeight = lineHeight,
+        lineHeightStyle = lineHeightStyle
+    )
+)
 
 /** The digits of [text] read as one number ("12:04" → 1204), for the roll's direction. */
 internal fun numericValue(text: String): Long =

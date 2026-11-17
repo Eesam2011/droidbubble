@@ -152,6 +152,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
@@ -1966,19 +1967,41 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
 
         val rawProgressText = notification?.text ?: ""
         val displayProgressText = remember(rawProgressText) { cleanProgressText(rawProgressText) }
-        Text(
-            text = displayProgressText,
-            color = IslandTokens.TextBody,
-            fontSize = m.bodySize,
-            lineHeight = m.bodyLineHeight,
-            fontWeight = FontWeight.Normal,
-            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        // D3.2: the sizes roll as the download counts ("12 MB" → "13 MB"), in the line's own
+        // tracking so it looks the same at rest; a line too long for the card is cut as before
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { openProgressApp() }
-        )
+        ) {
+            val detailStyle = rollingNumberStyle(
+                IslandTokens.TextBody, m.bodySize, FontWeight.Normal, m.bodyLineHeight, letterSpacing = TextUnit.Unspecified,
+            )
+            val measurer = rememberTextMeasurer()
+            val maxPx = constraints.maxWidth
+            val fits = remember(displayProgressText, detailStyle, maxPx) {
+                measurer.measure(displayProgressText, detailStyle, maxLines = 1, softWrap = false).size.width <= maxPx
+            }
+            if (fits) {
+                RollingNumberText(
+                    text = displayProgressText,
+                    color = IslandTokens.TextBody,
+                    fontSize = m.bodySize,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = m.bodyLineHeight,
+                    letterSpacing = TextUnit.Unspecified,
+                    maxRollLength = DETAIL_ROLL_MAX,
+                )
+            } else {
+                Text(
+                    text = displayProgressText,
+                    style = detailStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(m.barGap))
 
@@ -2025,6 +2048,9 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
         }
     }
 }
+
+/** D3.2: the longest download detail line that rolls; longer ones change plainly. */
+private const val DETAIL_ROLL_MAX = 40
 
 @Composable
 fun ExpandedRecordingView(recording: ScreenRecordingState, onCollapse: () -> Unit, scale: Float = 1.0f) {
