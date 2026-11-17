@@ -184,6 +184,8 @@ import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.island.layout.islandKeyline
 import com.droidbubble.app.island.motion.AlertBump
+import com.droidbubble.app.island.motion.CrossingLatch
+import com.droidbubble.app.island.motion.NeckMoment
 import com.droidbubble.app.island.layout.IslandOutline
 import com.droidbubble.app.island.layout.OutlineSurface
 import com.droidbubble.app.model.MediaInfo
@@ -666,6 +668,25 @@ internal fun IslandShell(
     val animatedCard2OffsetY by animateDpAsState(targetValue = targetCard2OffsetY, animationSpec = sizeAnimSpecDp, label = "card2OffsetY")
     val animatedBubbleOffsetX by animateDpAsState(targetValue = targetBubbleOffsetX, animationSpec = bubbleOffsetAnimSpec, label = "bubbleOffsetX")
     val animatedHorizontalOffset = shell.xDp
+
+    // D2.4: a tick when the liquid neck snaps and when the bubble merges back, once each (a
+    // spring wobbling around either line can't repeat it). The gap is read in a snapshotFlow,
+    // so this never recomposes; nothing while a card is open or with Reduce motion.
+    val neckLatch = remember { CrossingLatch(IslandTokens.Shell.NeckSnapGap.value) }
+    LaunchedEffect(isExpanded, motion.tier, bubbleSize) {
+        neckLatch.reset()
+        if (isExpanded || motion.tier == MotionTier.REDUCED) return@LaunchedEffect
+        snapshotFlow {
+            // Same gap as the neck: from the pill's round end to the bubble's edge
+            (animatedBubbleOffsetX - bubbleSize / 2f - compactWidthState.value.coerceAtLeast(0.dp) / 2f).value
+        }.collect { gap ->
+            when (neckLatch.update(gap, android.os.SystemClock.uptimeMillis())) {
+                NeckMoment.SNAP -> haptics.perform(IslandHapticEvent.NECK_SNAP)
+                NeckMoment.MERGE -> haptics.perform(IslandHapticEvent.MERGE)
+                null -> {}
+            }
+        }
+    }
 
     // M3.1: content follows the shape. p runs 0 → 1 from card 1's closed rect to its open rect,
     // read from the body's own geometry (draw phase), and every content fade is a pure function of
