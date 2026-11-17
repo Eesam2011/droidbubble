@@ -82,6 +82,8 @@ object MotionTween {
     val CLOCK_HAND = TweenToken(280, speedScaled = false)
     /** A countdown ring draining one second. */
     val COUNTDOWN_TICK = TweenToken(1000, LinearEasing, speedScaled = false)
+    /** D3.3: a progress ring switching between spinning and showing its value. */
+    val PROGRESS_MODE_FADE = TweenToken(150, speedScaled = false)
     /** One digit roll: short enough to always finish before the next second ticks. */
     val ROLL = TweenToken(IslandMotion.ROLL_MS, IslandMotion.ROLL_EASING, speedScaled = false)
 }
@@ -159,8 +161,11 @@ data class IslandMotion(
     val seekThumb = MotionToken.Physical(0.6f, 600f, speedScaled = false)
     /** The play / pause icon scaling in. Not speed-scaled. */
     val playPauseScale = MotionToken.Physical(0.6f, 500f, speedScaled = false)
-    /** A download bar following its progress. Not speed-scaled. */
-    val downloadProgress = MotionToken.Physical(0.9f, 140f, speedScaled = false)
+    /**
+     * D3.3: a progress ring or bar following its value: d 0.5 s, b 0.1 (ζ 0.9, k 158 at speed 1),
+     * so 42 % → 57 % glides without a visible overshoot. Replaces the download bar's 0.9 / 140.
+     */
+    val progress = MotionToken.Perceptual(0.5f, 0.1f)
     /** A ride or delivery bar following its progress. Not speed-scaled. */
     val trackingProgress = MotionToken.Physical(0.9f, 120f, speedScaled = false)
     /** The new album cover turning in. Not speed-scaled. */

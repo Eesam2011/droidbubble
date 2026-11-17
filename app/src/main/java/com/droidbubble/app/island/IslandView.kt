@@ -18,6 +18,7 @@ import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -488,51 +489,60 @@ fun AuxiliaryBubbleContent(
         }
         IslandPriority.PROGRESS -> {
             val pct = notification?.progressFraction ?: 0f
-            val isIndet = notification?.isIndeterminate == true
-            Box(
+            // D3.3: the ring springs to each value (read in the draw phase), a new download
+            // snaps it back, and spinner and ring cross-fade when the mode changes
+            val ringProgress = com.droidbubble.app.island.layout.rememberProgressAnimatable(pct)
+            Crossfade(
+                targetState = notification?.isIndeterminate == true,
+                animationSpec = LocalIslandMotion.current.tween(MotionTween.PROGRESS_MODE_FADE),
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isIndet) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = IslandTokens.ControlLight,
-                        trackColor = IslandTokens.ControlTrack
-                    )
-                } else {
-                    // B9.2: a readable numeral (11 sp bold, never smaller) in a ring sized by the
-                    // bubble; when the number doesn't fit at this font scale, the ring shows alone
-                    BoxWithConstraints(contentAlignment = Alignment.Center) {
-                        val ring = bubbleRingDiameter(minOf(maxWidth, maxHeight))
-                        val label = "${(pct * 100).roundToInt()}"
-                        val numeralStyle = LocalTextStyle.current.merge(LocalIslandType.current.bubbleNumeral.copy(color = Color.White))
-                        val measurer = rememberTextMeasurer()
-                        val density = LocalDensity.current
-                        val labelWidth = with(density) { measurer.measure(label, numeralStyle).size.width.toDp() }
-                        // Digits are about 0.72 em tall: the box that must sit inside the circle
-                        val digitHeight = with(density) { IslandType.BubbleValue.toDp() } * 0.72f
+                label = "bubbleProgressMode",
+            ) { isIndet ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isIndet) {
                         CircularProgressIndicator(
-                            progress = { pct },
-                            modifier = Modifier.size(ring),
-                            strokeWidth = BUBBLE_RING_STROKE,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
                             color = IslandTokens.ControlLight,
                             trackColor = IslandTokens.ControlTrack
                         )
-                        if (bubbleNumeralFits(labelWidth, digitHeight, ring)) {
-                            // D3.1: rolls as the download counts, centred in a "100" slot
-                            RollingNumberText(
-                                text = label,
-                                color = Color.White,
-                                fontSize = numeralStyle.fontSize,
-                                fontWeight = numeralStyle.fontWeight ?: FontWeight.Bold,
-                                lineHeight = numeralStyle.lineHeight,
-                                slotTemplate = "100",
-                                slotAlign = Alignment.CenterHorizontally,
+                    } else {
+                        // B9.2: a readable numeral (11 sp bold, never smaller) in a ring sized by the
+                        // bubble; when the number doesn't fit at this font scale, the ring shows alone
+                        BoxWithConstraints(contentAlignment = Alignment.Center) {
+                            val ring = bubbleRingDiameter(minOf(maxWidth, maxHeight))
+                            val label = "${(pct * 100).roundToInt()}"
+                            val numeralStyle = LocalTextStyle.current.merge(LocalIslandType.current.bubbleNumeral.copy(color = Color.White))
+                            val measurer = rememberTextMeasurer()
+                            val density = LocalDensity.current
+                            val labelWidth = with(density) { measurer.measure(label, numeralStyle).size.width.toDp() }
+                            // Digits are about 0.72 em tall: the box that must sit inside the circle
+                            val digitHeight = with(density) { IslandType.BubbleValue.toDp() } * 0.72f
+                            CircularProgressIndicator(
+                                progress = { ringProgress.value },
+                                modifier = Modifier.size(ring),
+                                strokeWidth = BUBBLE_RING_STROKE,
+                                color = IslandTokens.ControlLight,
+                                trackColor = IslandTokens.ControlTrack
                             )
+                            if (bubbleNumeralFits(labelWidth, digitHeight, ring)) {
+                                // D3.1: rolls as the download counts, centred in a "100" slot
+                                RollingNumberText(
+                                    text = label,
+                                    color = Color.White,
+                                    fontSize = numeralStyle.fontSize,
+                                    fontWeight = numeralStyle.fontWeight ?: FontWeight.Bold,
+                                    lineHeight = numeralStyle.lineHeight,
+                                    slotTemplate = "100",
+                                    slotAlign = Alignment.CenterHorizontally,
+                                )
+                            }
                         }
                     }
-                }
+            }
             }
         }
         IslandPriority.MEDIA -> {
@@ -882,25 +892,31 @@ fun CompactContent(
 
                 IslandPriority.PROGRESS -> {
                     val pct = notification?.progressFraction ?: 0f
-                    val isIndet = notification?.isIndeterminate == true
-                    if (isIndet) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 2.dp,
-                            color = IslandTokens.ControlLight,
-                            trackColor = IslandTokens.ControlTrack
-                        )
-                    } else {
-                        // The download pill keeps its smaller "42%" (owner, 2026-11-15); D3.1: it
-                        // rolls, in a "100%" slot so the pill never shifts as it counts
-                        RollingNumberText(
-                            text = "${(pct * 100).roundToInt()}%",
-                            color = IslandTokens.ControlLight,
-                            fontSize = IslandType.CompactSmall,
-                            lineHeight = compactType.compactLabelLineHeight,
-                            fontWeight = FontWeight.SemiBold,
-                            slotTemplate = "100%",
-                        )
+                    // D3.3: spinner and percentage cross-fade when the app starts reporting a value
+                    Crossfade(
+                        targetState = notification?.isIndeterminate == true,
+                        animationSpec = LocalIslandMotion.current.tween(MotionTween.PROGRESS_MODE_FADE),
+                        label = "compactProgressMode",
+                    ) { isIndet ->
+                        if (isIndet) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = IslandTokens.ControlLight,
+                                trackColor = IslandTokens.ControlTrack
+                            )
+                        } else {
+                            // The download pill keeps its smaller "42%" (owner, 2026-11-15); D3.1: it
+                            // rolls, in a "100%" slot so the pill never shifts as it counts
+                            RollingNumberText(
+                                text = "${(pct * 100).roundToInt()}%",
+                                color = IslandTokens.ControlLight,
+                                fontSize = IslandType.CompactSmall,
+                                lineHeight = compactType.compactLabelLineHeight,
+                                fontWeight = FontWeight.SemiBold,
+                                slotTemplate = "100%",
+                            )
+                    }
                     }
                 }
 
@@ -1906,12 +1922,8 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
     val isIndet = notification?.isIndeterminate == true
     val progressFontScale = LocalDensity.current.fontScale
     val m = remember(scale, progressFontScale) { ProgressCardMetrics(scale, progressFontScale) }
-    val motion = LocalIslandMotion.current
-    val animatedProgress by animateFloatAsState(
-        targetValue = progressFraction,
-        animationSpec = motion.spring(motion.downloadProgress),
-        label = "download_progress"
-    )
+    // D3.3: the progress spring, read in the draw phase; a new download snaps back
+    val animatedProgress = com.droidbubble.app.island.layout.rememberProgressAnimatable(progressFraction)
 
     fun openProgressApp() {
         openTarget(context, notification?.contentIntent, notification?.packageName)
@@ -2016,7 +2028,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
             )
         } else {
             LinearProgressIndicator(
-                progress = { animatedProgress },
+                progress = { animatedProgress.value },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(m.barHeight)
