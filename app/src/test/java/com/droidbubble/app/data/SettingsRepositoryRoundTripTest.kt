@@ -28,6 +28,7 @@ class SettingsRepositoryRoundTripTest {
         } else "$default-changed"
         is Set<*> -> default + "com.example.changed"
         is List<*> -> default.reversed() // featurePriorities: a reorder of the valid keys
+        is Enum<*> -> default.declaringJavaClass.enumConstants.let { it[(default.ordinal + 1) % it.size] }
         else -> error("Add a changed value for $name (${default?.javaClass})")
     }
 

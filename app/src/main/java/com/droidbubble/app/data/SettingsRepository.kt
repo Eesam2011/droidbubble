@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.droidbubble.app.model.CurveMigration
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
 import com.droidbubble.app.model.parseFeaturePriorities
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -28,7 +29,9 @@ internal object PreferencesKeys {
     val TOP_OFFSET_DP = intPreferencesKey("top_offset_dp")
     val HORIZONTAL_OFFSET_DP = intPreferencesKey("horizontal_offset_dp")
     val IS_LEFT_CUTOUT = booleanPreferencesKey("is_left_cutout")
+    /** Before V6.1; still written (true for ALWAYS) so an older build reads the same line. */
     val SHOW_OUTLINE = booleanPreferencesKey("show_outline")
+    val KEYLINE_MODE = stringPreferencesKey("keyline_mode")
     val LIQUID_GLASS_CARDS = booleanPreferencesKey("liquid_glass_cards")
     val OUTLINE_COLOR_ARGB = longPreferencesKey("outline_color_argb")
     val OUTLINE_THICKNESS_DP = floatPreferencesKey("outline_thickness_dp")
@@ -132,7 +135,7 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         topOffsetDp = this[PreferencesKeys.TOP_OFFSET_DP] ?: 12,
         horizontalOffsetDp = this[PreferencesKeys.HORIZONTAL_OFFSET_DP] ?: 0,
         isLeftCutout = this[PreferencesKeys.IS_LEFT_CUTOUT] ?: false,
-        showOutline = this[PreferencesKeys.SHOW_OUTLINE] ?: false,
+        keylineMode = KeylineMode.read(this[PreferencesKeys.KEYLINE_MODE], this[PreferencesKeys.SHOW_OUTLINE]),
         liquidGlassCards = this[PreferencesKeys.LIQUID_GLASS_CARDS] ?: false,
         outlineColorArgb = this[PreferencesKeys.OUTLINE_COLOR_ARGB] ?: 0x33FFFFFF,
         outlineThicknessDp = this[PreferencesKeys.OUTLINE_THICKNESS_DP] ?: 1.5f,
@@ -191,7 +194,8 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.TOP_OFFSET_DP] = s.topOffsetDp
     this[PreferencesKeys.HORIZONTAL_OFFSET_DP] = s.horizontalOffsetDp
     this[PreferencesKeys.IS_LEFT_CUTOUT] = s.isLeftCutout
-    this[PreferencesKeys.SHOW_OUTLINE] = s.showOutline
+    this[PreferencesKeys.KEYLINE_MODE] = s.keylineMode.name
+    this[PreferencesKeys.SHOW_OUTLINE] = s.keylineMode == KeylineMode.ALWAYS
     this[PreferencesKeys.LIQUID_GLASS_CARDS] = s.liquidGlassCards
     this[PreferencesKeys.OUTLINE_COLOR_ARGB] = s.outlineColorArgb
     this[PreferencesKeys.OUTLINE_THICKNESS_DP] = s.outlineThicknessDp

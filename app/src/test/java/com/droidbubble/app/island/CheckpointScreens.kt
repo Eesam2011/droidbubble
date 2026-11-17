@@ -19,6 +19,7 @@ import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
 import com.droidbubble.app.model.ScreenRecordingState
 import org.junit.After
 import org.junit.Assume.assumeTrue
@@ -271,15 +272,37 @@ class CheckpointScreens(private val case: Case) {
             )
         }
 
+        /**
+         * CP3 (V6.1): the keyline on (ALWAYS) on black and white wallpaper. OFF is the plain states
+         * above; AUTO is ALWAYS or OFF once the overlay service has read the wallpaper.
+         */
+        private fun keylines(): List<Case> = listOf(Backdrop.BLACK, Backdrop.WHITE).flatMap { b ->
+            val on = BASE.copy(keylineMode = KeylineMode.ALWAYS)
+            listOf(
+                Case("keyline_compact_dual_media_message", setOf(3), backdrop = b, settings = on) {
+                    IslandStateManager.updateMedia(IslandFixtures.song)
+                    IslandStateManager.updateNotification(IslandFixtures.message())
+                },
+                Case("keyline_compact_notch_media", setOf(3), backdrop = b,
+                    settings = on.copy(islandStyle = IslandSettings.STYLE_NOTCH)) {
+                    IslandStateManager.updateMedia(IslandFixtures.song)
+                },
+                Case("keyline_expanded_message", setOf(3), backdrop = b, settings = on) {
+                    IslandStateManager.updateNotification(IslandFixtures.message())
+                    IslandStateManager.expand(null)
+                },
+            )
+        }
+
         private fun highContrast(): List<Case> = listOf(
-            Case("hc_compact_media", setOf(3), settings = BASE.copy(showOutline = true), highContrast = true) {
+            Case("hc_compact_media", setOf(3), settings = BASE.copy(keylineMode = KeylineMode.ALWAYS), highContrast = true) {
                 IslandStateManager.updateMedia(IslandFixtures.song)
             },
             Case("hc_compact_notch_media", setOf(3), highContrast = true,
-                settings = BASE.copy(showOutline = true, islandStyle = IslandSettings.STYLE_NOTCH)) {
+                settings = BASE.copy(keylineMode = KeylineMode.ALWAYS, islandStyle = IslandSettings.STYLE_NOTCH)) {
                 IslandStateManager.updateMedia(IslandFixtures.song)
             },
-            Case("hc_expanded_message", setOf(3), settings = BASE.copy(showOutline = true), highContrast = true) {
+            Case("hc_expanded_message", setOf(3), settings = BASE.copy(keylineMode = KeylineMode.ALWAYS), highContrast = true) {
                 IslandStateManager.updateNotification(IslandFixtures.message())
                 IslandStateManager.expand(null)
             },
@@ -292,7 +315,7 @@ class CheckpointScreens(private val case: Case) {
         val all: List<Case> by lazy {
             val both = listOf(1f, 1.3f)
             atFontScales(compact() + expanded() + backdrops(), both) +
-                atFontScales(scaled() + highContrast(), listOf(1f))
+                atFontScales(scaled() + keylines() + highContrast(), listOf(1f))
         }
 
         @JvmStatic

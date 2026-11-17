@@ -43,7 +43,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -182,6 +181,8 @@ import com.droidbubble.app.island.shell.rememberIslandShellState
 import com.droidbubble.app.island.shell.rememberWindowReady
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
+import com.droidbubble.app.island.layout.islandKeyline
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
@@ -347,6 +348,8 @@ internal fun IslandShell(
     }
     // B5.1: high contrast draws every island edge (pill, bubble, both cards) with the 55 % white
     // outline instead of the tasks' 15 % tints
+    // V6.1: the overlay service resolves AUTO and high contrast, so here the line is on or off
+    val keylineOn = settings.keylineMode == KeylineMode.ALWAYS
     val primaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else primaryTaskOutline
     val secondaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else secondaryTaskOutline
 
@@ -978,12 +981,10 @@ internal fun IslandShell(
                                 }
                                 .background(if (card1Filled) cardBackgroundBrush else SolidColor(Color.Transparent))
                                 .then(
-                                    if (settings.showOutline && card1Outlined) {
-                                        Modifier.border(
-                                            width = settings.outlineThicknessDp.dp,
-                                            color = primaryOutlineColor,
-                                            shape = islandShape(animatedCornerRadius)
-                                        )
+                                    if (keylineOn && card1Outlined) {
+                                        Modifier.islandKeyline({ primaryOutlineColor }, settings.outlineThicknessDp.dp) {
+                                            IslandShapeCache.get(shell.geometry.corner.coerceAtLeast(0.dp))
+                                        }
                                     } else Modifier
                                 )
                                 .then(
@@ -1205,12 +1206,10 @@ internal fun IslandShell(
                                 }
                                 .background(cardBackgroundBrush)
                                 .then(
-                                    if (settings.showOutline) {
-                                        Modifier.border(
-                                            width = settings.outlineThicknessDp.dp,
-                                            color = secondaryOutlineColor,
-                                            shape = islandShape(animatedCornerRadius)
-                                        )
+                                    if (keylineOn) {
+                                        Modifier.islandKeyline({ secondaryOutlineColor }, settings.outlineThicknessDp.dp) {
+                                            IslandShapeCache.get(shell.geometry.corner.coerceAtLeast(0.dp))
+                                        }
                                     } else Modifier
                                 )
                                 .then(
@@ -1410,12 +1409,10 @@ internal fun IslandShell(
                             .clip(IslandShapeCache.get(bubbleSize / 2))
                             .background(Color.Black)
                             .then(
-                                if (settings.showOutline && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
-                                    Modifier.border(
-                                        width = settings.outlineThicknessDp.dp,
-                                        color = secondaryOutlineColor,
-                                        shape = IslandShapeCache.get(bubbleSize / 2)
-                                    )
+                                if (keylineOn && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
+                                    Modifier.islandKeyline({ secondaryOutlineColor }, settings.outlineThicknessDp.dp) {
+                                        IslandShapeCache.get(bubbleSize / 2)
+                                    }
                                 } else Modifier
                             )
                             .combinedClickable(
@@ -1541,12 +1538,11 @@ internal fun IslandShell(
                         .background(if (pillFilled) Color.Black else Color.Transparent)
                         .then(
                             // Deliberately no pill outline in notch style: the notch is fused to the screen edge
-                            if (settings.showOutline && !settings.isNotch && pillOutlined) {
-                                Modifier.border(
-                                    width = settings.outlineThicknessDp.dp,
-                                    color = primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)),
-                                    shape = compactPillShape
-                                )
+                            if (keylineOn && !settings.isNotch && pillOutlined) {
+                                Modifier.islandKeyline(
+                                    { primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)) },
+                                    settings.outlineThicknessDp.dp
+                                ) { compactPillShape }
                             } else Modifier
                         )
                         // Swipe left: shrink the pill into the camera circle. On the camera circle, a

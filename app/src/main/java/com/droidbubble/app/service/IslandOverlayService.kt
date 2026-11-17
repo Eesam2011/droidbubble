@@ -78,6 +78,10 @@ import android.hardware.camera2.CameraManager
 import android.os.Handler
 import android.os.Looper
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
+import com.droidbubble.app.island.layout.Keyline
+import kotlinx.coroutines.flow.flowOf
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -667,15 +671,22 @@ class IslandOverlayService : Service() {
                 SideEffect { com.droidbubble.app.island.IslandTokens.highContrast = highContrast }
                 // V1.3: the pill's top, height and offset follow the measured camera
                 val camera by IslandStateManager.cameraGeometry.collectAsState()
-                val liveSettings = if (highContrast) {
-                    storedSettings.copy(
-                        // The colour comes from IslandTokens.HighContrastOutline in the view (B5.1)
-                        showOutline = true,
-                        outlineThicknessDp = storedSettings.outlineThicknessDp.coerceAtLeast(1.5f)
-                    )
-                } else {
-                    storedSettings
-                }.withCalibration(camera)
+                // V6.1: AUTO's keyline follows the wallpaper (the lock screen's while locked) and night mode
+                val autoKeyline = storedSettings.keylineMode == KeylineMode.AUTO
+                val darkWallpaper by remember(autoKeyline) {
+                    if (autoKeyline) WallpaperTone.darkFlow(this@IslandOverlayService, IslandStateManager.isDeviceLocked)
+                    else flowOf(false)
+                }.collectAsState(initial = false)
+                val night = LocalConfiguration.current.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                    Configuration.UI_MODE_NIGHT_YES
+                // The view draws the line for ALWAYS only; AUTO and high contrast resolve to it here
+                val keylineOn = Keyline.visible(storedSettings.keylineMode, darkWallpaper || night, highContrast)
+                val liveSettings = storedSettings.copy(
+                    keylineMode = if (keylineOn) KeylineMode.ALWAYS else KeylineMode.OFF,
+                    // The colour comes from IslandTokens.HighContrastOutline in the view (B5.1)
+                    outlineThicknessDp = if (highContrast) storedSettings.outlineThicknessDp.coerceAtLeast(1.5f)
+                        else storedSettings.outlineThicknessDp
+                ).withCalibration(camera)
                 val cameraZone = storedSettings.effective(camera).cameraZoneDp.dp
 
                 MaterialExpressiveTheme(

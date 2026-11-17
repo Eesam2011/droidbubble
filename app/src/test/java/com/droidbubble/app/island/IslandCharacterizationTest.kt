@@ -10,6 +10,7 @@ import com.droidbubble.app.island.golden.IslandBoundsGolden
 import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
 import org.junit.After
 import org.junit.Assert.fail
 import org.junit.Before
@@ -105,7 +106,7 @@ class IslandCharacterizationTest {
         Column("notch", BASE.copy(islandStyle = IslandSettings.STYLE_NOTCH)),
         Column("size_220x40", BASE.copy(widthDp = 220, heightDp = 40)),
         Column("expandedScale_1_0", BASE.copy(expandedScale = 1.0f)),
-        Column("high_contrast", BASE.copy(showOutline = true), highContrast = true),
+        Column("high_contrast", BASE.copy(keylineMode = KeylineMode.ALWAYS), highContrast = true),
         Column("font_1_3", BASE, fontScale = 1.3f),
     )
 

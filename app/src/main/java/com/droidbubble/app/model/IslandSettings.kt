@@ -40,7 +40,11 @@ data class IslandSettings(
     // Expanded cards fade from black to clear over a blur of what's behind them
     val liquidGlassCards: Boolean = false,
     val isLeftCutout: Boolean = false,
-    val showOutline: Boolean = false, // off by default: a borderless black island blends into the camera like iOS
+    /**
+     * V6.1: the thin line around the island. OFF by default, so the borderless black island stays
+     * the look; AUTO draws it on dark wallpapers and in night mode; high contrast always draws it.
+     */
+    val keylineMode: KeylineMode = KeylineMode.OFF,
     val outlineColorArgb: Long = 0x33FFFFFF, // Sleek translucent silver
     val outlineThicknessDp: Float = 1.5f,
     val expandedScale: Float = 1.1f,
@@ -111,6 +115,17 @@ data class IslandSettings(
 
         /** Unknown / missing stored values fall back to the pill. */
         fun normalizeStyle(value: String?): String = if (value == STYLE_NOTCH) STYLE_NOTCH else STYLE_PILL
+    }
+}
+
+/** V6.1: when the island draws its keyline. Stored by name; [KeylineMode.OFF] for unknown values. */
+enum class KeylineMode {
+    OFF, AUTO, ALWAYS;
+
+    companion object {
+        /** A stored name, or before V6.1 the old on/off switch (true → ALWAYS, so nobody's look changes). */
+        fun read(stored: String?, legacyShowOutline: Boolean?): KeylineMode =
+            entries.firstOrNull { it.name == stored } ?: if (legacyShowOutline == true) ALWAYS else OFF
     }
 }
 

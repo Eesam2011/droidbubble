@@ -11,6 +11,7 @@ import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.island.harness.IslandHarness
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
 import com.droidbubble.app.model.NotificationAction
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
@@ -128,7 +129,7 @@ class IslandScreenshotTest {
         IslandStateManager.expand(null)
     }
 
-    @Test fun expandedMessageHighContrast() = shot("expanded_message", BASE.copy(showOutline = true), variant = "hc", highContrast = true) {
+    @Test fun expandedMessageHighContrast() = shot("expanded_message", BASE.copy(keylineMode = KeylineMode.ALWAYS), variant = "hc", highContrast = true) {
         IslandStateManager.updateNotification(IslandFixtures.message())
         IslandStateManager.expand(null)
     }

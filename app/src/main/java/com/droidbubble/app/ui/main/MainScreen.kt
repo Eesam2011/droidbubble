@@ -130,6 +130,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.droidbubble.app.model.IslandSettings
+import com.droidbubble.app.model.KeylineMode
 import com.droidbubble.app.service.IslandOverlayService
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -2143,23 +2144,48 @@ fun AppearancePage(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val outlineActive = settings.showOutline
-                    SettingsCardItem(position = if (outlineActive) GroupPosition.TOP else GroupPosition.SINGLE, isActive = settings.showOutline) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Island Outline", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(AppIcons.CropSquare, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.showOutline,
-                                    onCheckedChange = { show ->
-                                        onUpdateSettings { it.copy(showOutline = show) }
-                                    }
-                                )
+                    // V6.1: Off, Auto (dark wallpaper or night mode) or Always
+                    val outlineActive = settings.keylineMode != KeylineMode.OFF
+                    SettingsCardItem(position = if (outlineActive) GroupPosition.TOP else GroupPosition.SINGLE, isActive = outlineActive) {
+                        Column {
+                            ListItem(
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                headlineContent = { Text("Island Outline", fontWeight = FontWeight.SemiBold) },
+                                supportingContent = {
+                                    Text(
+                                        when (settings.keylineMode) {
+                                            KeylineMode.OFF -> "No line: the black island blends into the camera."
+                                            KeylineMode.AUTO -> "A thin line on dark wallpapers and in dark mode."
+                                            KeylineMode.ALWAYS -> "A thin line around the island at all times."
+                                        }
+                                    )
+                                },
+                                leadingContent = {
+                                    Icon(AppIcons.CropSquare, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            )
+                            val modes = KeylineMode.entries
+                            SingleChoiceSegmentedButtonRow(
+                                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                            ) {
+                                modes.forEachIndexed { i, mode ->
+                                    SegmentedButton(
+                                        selected = settings.keylineMode == mode,
+                                        onClick = { onUpdateSettings { it.copy(keylineMode = mode) } },
+                                        shape = SegmentedButtonDefaults.itemShape(i, modes.size),
+                                        label = {
+                                            Text(
+                                                when (mode) {
+                                                    KeylineMode.OFF -> "Off"
+                                                    KeylineMode.AUTO -> "Auto"
+                                                    KeylineMode.ALWAYS -> "Always"
+                                                }
+                                            )
+                                        }
+                                    )
+                                }
                             }
-                        )
+                        }
                     }
 
                     if (outlineActive) {

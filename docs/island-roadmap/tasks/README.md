@@ -195,7 +195,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | V5.1 | Semantic color roles | done (roles Recording, Success, Warning, Info, Timer, Stopwatch; LiveActivityColors aliases them; alarm yellow FFCC00 merged into FFD60A; SemanticColorTest) |
 | V5.2 | Album accent via Palette with clamps | done (island/color/MediaAccent.kt: Palette vibrant, light vibrant, dominant; L* 70–80, chroma 20+, else no accent; adds androidx.palette 1.0.0; still on the main thread, cached; MediaAccentTest) |
 | V5.3 | Legibility scrims | done (island/color/Scrim.kt: art scrim per top and bottom band from the brightest 8×8 cell, 0.38–0.85; glass with blur never clearer than 0.55 at the bottom; ScrimMathTest; the pixel-contrast VD0.1 states not added) |
-| V6.1 | Adaptive keyline | todo |
+| V6.1 | Adaptive keyline | done (keylineMode OFF/AUTO/ALWAYS replaces the switch, showOutline migrates to ALWAYS/OFF and is still written for rollback; AUTO follows WallpaperColors (lock screen's while locked) and night mode, resolved in the overlay service; Off/Auto/Always segmented row; one islandKeyline modifier, stroke inside the surface's own clip, for pill, bubble and both cards; today's tints and the thickness slider kept (spec's 1 dp / 20 % accent not applied: a look change, for CP3); default OFF pending CP3) |
 | V6.2 | One outline rule, including notch | todo |
 | V7.1 | IslandIcons catalogue, Rounded only | done (owner kept Rounded; 7 glyphs changed, S2 re-recorded, full suite passes) |
 | V7.2 | Icon size tokens and optical centering | done (CP4 approved: pill glyphs 18 dp, bubble 16 dp, six glyphs centred from measured centroids; full suite passes) |
