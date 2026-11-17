@@ -31,11 +31,14 @@ class IconDemoTest {
     fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher(scheduler))
         IslandStateManager.resetForTest()
+        // D2.3 throttles nudges in time: the demo's steps must pass on the test clock
+        IslandStateManager.nowMs = { scheduler.currentTime }
     }
 
     @After
     fun tearDown() {
         IslandStateManager.resetForTest()
+        IslandStateManager.nowMs = { System.nanoTime() / 1_000_000L }
         Dispatchers.resetMain()
     }
 
