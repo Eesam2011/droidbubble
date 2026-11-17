@@ -204,7 +204,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | D1.1 | Liquid SDF math and shader asset | removed (ponytail review, 2026-11-17: unused while D1.2 is on hold and D1.3 dropped; the shader and its tests are in commit 95b8721) |
 | D1.2 | Split and merge with the shader | on hold (owner, 2026-11-15: not approved, risk without the one body; ask again) |
 | D1.3 | (optional) Drip on expand | dropped (owner, 2026-11-15: needs the one body, which stays cancelled) |
-| D2.1 | Alert bump replaces swapSquash | todo |
+| D2.1 | Alert bump replaces swapSquash | done (a change of activity kicks the pill's width spring (AlertBump: v0 = 0.06·W·ω / g(ζ), g(0.55) = 0.522), peak +6 %, on the pill's own width spring (the user's split curve) so width changes move as before; not on an appear; kicks add up, so two changes 100 ms apart are one motion; Reduce motion: none; no scaleX/scaleY on pill or notch bridge any more, so text isn't stretched; the leaving content's blur reads |width velocity| / kick; SWAP_SQUASH_IN removed; AlertBumpMathTest (numeric spring sim), AlertBumpTest (Robolectric: 6 % ± 1 %, none with Reduce motion); four goldens re-recorded (dual appear at 150 ms no longer shows the bubble above and below a squashed pill; the rest equalizer phase only)) |
 | D2.2 | Banners peek, then recede | todo |
 | D2.3 | "Same app, new event" signal | todo |
 | D2.4 | Haptics at the neck snap and merge | todo |

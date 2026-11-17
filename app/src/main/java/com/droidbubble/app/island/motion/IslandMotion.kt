@@ -61,8 +61,6 @@ object MotionTween {
     val CHARGING_FILL = TweenToken(750, delayMillis = 60)
     /** The charging fill emptying when the glance ends. */
     val CHARGING_DRAIN = TweenToken(150, FastOutLinearInEasing)
-    /** The pill's quick squash when it switches activity. */
-    val SWAP_SQUASH_IN = TweenToken(110, speedScaled = false)
     /** Tapping the empty pill: it dips, then lifts, then settles on [IslandMotion.idleTapSettle]. */
     val IDLE_TAP_DOWN = TweenToken(70, speedScaled = false)
     val IDLE_TAP_UP = TweenToken(90, speedScaled = false)
@@ -145,7 +143,7 @@ data class IslandMotion(
     val cardDrag = MotionToken.Physical(0.76f, 420f)
     /** The pill and bubble sinking under a finger. Not speed-scaled. */
     val press: MotionToken.Physical get() = if (droid) DROID_PRESS else MotionToken.Physical(0.6f, 700f, speedScaled = false)
-    /** The pill springing back after the swap squash. */
+    /** The pill's breath when it switches activity (Legacy D2.1 alert bump). */
     val swapSquashOut = MotionToken.Physical(0.5f, 380f)
     val parenthesisShoot = MotionToken.Physical(0.65f, 260f)
     /** New compact content scaling in. Not speed-scaled. */

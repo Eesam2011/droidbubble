@@ -183,6 +183,7 @@ import com.droidbubble.app.island.shell.rememberWindowReady
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.island.layout.islandKeyline
+import com.droidbubble.app.island.motion.AlertBump
 import com.droidbubble.app.island.layout.IslandOutline
 import com.droidbubble.app.island.layout.OutlineSurface
 import com.droidbubble.app.model.MediaInfo
@@ -336,19 +337,20 @@ internal fun IslandShell(
     val motion = LocalIslandMotion.current
     val speed = motion.speed
 
-    // Squash & stretch when the pill switches to a different activity (the iOS "breath")
-    // The leaving content's blur rides this squash (see the compact content swap), so it follows
-    // the shape change instead of a separate timer
-    val swapSquash = remember { Animatable(0f) }
+    // D2.1: when the pill switches to a different activity it takes a breath: a kick on its
+    // width spring (AlertBump, peak +6 % on the user's split curve), applied where the width
+    // animates below. The shape
+    // widens in layout, so the text isn't stretched, and a second kick adds to the first.
+    // Reduce motion: no bump, the content cross-fade only.
+    var bumpRequest by remember { mutableStateOf(BumpRequest(0, 0f)) }
     var lastCompactPriority by remember { mutableStateOf(primaryPriority) }
     // Battery Saver turns morph blurs off (steppedBlurEffect); start listening for it
     LaunchedEffect(Unit) { AudioPowerPolicy.ensure(context) }
     LaunchedEffect(primaryPriority) {
         if (primaryPriority == lastCompactPriority) return@LaunchedEffect
         lastCompactPriority = primaryPriority
-        if (isExpanded) return@LaunchedEffect
-        swapSquash.animateTo(0.06f, motion.tween(MotionTween.SWAP_SQUASH_IN))
-        swapSquash.animateTo(0f, motion.spring(motion.swapSquashOut))
+        if (isExpanded || motion.tier == MotionTier.REDUCED) return@LaunchedEffect
+        bumpRequest = BumpRequest(bumpRequest.id + 1, AlertBump.FRACTION)
     }
 
     // Press feedback: the pill and bubble sink slightly under the finger and spring back
@@ -612,7 +614,25 @@ internal fun IslandShell(
 
     // M2.4: the pill's width on an Animatable (dp as Float), so its velocity drives the blur
     val pillWidth = remember { Animatable(targetCompactWidth.value) }
-    LaunchedEffect(targetCompactWidth) { pillWidth.animateTo(targetCompactWidth.value, compactPillWidthAnimSpec) }
+    // D2.1: the kick of the last bump, so the leaving content's blur can follow it
+    var bumpVelocity by remember { mutableFloatStateOf(0f) }
+    var appliedBump by remember { mutableIntStateOf(0) }
+    LaunchedEffect(targetCompactWidth, bumpRequest) {
+        val target = targetCompactWidth.value
+        val bump = bumpRequest.id != appliedBump
+        appliedBump = bumpRequest.id
+        // Not on an appear (the pill growing out of the camera is its own motion), and the kick
+        // rides the pill's own width spring, so a width change moves exactly as before
+        if (bump && target > 0f && pillWidth.value >= target * BUMP_MIN_SHOWN) {
+            val spec = compactPillWidthAnimSpec
+            val kick = AlertBump.velocity(target, spec.dampingRatio, spec.stiffness, bumpRequest.fraction)
+            bumpVelocity = kick
+            pillWidth.animateTo(target, spec, initialVelocity = pillWidth.velocity + kick)
+        } else {
+            // A width change mid-bump carries the bump's velocity on (animateTo keeps it)
+            pillWidth.animateTo(target, compactPillWidthAnimSpec)
+        }
+    }
     val compactWidthState = remember { derivedStateOf { pillWidth.value.dp } }
     // M3.2: the bubble emerges when the pill is 95% of the way to its width, not after a fixed
     // 60 ms, so it waits for the pill at any speed and through interruptions
@@ -1494,7 +1514,7 @@ internal fun IslandShell(
                         .graphicsLayer {
                             alpha = compactPillAlpha
                             transformOrigin = TransformOrigin(0.5f, 0f)
-                            scaleX = pillPressScale * (1f + swapSquash.value)
+                            scaleX = pillPressScale
                         }
                 ) {
                     val bridge = notchBridgePath(size.width, size.height, notchEar.toPx())
@@ -1525,8 +1545,8 @@ internal fun IslandShell(
                             // A notch stays attached to the top edge: no bounce away from it
                             translationY = if (settings.isNotch) 0f else idleBounceY.value.dp.toPx()
                             if (settings.isNotch) transformOrigin = TransformOrigin(0.5f, 0f)
-                            scaleX = idleBounceScale.value * pillPressScale * (1f + swapSquash.value)
-                            scaleY = idleBounceScale.value * pillPressScale * (1f - swapSquash.value * 0.5f)
+                            scaleX = idleBounceScale.value * pillPressScale
+                            scaleY = idleBounceScale.value * pillPressScale
                         }
                         .clip(compactPillShape)
                         .background(if (pillFilled) Color.Black else Color.Transparent)
@@ -1962,10 +1982,11 @@ internal fun IslandShell(
                                         .testTag(IslandTestTags.content("pill", shownPriority))
                                         .fillMaxSize()
                                         .graphicsLayer {
-                                            // Only the leaving activity blurs, with the swap's squash
-                                            // and the pill's width change; the new one stays sharp
+                                            // Only the leaving activity blurs, with the bump (D2.1:
+                                            // |width velocity| / kick) and the pill's width change;
+                                            // the new one stays sharp
                                             renderEffect = if (shown.key != primaryKey) steppedBlurEffect(
-                                                maxOf(kotlin.math.abs(swapSquash.value) / 0.06f, pillMorphSpeed()), 12.dp.toPx()
+                                                maxOf(bumpBlur(pillWidth.velocity, bumpVelocity), pillMorphSpeed()), 12.dp.toPx()
                                             ) else null
                                         },
                                     contentAlignment = Alignment.Center
@@ -2066,6 +2087,16 @@ internal fun IslandShell(
 // M3.2: staggers as fractions of the shape's own progress (03 §6)
 private const val CARD2_STARTS_AT = 0.1f
 private const val BUBBLE_EMERGE_AT = 0.95f
+
+/** D2.1 / D2.3: one kick on the pill's width, [fraction] of it at the peak. [id] counts kicks. */
+private data class BumpRequest(val id: Int, val fraction: Float)
+
+/** D2.1: a pill narrower than this share of its target is still appearing, so it isn't bumped. */
+private const val BUMP_MIN_SHOWN = 0.5f
+
+/** D2.1: the leaving content's blur while the pill breathes, 0 to 1. */
+internal fun bumpBlur(widthVelocity: Float, kick: Float): Float =
+    if (kick <= 0f) 0f else (kotlin.math.abs(widthVelocity) / kick).coerceIn(0f, 1f)
 private const val PARENTHESES_SHOOT_AT = 0.6f
 
 /** M3.3: what card 1 shows, frozen per [ContentKey] so leaving content keeps its own data and height. */
