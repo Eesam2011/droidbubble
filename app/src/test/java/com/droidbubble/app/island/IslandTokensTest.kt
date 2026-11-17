@@ -42,7 +42,7 @@ class IslandTokensTest {
         assertEquals(Color(0xFF30D158), LiveActivityColors.CallGreen)
         assertEquals(Color(0xFFFF453A), LiveActivityColors.CallRed)
         assertEquals(Color(0xFF3A3A3C), LiveActivityColors.AvatarPlaceholder)
-        assertEquals(Color(0xFFFFCC00), LiveActivityColors.AlarmYellow)
+        assertEquals(Color(0xFFFFD60A), LiveActivityColors.AlarmYellow) // V5.1: one Warning yellow
         assertEquals(Color(0xFF30D158), LiveActivityColors.TrackingGreen)
         assertEquals(Color(0xFFF2F2F7), LiveActivityColors.SportsWhite)
     }

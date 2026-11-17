@@ -118,10 +118,10 @@ class DeriveIslandTargetsTest {
         assertDp(200.dp, targets(charging).alertWidth!!)
 
         val small = base.copy(widthDp = 100)
-        assertDp(140.dp, targets(charging, small).compactWidth)
+        assertDp(167.44.dp, targets(charging, small).compactWidth) // V3.5: never narrower than its widest text
         assertDp(108.dp, targets(unlock, small).compactWidth)
         assertDp(108.dp, targets(bluetooth, small).compactWidth)
-        assertDp(130.dp, targets(ringer, small).compactWidth)
+        assertDp(164.84.dp, targets(ringer, small).compactWidth)    // V3.5: never narrower than "Vibrate"
     }
 
     @Test
