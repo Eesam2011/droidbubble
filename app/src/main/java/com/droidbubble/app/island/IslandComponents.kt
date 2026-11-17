@@ -249,7 +249,7 @@ fun Modifier.cardInset(priority: IslandPriority, scale: Float, fontScale: Float)
  * [measureNotificationCardHeight] so the card is always exactly as tall as its content.
  */
 class NotificationCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType = IslandType(scale)) {
-    private val rhythm = com.droidbubble.app.island.layout.CardRhythm(scale, fontScale)
+    private val rhythm = com.droidbubble.app.island.layout.CardRhythm(scale)
     val horizontalPadding = cardInsetDp(IslandPriority.POP_NOTIFICATION, scale, fontScale)
     val verticalPadding = horizontalPadding
     val iconSize = rhythm.tile
@@ -278,7 +278,7 @@ class NotificationCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandT
 
 /** Sizes of the expanded download / progress card, shared by the view and its height measurement. */
 class ProgressCardMetrics(scale: Float, fontScale: Float = 1f, type: IslandType = IslandType(scale)) {
-    private val rhythm = com.droidbubble.app.island.layout.CardRhythm(scale, fontScale)
+    private val rhythm = com.droidbubble.app.island.layout.CardRhythm(scale)
     val verticalPadding = cardInsetDp(IslandPriority.PROGRESS, scale, fontScale)
     val iconSize = rhythm.tile
     val iconGap = rhythm.iconGap
@@ -307,7 +307,7 @@ class MediaCardMetrics(scale: Float, fontScale: Float = 1f) {
     val inset = cardInsetDp(IslandPriority.MEDIA, scale, fontScale)
     val artSize = (54.dp * scale).coerceIn(40.dp, 64.dp)
     /** V4.2: cover to title, the shared rhythm (it was a fixed 12 dp). */
-    val iconGap = com.droidbubble.app.island.layout.CardRhythm(scale, fontScale).iconGap
+    val iconGap = com.droidbubble.app.island.layout.CardRhythm(scale).iconGap
     val subtitleSpacing = 3.dp
     /**
      * Song info to seek bar, and seek bar to controls: the room the old fixed-height layout gave

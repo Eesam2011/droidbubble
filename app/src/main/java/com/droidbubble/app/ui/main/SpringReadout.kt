@@ -2,7 +2,6 @@ package com.droidbubble.app.ui.main
 
 import androidx.compose.ui.unit.dp
 import com.droidbubble.app.island.IslandTokens
-import com.droidbubble.app.island.layout.CompactSlots
 import com.droidbubble.app.island.motion.MotionToken
 import com.droidbubble.app.island.motion.toPhysical
 import com.droidbubble.app.island.scene.IslandEnv
@@ -71,26 +70,24 @@ data class SpringReadout(
         fun overshootOf(zeta: Double): Double =
             if (zeta < 1.0) exp(-PI * zeta / sqrt(1.0 - zeta * zeta)) else 0.0
 
-        /** The last time the step response is more than [BAND] from its target, in seconds. */
+        /**
+         * When the response stays within [BAND] of its target, in seconds, in closed form: the
+         * envelope's bound when underdamped, 6.64 / ω at critical damping, and the slow pole's
+         * decay when overdamped. A label, so reading up to about 25% long is fine.
+         * ponytail: closed form, not a scan.
+         */
         fun settleTime(zeta: Double, stiffness: Double): Double {
             val w = sqrt(stiffness)
-            fun err(t: Double) = abs(1.0 - springStep(zeta, stiffness, t))
-            // An upper bound: for ζ < 1 the error never exceeds its envelope; for ζ ≥ 1 it only
-            // falls, so doubling finds a time inside the band
-            var hi = if (zeta < 1.0) ln(1.0 / (BAND * sqrt(1.0 - zeta * zeta))) / (zeta * w) else 1.0 / w
-            if (zeta >= 1.0) while (err(hi) > BAND) hi *= 2.0
-            val n = 4000
-            var lastOut = -1
-            for (i in 0..n) if (err(hi * i / n) > BAND) lastOut = i
-            if (lastOut < 0) return 0.0
-            if (lastOut == n) return hi
-            var a = hi * lastOut / n
-            var b = hi * (lastOut + 1) / n
-            repeat(50) {
-                val m = (a + b) / 2.0
-                if (err(m) > BAND) a = m else b = m
+            return when {
+                abs(zeta - 1.0) < 0.02 -> 6.64 / w
+                zeta < 1.0 -> ln(1.0 / (BAND * sqrt(1.0 - zeta * zeta))) / (zeta * w)
+                else -> {
+                    val s = sqrt(zeta * zeta - 1.0)
+                    val slow = w * (zeta - s)
+                    val fast = w * (zeta + s)
+                    ln(fast / (fast - slow) / BAND) / slow
+                }
             }
-            return b
         }
     }
 }
@@ -155,7 +152,7 @@ enum class CurveTarget(val label: String) {
         EXPAND -> (expandedCardWidth(s, IslandEnv(screenWidthDp = screenWidthDp)) - s.widthDp.dp).value
         COLLAPSE -> 0f
         APPEAR -> (s.widthDp - s.heightDp).toFloat()
-        SPLIT -> (CompactSlots.bubbleWidth(0.dp, s.heightDp.dp) + IslandTokens.Shell.BubbleGap).value
+        SPLIT -> (s.heightDp.dp + IslandTokens.Shell.BubbleGap).value
     }.coerceAtLeast(0f)
 }
 

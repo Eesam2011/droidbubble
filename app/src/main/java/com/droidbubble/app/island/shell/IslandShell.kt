@@ -564,7 +564,7 @@ internal fun IslandShell(
     val mediaBaseHeight = remember(settings.expandedScale, notifBaseTextStyle, notifDensity) {
         com.droidbubble.app.island.measureMediaCardHeight(settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
     }
-    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides, mediaBaseHeight, configuration.screenWidthDp.dp)
+    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides, mediaBaseHeight)
     val compactMainHalf = com.droidbubble.app.island.scene.mainPillWidth(settings, compactMeasured) / 2f
     // V3.2: the most a side can hold: half the pill (as grown for its text) beside the camera
     val compactMaxSide = (compactMainHalf - cameraZone / 2f - com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp)).coerceAtLeast(0.dp)

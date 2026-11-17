@@ -51,10 +51,6 @@ class CardGeometry(scale: Float, fontScale: Float = 1f) {
         return minOf(inner(inset), cap)
     }
 
-    /** Inside a capsule (the pill, the bubble): concentric with a round end means round, no cap. */
-    fun radiusInCapsule(containerH: Dp, inset: Dp, side: Dp): Dp =
-        minOf(containerH / 2 - inset, side / 2).coerceAtLeast(0.dp)
-
     companion object {
         val MIN_INNER = 6.dp
         /** Square-ish elements stop at this fraction of their short side. */

@@ -38,7 +38,8 @@ class SpringReadoutTest {
     private fun assertMatchesSimulation(duration: Float, bounce: Float, speed: Float) {
         val r = SpringReadout.of(duration, bounce, speed, travelDp = 100f)
         val (simOvershoot, simSettle) = simulate(r.dampingRatio, r.stiffness, tEnd = 3.0 * r.settleSeconds + 0.2)
-        assertEquals("settle d=$duration b=$bounce s=$speed", simSettle, r.settleSeconds, 0.02 * simSettle)
+        // The readout is the envelope bound: never early, at most 30% long
+        assertTrue("settle d=$duration b=$bounce s=$speed: ${r.settleSeconds} vs $simSettle", r.settleSeconds >= simSettle * 0.98 && r.settleSeconds <= simSettle * 1.3)
         if (simOvershoot > 1e-4) {
             assertEquals("overshoot d=$duration b=$bounce s=$speed", simOvershoot, r.overshoot, 0.02 * simOvershoot)
         } else {

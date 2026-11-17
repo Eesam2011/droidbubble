@@ -19,9 +19,9 @@ class CompactFitTest {
         assertEquals(CompactFit.Result("Samantha", CompactFit.SQUEEZE), CompactFit.fit("Samantha", 52f, ::width))
     }
 
-    @Test fun abbreviationFits() {
-        assertEquals(CompactFit.Result("Play"), CompactFit.fit("Google Play", 40f, ::width))
-        assertEquals(CompactFit.Result("Sam"), CompactFit.fit("Sam Carter-Williams", 40f, ::width))
+    @Test fun firstNameOnly() {
+        assertEquals("Sam", CompactFit.firstName("Sam Carter-Williams"))
+        assertEquals("Emianlahzy", CompactFit.firstName("  Emianlahzy  "))
     }
 
     @Test fun dropped() {
@@ -30,12 +30,11 @@ class CompactFitTest {
     }
 
     @Test fun numbersAreNeverShortened() {
-        assertEquals(emptyList<String>(), CompactFit.shorterForms("Arsenal 2 - 1"))
         assertNull(CompactFit.fit("12:34:56", 20f, ::width).text)
     }
 
     @Test fun rightToLeftText() {
-        assertEquals(CompactFit.Result("سامي"), CompactFit.fit("سامي العلي", 30f, ::width))
+        assertEquals(CompactFit.Result("سامي"), CompactFit.fit(CompactFit.firstName("سامي العلي"), 30f, ::width))
     }
 
     @Test fun noEllipsisInTheCompactPill() {

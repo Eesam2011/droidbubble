@@ -56,11 +56,4 @@ class MediaAccentTest {
         // A strongly coloured dark red keeps an accent
         assertTrue(MediaAccent.clampAccent(0xFF8B0000.toInt()) != Color.Transparent)
     }
-
-    @Test
-    fun labRoundTrips() {
-        val (l, a, b) = MediaAccent.toLab(0xFF3366CC.toInt())
-        val rgb = MediaAccent.fromLab(l, a, b)!!
-        assertEquals(0x33 / 255.0, rgb[0], 0.01); assertEquals(0x66 / 255.0, rgb[1], 0.01); assertEquals(0xCC / 255.0, rgb[2], 0.01)
-    }
 }

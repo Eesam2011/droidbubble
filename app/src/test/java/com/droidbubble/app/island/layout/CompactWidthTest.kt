@@ -5,12 +5,11 @@ import com.droidbubble.app.island.harness.IslandFixtures
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.ScreenRecordingState
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** V3.1: the pill's width model, its sides per activity and tick stability. Robolectric: the fixtures hold bitmaps. */
+/** The pill's sides per activity and tick stability. Robolectric: the fixtures hold bitmaps. */
 @RunWith(androidx.test.ext.junit.runners.AndroidJUnit4::class)
 @Config(sdk = [35])
 class CompactWidthTest {
@@ -19,13 +18,9 @@ class CompactWidthTest {
     private val rec = ScreenRecordingState()
 
     @Test
-    fun widthIsTheGapPlusTwiceTheLargerSidePlusInsets_clamped() {
-        val inset = CompactSlots.inset(h)
-        assertEquals(8f, inset.value, 0f)
-        assertEquals(120f, CompactSlots.width(20.dp, 36.dp, inset, wMax = 180.dp).value, 0f)  // 92 → min 120
-        assertEquals(140f, CompactSlots.width(44.dp, 36.dp, inset, wMax = 180.dp).value, 0f)  // 36 + 88 + 16
-        assertEquals(180f, CompactSlots.width(90.dp, 36.dp, inset, wMax = 180.dp).value, 0f)  // the setting is the maximum
-        assertEquals(100f, CompactSlots.width(10.dp, 36.dp, inset, wMax = 100.dp).value, 0f)  // a setting under the minimum wins
+    fun insetFollowsThePillHeight() {
+        assertEquals(8f, CompactSlots.inset(h).value, 0f)
+        assertEquals(6f, CompactSlots.inset(25.dp).value, 0f)
     }
 
     @Test
@@ -38,21 +33,11 @@ class CompactWidthTest {
         assertEquals("Sam", msg.trailText)
         assertEquals(20f, msg.lead.value, 0.01f) // every leading picture is the 20 dp art size
         val dl = CompactSlots.sides(IslandPriority.PROGRESS, null, IslandFixtures.progress(42), rec, h)
-        assertEquals("Google Play", dl.leadText); assertEquals("100", dl.trailText); assertEquals("%", dl.trailUnit)
+        assertEquals("100", dl.trailText); assertEquals("%", dl.trailUnit)
         val torch = CompactSlots.sides(IslandPriority.FLASHLIGHT, null, null, rec, h)
-        assertNull(torch.trailText)
+        assertEquals("100", torch.trailText); assertEquals("%", torch.trailUnit)
         val idle = CompactSlots.sides(IslandPriority.IDLE, null, null, rec, h)
         assertEquals(0f, idle.lead.value, 0f)
-    }
-
-    @Test
-    fun bubbleIsACircleUntilItsContentNeedsMore() {
-        // V3.3: content + 6 dp each side, between H and 1.25 H
-        assertEquals(36f, CompactSlots.bubbleWidth(16.dp, 36.dp).value, 0f)
-        assertEquals(36f, CompactSlots.bubbleWidth(24.dp, 36.dp).value, 0f)
-        assertEquals(40f, CompactSlots.bubbleWidth(28.dp, 36.dp).value, 0f)
-        assertEquals(45f, CompactSlots.bubbleWidth(60.dp, 36.dp).value, 0f)
-        assertEquals(25f, CompactSlots.bubbleWidth(13.dp, 25.dp).value, 0f)
     }
 
     @Test
@@ -70,6 +55,3 @@ class CompactWidthTest {
         assertEquals(timer.trailText, CompactSlots.template(timer.trailText!!))
     }
 }
-
-/** The bare app icon in a message pill is the smaller of the avatar footprint and the 20 dp art cap. */
-private fun CompactSlots.minOfArt(h: androidx.compose.ui.unit.Dp) = minOf(avatarFootprint(h), com.droidbubble.app.island.IslandTokens.Glyph.CompactArt).value

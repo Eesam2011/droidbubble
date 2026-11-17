@@ -11,7 +11,7 @@ import com.droidbubble.app.island.IslandTokens
  * their own literals.
  */
 @Immutable
-class CardRhythm(scale: Float, fontScale: Float = 1f) {
+class CardRhythm(scale: Float) {
     /** Icon tile or art to the header text. */
     val iconGap: Dp = (IslandTokens.SpaceMd * scale).coerceIn(8.dp, 16.dp)
     /** Title to subtitle. */
@@ -22,8 +22,6 @@ class CardRhythm(scale: Float, fontScale: Float = 1f) {
     val bodyToActions: Dp = (IslandTokens.SpaceMd * scale).coerceIn(10.dp, 14.dp)
     /** Action buttons: 44 dp or more visually, inside a 48 dp touch row. */
     val buttonHeight: Dp = (42.dp * scale).coerceIn(44.dp, 50.dp)
-    /** Gap between rows of controls. */
-    val rowGap: Dp = CardGeometry(scale, fontScale).gap
     /** Header icon tile; its glyph is 0.55 of it (V7.2). */
     val tile: Dp = (40.dp * scale).coerceIn(32.dp, 48.dp)
 }

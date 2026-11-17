@@ -3,8 +3,12 @@ package com.droidbubble.app.island.color
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /** V5.3: the scrim keeps white text at 4.5:1 or better, and leaves dark covers alone. */
+@RunWith(androidx.test.ext.junit.runners.AndroidJUnit4::class)
+@Config(sdk = [35]) // ColorUtils reads android.graphics.Color
 class ScrimMathTest {
     private fun whiteContrast(y: Float) = 1.05f / (y + 0.05f)
 

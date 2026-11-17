@@ -1,7 +1,6 @@
 package com.droidbubble.app.island.color
 
 import android.graphics.Bitmap
-import kotlin.math.pow
 
 /**
  * V5.3: how dark the scrim behind the song card's text must be so white text keeps 4.5:1 or
@@ -42,10 +41,7 @@ object Scrim {
 
     /** [bands] on an 8 × 8 grid of ARGB pixels, row by row: rows 0–2 are the top 40%, rows 5–7 the bottom. */
     fun bandsOf(px: IntArray): Bands {
-        fun y(p: Int): Float {
-            fun lin(c: Int): Double { val v = c / 255.0; return if (v <= 0.04045) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4) }
-            return (0.2126 * lin((p shr 16) and 0xff) + 0.7152 * lin((p shr 8) and 0xff) + 0.0722 * lin(p and 0xff)).toFloat()
-        }
+        fun y(p: Int) = androidx.core.graphics.ColorUtils.calculateLuminance(p).toFloat()
         val top = (0 until 24).maxOf { y(px[it]) }
         val bottom = (40 until 64).maxOf { y(px[it]) }
         return Bands(top, bottom)

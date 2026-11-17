@@ -44,7 +44,6 @@ class CardGeometryTest {
         eq(21.45f, g.radiusFor(g.insetRoomy, 280.dp, 48.dp))
         eq(12f, g.radiusFor(g.insetRoomy, 280.dp, 24.dp))
         // Compact art 20 dp in a 36 dp pill, inset 8: a circle
-        eq(10f, g.radiusInCapsule(36.dp, 8.dp, 20.dp))
         // One-row live card: tight inset, a control there is a circle
         eq(27.5f, g.inner(g.insetTight))
     }
@@ -53,6 +52,5 @@ class CardGeometryTest {
     fun innerNeverDropsBelowSix() {
         val g = CardGeometry(1.1f)
         eq(6f, g.inner(40.dp))
-        eq(0f, g.radiusInCapsule(36.dp, 20.dp, 20.dp))
     }
 }

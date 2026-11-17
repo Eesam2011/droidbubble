@@ -639,8 +639,7 @@ fun CompactContent(
         // Leading content: Pinned strictly to the left of the camera punch hole
         Box(
             modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_LEADING),
-            // V3.1: against the camera, so a hugging pill reads balanced (CP2 flag)
-            contentAlignment = if (com.droidbubble.app.island.layout.CompactSlots.SNUG_TO_CAMERA) Alignment.CenterEnd else Alignment.CenterStart
+            contentAlignment = Alignment.CenterStart
         ) {
             when (priority) {
                 IslandPriority.CALL -> Icon(
@@ -739,28 +738,7 @@ fun CompactContent(
                                 reversing = true,
                             )
                         }
-                        // The download pill shows the icon only, no app name (owner, 2026-11-15)
-                        if (SHOW_DOWNLOAD_APP_NAME && !isCompactDual) {
-                            // V3.2: squeeze, shorten ("Google Play" → "Play") or drop; never "…"
-                            val iconWidth = if (notification?.iconBitmap != null) IslandTokens.Glyph.CompactArt else IslandTokens.Glyph.Compact
-                            // The download pill keeps its smaller text (owner, 2026-11-15)
-                            val nameStyle = com.droidbubble.app.island.layout.CompactText.small(compactType, FontWeight.Medium)
-                            val fit = com.droidbubble.app.island.layout.rememberCompactFit(
-                                notification?.appName ?: "Download",
-                                maxSide - iconWidth - com.droidbubble.app.island.layout.CompactSlots.PROGRESS_LABEL_GAP,
-                                nameStyle,
-                            )
-                            if (fit.text != null) {
-                                Spacer(modifier = Modifier.width(com.droidbubble.app.island.layout.CompactSlots.PROGRESS_LABEL_GAP))
-                                Text(
-                                    text = fit.text,
-                                    color = IslandTokens.ControlLight,
-                                    style = com.droidbubble.app.island.layout.CompactFit.squeezed(nameStyle, fit),
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
+                        // Icon and percentage only, no app name (owner, 2026-11-15)
                     }
                 }
 
@@ -803,7 +781,7 @@ fun CompactContent(
         val trailingPad = if (trailingText && !isCompactDual) com.droidbubble.app.island.layout.CompactSlots.TEXT_END_PAD else 0.dp
         Box(
             modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_TRAILING).padding(end = trailingPad),
-            contentAlignment = if (com.droidbubble.app.island.layout.CompactSlots.SNUG_TO_CAMERA) Alignment.CenterStart else Alignment.CenterEnd
+            contentAlignment = Alignment.CenterEnd
         ) {
             when (priority) {
                 IslandPriority.CALL -> {
@@ -2286,9 +2264,6 @@ internal fun FadingName(name: String, room: Dp, style: androidx.compose.ui.text.
 }
 
 val FADING_NAME_EDGE = 14.dp
-
-/** The download pill's app name beside its icon: off (owner, 2026-11-15). */
-const val SHOW_DOWNLOAD_APP_NAME = false
 
 /** B9.2: the bubble's progress ring stroke. */
 val BUBBLE_RING_STROKE = 2.dp
