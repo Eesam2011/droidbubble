@@ -64,7 +64,7 @@ class SpringReadoutTest {
         // At 0.7× the island runs k·0.49, so the curve takes 1/0.7 as long as at 1×
         val atOne = SpringReadout.of(0.322f, 0.2f, 1f, 0f)
         val atDefault = SpringReadout.of(0.322f, 0.2f, 0.7f, 0f)
-        assertEquals(atOne.stiffness * 0.49, atDefault.stiffness, 1e-6)
+        assertEquals(atOne.stiffness * 0.49, atDefault.stiffness, 1e-4) // float rounding of the stored speed
         assertEquals(atOne.settleSeconds / 0.7, atDefault.settleSeconds, 1e-3)
         assertEquals(0.46, atDefault.effectiveDuration, 0.005)
     }

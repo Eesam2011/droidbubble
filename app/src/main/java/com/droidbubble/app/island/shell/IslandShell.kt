@@ -547,18 +547,27 @@ internal fun IslandShell(
     val bubbleSize = settings.heightDp.dp
     // V3.1: the pill hugs its content; measured here (once per activity, not per tick)
     val cameraZone = com.droidbubble.app.island.layout.LocalCameraZone.current
-    // V3.2: the most a side can hold, at the pill's widest
-    val compactMaxSide = ((settings.widthDp.dp - cameraZone) / 2f - com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp)).coerceAtLeast(0.dp)
-    // V3.1's content measurement is off (HUG_CONTENT): the pill is exactly the Width setting
-    val compactSide: Dp? = null
+    // The pill is the Width setting; a pill with text grows just enough for it (measured once
+    // per activity, not per tick). Icon-only pills (media) keep exactly the setting.
+    val compactNotification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif
+    val compactSlots = remember(primaryPriority, currentMedia, compactNotification, recording.durationSeconds / 60, settings.heightDp) {
+        com.droidbubble.app.island.layout.CompactSlots.sides(primaryPriority, currentMedia, compactNotification, recording, settings.heightDp.dp)
+    }
+    val measuredCompactSide = com.droidbubble.app.island.layout.rememberCompactSide(
+        primaryPriority, currentMedia, compactNotification, recording, settings.heightDp.dp,
+        com.droidbubble.app.island.layout.CompactSlots.TEXT_SIDE_MAX,
+    )
+    val compactSide: Dp? = measuredCompactSide.takeIf { com.droidbubble.app.island.layout.CompactSlots.hasText(compactSlots) }
     // V3.5: the glance pills fit their widest content
     val alertSides = com.droidbubble.app.island.layout.rememberAlertSides()
     // V4.1: the media card is as tall as its rows
     val mediaBaseHeight = remember(settings.expandedScale, notifBaseTextStyle, notifDensity) {
         com.droidbubble.app.island.measureMediaCardHeight(settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
     }
-    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides, mediaBaseHeight)
+    val compactMeasured = MeasuredHeights(notifBaseHeight, progressBaseHeight, compactSide, cameraZone, alertSides, mediaBaseHeight, configuration.screenWidthDp.dp)
     val compactMainHalf = com.droidbubble.app.island.scene.mainPillWidth(settings, compactMeasured) / 2f
+    // V3.2: the most a side can hold: half the pill (as grown for its text) beside the camera
+    val compactMaxSide = (compactMainHalf - cameraZone / 2f - com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp)).coerceAtLeast(0.dp)
 
     val shouldEmergeSecondary = scene.emergesBubble
     // The bubble emerges once the main pill has established itself (M3.2, set below the pill)

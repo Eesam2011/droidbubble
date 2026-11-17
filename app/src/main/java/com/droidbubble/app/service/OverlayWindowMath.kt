@@ -47,6 +47,20 @@ fun windowTargets(scene: IslandScene, settings: IslandSettings, env: IslandEnv):
     deriveIslandTargets(scene, settings, env, MeasuredHeights(0.dp), card2Expanded = false, bubbleEmerged = true)
 
 /**
+ * The widest the view may draw a pill that shows text (a name, a value): the largest camera zone,
+ * two full text sides and the insets. The window is sized from this, so a pill that grew for its
+ * text, its camera brackets and its bubble are never clipped when the window settles (owner's
+ * "opens wide, then resizes" and "brackets appear, then hide" reports).
+ */
+fun widestTextPill(settings: IslandSettings): Float {
+    val slots = com.droidbubble.app.island.layout.CompactSlots
+    return (WINDOW_CAMERA_ZONE_MAX + slots.TEXT_SIDE_MAX * 2 + slots.inset(settings.heightDp.dp) * 2).value
+}
+
+/** The window's allowance for the camera gap (the default 36 dp, or a wider measured cutout). */
+private val WINDOW_CAMERA_ZONE_MAX = 52.dp
+
+/**
  * The window for a scene (F1.4). The scene is the one the view draws, so the window is touchable
  * exactly when something touchable is drawn: an app's own card hidden while the app is in front,
  * a notification its toggle hides, or a call with no card all leave the window out of the way.
@@ -68,17 +82,21 @@ fun compactWindowSpec(scene: IslandScene, targets: IslandTargets, settings: Isla
     // B2.2: room beside the drawn pill. Settled: the camera brackets (about 7.6 dp out) and the
     // tap bounce (up to 1.04x). Morphing: the old flat margin, for spring overshoot.
     val side = if (settled) SETTLED_MARGIN_DP else MORPH_MARGIN_DP
-    val pill = targets.compactWidth.value
+    val drawnPill = targets.compactWidth.value
+    // The view may grow a text pill past the Width setting; the window allows for its widest
+    val pill = if (!scene.hasAlert && !scene.userMinimized && com.droidbubble.app.island.layout.CompactSlots.showsText(scene.primary))
+        maxOf(drawnPill, widestTextPill(settings)) else drawnPill
     val height = settings.heightDp.toFloat()
 
     val totalWidthDp = when {
         scene.hasAlert -> pill + 2f * side
         scene.userMinimized -> pill + 2f * SETTLED_MARGIN_DP
+        // The bubble sits beside the pill as drawn, which may have grown for its text
         scene.isDual -> if (settled) {
-            (bubbleRestCenterX(settings).value + height / 2f + SETTLED_MARGIN_DP) * 2f
+            (bubbleRestCenterX(settings, maxOf(pill, settings.widthDp.toFloat()).dp).value + height / 2f + SETTLED_MARGIN_DP) * 2f
         } else {
-            val rightEdge = settings.widthDp / 2f + 8f + height + MORPH_MARGIN_DP
-            (rightEdge * 2f).coerceAtLeast(settings.widthDp + 2f * MORPH_MARGIN_DP)
+            val rightEdge = maxOf(pill, settings.widthDp.toFloat()) / 2f + 8f + height + MORPH_MARGIN_DP
+            (rightEdge * 2f).coerceAtLeast(maxOf(pill, settings.widthDp.toFloat()) + 2f * MORPH_MARGIN_DP)
         }
         else -> pill + 2f * side
     }

@@ -15,6 +15,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.times
 
 /**
  * The window table (S3.2, re-based on the scene in F1.4). The window is derived from the same
@@ -67,16 +69,16 @@ class OverlayWindowMathTest {
 
         // Single activities: pill + 40 dp each side
         Row("media", IslandInputs(media = song), compact(260f)),
-        Row("message, notifications on", IslandInputs(notification = message), compact(260f), messagesOn),
+        Row("message, notifications on", IslandInputs(notification = message), compact(276f), messagesOn),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
         Row("message, defaults (notifications off)", IslandInputs(notification = message), WindowSpec.Gone),
-        Row("progress", IslandInputs(progress = download), compact(260f)),
-        Row("recording", IslandInputs(recording = recording), compact(260f)),
-        Row("flashlight", IslandInputs(isFlashlightOn = true), compact(260f)),
+        Row("progress", IslandInputs(progress = download), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
+        Row("recording", IslandInputs(recording = recording), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
+        Row("flashlight", IslandInputs(isFlashlightOn = true), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
         Row("media hidden by showMedia = false", IslandInputs(media = song), WindowSpec.Gone, d.copy(showMedia = false)),
         // F1.4: was a touchable 260 dp strip. The view draws nothing for the tracked call state
         // (the call's card is its notification), so the strip only blocked touches.
         Row("ongoing call only, no card", IslandInputs(isCallActive = true), WindowSpec.Gone),
-        Row("ongoing call + its notification", IslandInputs(isCallActive = true, notification = ringing.copy(isIncomingCall = false)), compact(260f)),
+        Row("ongoing call + its notification", IslandInputs(isCallActive = true, notification = ringing.copy(isIncomingCall = false)), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
 
         // System glances
         Row("charging", IslandInputs(charging = ChargingInfo(80)), compact(280f)),            // max(180 + 20, 140) + 80
@@ -116,9 +118,9 @@ class OverlayWindowMathTest {
         Row("media, its app in the foreground", IslandInputs(media = song, foregroundPackage = SPOTIFY), WindowSpec.Gone),
         Row("media, another app in the foreground", IslandInputs(media = song, foregroundPackage = CHROME), compact(260f)),
         Row("media app in front + a message from another app: single width, touchable",
-            IslandInputs(media = song, notification = message, foregroundPackage = SPOTIFY), compact(260f), messagesOn),
+            IslandInputs(media = song, notification = message, foregroundPackage = SPOTIFY), compact(276f), messagesOn),   // a text pill: room for its widest
         Row("message, its app in the foreground", IslandInputs(notification = message, foregroundPackage = WHATSAPP), WindowSpec.Gone, messagesOn),
-        Row("ringing call, the phone app in the foreground", IslandInputs(notification = ringing, foregroundPackage = DIALER), compact(260f)),
+        Row("ringing call, the phone app in the foreground", IslandInputs(notification = ringing, foregroundPackage = DIALER), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
         Row("progress, its app in the foreground", IslandInputs(progress = download, foregroundPackage = CHROME), WindowSpec.Gone),
         Row("media app in front, always show pill: the empty pill, not touchable",
             IslandInputs(media = song, foregroundPackage = SPOTIFY), compact(260f, touchable = false), d.copy(alwaysShowPill = true)),
@@ -133,8 +135,8 @@ class OverlayWindowMathTest {
         Row("idle, settled", IslandInputs(), WindowSpec.Gone, settled = true),
 
         // B3.1: each notification kind has its own toggle; "Incoming Notifications" is messages only
-        Row("timer, defaults (showNotifications = false)", IslandInputs(notification = timer), compact(260f)),
-        Row("ringing call, defaults", IslandInputs(notification = ringing), compact(260f)),
+        Row("timer, defaults (showNotifications = false)", IslandInputs(notification = timer), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
+        Row("ringing call, defaults", IslandInputs(notification = ringing), compact(276f)),   // a text pill: room for its widest (52 + 2 × 64 + 2 × 8) + 80
         Row("ringing call, Phone Calls off", IslandInputs(notification = ringing), WindowSpec.Gone, d.copy(showCalls = false)),
         Row("timer, Live Activities off", IslandInputs(notification = timer), WindowSpec.Gone, d.copy(showLiveActivities = false)),
     )
@@ -157,6 +159,32 @@ class OverlayWindowMathTest {
                 }
             }
         }
+    }
+
+    /**
+     * Owner's report: on a 90 × 25 dp pill a message pill grows for the name and its bubble was cut
+     * by the window. The window now covers the widest a text pill can grow, plus the bubble.
+     */
+    @Test
+    fun grownTextPill_keepsItsBubbleInsideTheWindow() {
+        val owner = messagesOn.copy(widthDp = 90, heightDp = 25)
+        val env = IslandEnv(screenWidthDp = 360)
+        val inset = com.droidbubble.app.island.layout.CompactSlots.inset(25.dp)
+        // The widest pill the view may draw: a camera zone up to 44 dp + two capped text sides + insets
+        val viewPill = 44.dp + com.droidbubble.app.island.layout.CompactSlots.TEXT_SIDE_MAX * 2 + inset * 2
+        var sawTextPrimary = false
+        for (inputs in listOf(IslandInputs(notification = message), IslandInputs(progress = download), IslandInputs(media = song, progress = download), IslandInputs(media = song, notification = message))) {
+            val scene = deriveIslandScene(inputs, owner, env)
+            if (!com.droidbubble.app.island.layout.CompactSlots.showsText(scene.primary)) continue
+            sawTextPrimary = true
+            for (settled in listOf(true, false)) {
+                val w = (spec(inputs, owner, settled, env) as WindowSpec.Compact).widthDp!!
+                val right = if (scene.isDual) com.droidbubble.app.island.scene.bubbleRestCenterX(owner, viewPill) + 12.5.dp else viewPill / 2
+                // The camera brackets sit up to about 8.5 dp outside
+                assertTrue("${scene.primary} dual=${scene.isDual} settled=$settled window $w < ${(right + 8.5.dp) * 2}", w >= ((right + 8.5.dp) * 2).value)
+            }
+        }
+        assertTrue(sawTextPrimary)
     }
 
     @Test

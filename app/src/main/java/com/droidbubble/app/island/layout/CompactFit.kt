@@ -49,6 +49,9 @@ object CompactFit {
         return out
     }
 
+    /** The pill shows a sender by first name only (owner: the full name made the pill too wide). */
+    fun firstName(text: String): String = text.trim().split(Regex("\\s+")).firstOrNull()?.takeIf { it.isNotEmpty() } ?: text
+
     /** [width] gives a text's width in dp, plain or squeezed. */
     fun fit(text: String, available: Float, width: (String, Boolean) -> Float): Result {
         for (candidate in listOf(text) + shorterForms(text)) {

@@ -97,12 +97,13 @@ object CompactSlots {
         return when (priority) {
             IslandPriority.CALL -> Sides(glyph, null, 0.dp, "00:00", trailValue = true)
             IslandPriority.SCREEN_RECORDING -> Sides(RECORDING_DOT, null, 0.dp, template(formatDuration(recording.durationSeconds)), trailValue = true)
-            IslandPriority.FLASHLIGHT -> Sides(FLASHLIGHT_GLOW, null, 0.dp, null)
+            // V3.4: the torch level ("100%") or "On" on the empty side
+            IslandPriority.FLASHLIGHT -> Sides(FLASHLIGHT_GLOW, null, 0.dp, "100", trailValue = true, trailUnit = "%")
             IslandPriority.MEDIA -> Sides(art, null, EQUALIZER, null)
             IslandPriority.PROGRESS -> {
                 val icon = if (notification?.iconBitmap != null) art else glyph
                 val indeterminate = notification?.isIndeterminate == true
-                Sides(icon, notification?.appName ?: "Download", if (indeterminate) PROGRESS_SPINNER else 0.dp,
+                Sides(icon, if (com.droidbubble.app.island.SHOW_DOWNLOAD_APP_NAME) notification?.appName ?: "Download" else null, if (indeterminate) PROGRESS_SPINNER else 0.dp,
                     if (indeterminate) null else "100", trailValue = true, trailUnit = if (indeterminate) null else "%")
             }
             IslandPriority.POP_NOTIFICATION -> {
@@ -120,7 +121,7 @@ object CompactSlots {
                 val timed = kind != LiveActivityKind.NONE && kind != LiveActivityKind.CALL
                 val live = notification?.let { liveCompactText(it, kind) }
                     ?: notification?.takeIf { timed || it.liveTimerBaseMs > 0L }?.let { staticLiveTimeText(it) ?: "00:00" }
-                val text = live?.let { template(it) } ?: notification?.title ?: "Notification"
+                val text = live?.let { template(it) } ?: notification?.title?.let { CompactFit.firstName(it) } ?: "Notification"
                 Sides(lead, null, 0.dp, text, trailValue = live != null)
             }
             IslandPriority.IDLE -> Sides(0.dp, null, 0.dp, null)
@@ -143,6 +144,31 @@ object CompactSlots {
     val RECORDER_WAVEFORM: Dp = 26.dp
     val PROGRESS_SPINNER: Dp = 14.dp
     val PROGRESS_LABEL_GAP: Dp = 6.dp
+
+    /**
+     * The most one side may take when the pill grows for text: an hours timer ("00:00:00") fits.
+     * The overlay window is sized from this too, so the bubble beside a grown pill is never cut.
+     */
+    val TEXT_SIDE_MAX: Dp = 64.dp
+
+    /** Whether [priority]'s pill shows text (a name, a value) and so may grow past the Width setting. */
+    fun showsText(priority: IslandPriority?): Boolean = when (priority) {
+        IslandPriority.CALL, IslandPriority.SCREEN_RECORDING, IslandPriority.FLASHLIGHT,
+        IslandPriority.PROGRESS, IslandPriority.POP_NOTIFICATION -> true
+        else -> false
+    }
+
+    /**
+     * A sender's name never takes more than this (about 5 letters): a longer first name fades out
+     * at its end instead, so the start still says who it is and the pill stays narrow (owner).
+     */
+    val NAME_MAX: Dp = 38.dp
+
+    /** Text at the pill's trailing end sits this much further in than an icon, clear of the round end. */
+    val TEXT_END_PAD: Dp = 4.dp
+
+    /** Whether a side shows text (the pill may grow for it); icon-only pills keep the Width setting. */
+    fun hasText(s: Sides): Boolean = s.leadText != null || s.trailText != null
 }
 
 /** The compact text roles (V3.2): one family on both sides of the camera. */
@@ -194,8 +220,9 @@ fun rememberCompactSide(
         val lead = sides.lead + if (leadText > 0.dp) CompactSlots.PROGRESS_LABEL_GAP + leadText else 0.dp
         val trail = sides.trail + when {
             sides.trailText == null -> 0.dp
-            sides.trailValue -> width(sides.trailText, CompactText.value(type)) + (sides.trailUnit?.let { width(it, CompactText.unit(type)) } ?: 0.dp)
-            else -> fitted(sides.trailText, maxSide - sides.trail)
+            sides.trailValue -> width(sides.trailText, CompactText.value(type)) + (sides.trailUnit?.let { width(it, CompactText.unit(type)) } ?: 0.dp) + CompactSlots.TEXT_END_PAD
+            // A name: its own width up to NAME_MAX (past that it fades, see FadingName)
+            else -> minOf(width(sides.trailText, CompactText.label(type)), CompactSlots.NAME_MAX, maxSide - sides.trail - CompactSlots.TEXT_END_PAD) + CompactSlots.TEXT_END_PAD
         }
         max(lead.value, trail.value).dp
     }

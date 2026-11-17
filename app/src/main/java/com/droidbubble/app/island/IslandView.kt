@@ -124,6 +124,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -738,7 +739,8 @@ fun CompactContent(
                                 reversing = true,
                             )
                         }
-                        if (!isCompactDual) {
+                        // The download pill shows the icon only, no app name (owner, 2026-11-15)
+                        if (SHOW_DOWNLOAD_APP_NAME && !isCompactDual) {
                             // V3.2: squeeze, shorten ("Google Play" → "Play") or drop; never "…"
                             val iconWidth = if (notification?.iconBitmap != null) IslandTokens.Glyph.CompactArt else IslandTokens.Glyph.Compact
                             // The download pill keeps its smaller text (owner, 2026-11-15)
@@ -791,9 +793,16 @@ fun CompactContent(
         // No UI elements will EVER enter or overlap the camera cutout area
         com.droidbubble.app.island.layout.CameraGap()
 
-        // Trailing content: Pinned strictly to the right of the camera punch hole
+        // Trailing content: Pinned strictly to the right of the camera punch hole. Text keeps a
+        // little more room from the pill's round end than an icon does
+        val trailingText = when (priority) {
+            IslandPriority.CALL, IslandPriority.SCREEN_RECORDING, IslandPriority.FLASHLIGHT, IslandPriority.POP_NOTIFICATION -> true
+            IslandPriority.PROGRESS -> notification?.isIndeterminate != true
+            else -> false
+        }
+        val trailingPad = if (trailingText && !isCompactDual) com.droidbubble.app.island.layout.CompactSlots.TEXT_END_PAD else 0.dp
         Box(
-            modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_TRAILING),
+            modifier = Modifier.weight(1f).testTag(IslandTestTags.COMPACT_TRAILING).padding(end = trailingPad),
             contentAlignment = if (com.droidbubble.app.island.layout.CompactSlots.SNUG_TO_CAMERA) Alignment.CenterStart else Alignment.CenterEnd
         ) {
             when (priority) {
@@ -862,18 +871,22 @@ fun CompactContent(
                             countDown = notification?.liveTimerCountDown == true || liveKind == LiveActivityKind.TRACKING
                         )
                     } else {
-                        // V3.2: a name squeezes, shortens to its first word, or drops; never "…"
-                        val fit = com.droidbubble.app.island.layout.rememberCompactFit(
-                            notification?.title ?: "Notification", maxSide, com.droidbubble.app.island.layout.CompactText.label(compactType)
-                        )
-                        fit.text?.let {
+                        // The first name only. It squeezes a little if that's enough; a longer one
+                        // fades out at NAME_MAX instead of widening the pill (never "…")
+                        val name = notification?.title?.let { com.droidbubble.app.island.layout.CompactFit.firstName(it) } ?: "Notification"
+                        val nameRoom = minOf(maxSide - trailingPad, com.droidbubble.app.island.layout.CompactSlots.NAME_MAX)
+                        val nameStyle = com.droidbubble.app.island.layout.CompactText.label(compactType)
+                        val fit = com.droidbubble.app.island.layout.rememberCompactFit(name, nameRoom, nameStyle)
+                        if (fit.text != null) {
                             Text(
-                                text = it,
+                                text = fit.text,
                                 color = IslandTokens.ControlLight,
-                                style = com.droidbubble.app.island.layout.CompactFit.squeezed(com.droidbubble.app.island.layout.CompactText.label(compactType), fit),
+                                style = com.droidbubble.app.island.layout.CompactFit.squeezed(nameStyle, fit),
                                 maxLines = 1,
                                 softWrap = false
                             )
+                        } else if (nameRoom > 0.dp) {
+                            FadingName(name, nameRoom, nameStyle)
                         }
                     }
                 }
@@ -2244,6 +2257,38 @@ internal fun MediaArtBackdrop(art: Bitmap, needsBlur: Boolean, alpha: Float, gla
         )
     }
 }
+
+/**
+ * A name too long for its [room]: the start is shown and the end fades to clear over the last
+ * 14 dp, so it still reads as the person's name without an ellipsis or a wider pill.
+ */
+@Composable
+internal fun FadingName(name: String, room: Dp, style: androidx.compose.ui.text.TextStyle) {
+    Text(
+        text = name,
+        color = IslandTokens.ControlLight,
+        style = style,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        modifier = Modifier
+            .width(room)
+            .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val fade = (FADING_NAME_EDGE.toPx() / size.width).coerceIn(0f, 1f)
+                drawRect(
+                    Brush.horizontalGradient(0f to Color.Black, (1f - fade) to Color.Black, 1f to Color.Transparent),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+                )
+            }
+    )
+}
+
+val FADING_NAME_EDGE = 14.dp
+
+/** The download pill's app name beside its icon: off (owner, 2026-11-15). */
+const val SHOW_DOWNLOAD_APP_NAME = false
 
 /** B9.2: the bubble's progress ring stroke. */
 val BUBBLE_RING_STROKE = 2.dp

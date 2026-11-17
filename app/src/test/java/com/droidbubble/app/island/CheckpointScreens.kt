@@ -148,6 +148,13 @@ class CheckpointScreens(private val case: Case) {
             Case("compact_message_contact_photo", COMPACT) {
                 IslandStateManager.updateNotification(IslandFixtures.message().copy(avatarBitmap = IslandFixtures.art))
             },
+            // Owner: a long first name fades at its end; the pill doesn't keep growing (their 90 × 25 dp pill)
+            Case("compact_message_long_name", COMPACT, settings = BASE.copy(widthDp = 90, heightDp = 25)) {
+                IslandStateManager.updateNotification(IslandFixtures.message().copy(title = "Emianlahzy Hassan", avatarBitmap = IslandFixtures.art))
+            },
+            Case("compact_message_short_name", COMPACT, settings = BASE.copy(widthDp = 90, heightDp = 25)) {
+                IslandStateManager.updateNotification(IslandFixtures.message().copy(title = "Sam Carter", avatarBitmap = IslandFixtures.art))
+            },
             Case("compact_timer", COMPACT) { IslandStateManager.updateNotification(IslandFixtures.timer) },
             Case("compact_call", COMPACT) { IslandStateManager.updateNotification(ongoingCall) },
             Case("compact_recorder", COMPACT) { IslandStateManager.updateNotification(IslandFixtures.recorder) },

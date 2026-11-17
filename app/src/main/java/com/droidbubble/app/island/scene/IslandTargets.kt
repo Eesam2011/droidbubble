@@ -25,6 +25,8 @@ data class MeasuredHeights(
     val alertSides: AlertSides? = null,
     /** V4.1: the media card's measured height; null keeps the old table (the window maths). */
     val media: Dp? = null,
+    /** The screen's width; with it a grown pill always leaves room for the bubble beside it. */
+    val screenWidth: Dp? = null,
 )
 
 /**
@@ -51,15 +53,29 @@ fun estimatedAlertSides(fontScale: Float): AlertSides {
  * The compact pill's width. Owner decision (2026-11-15): always exactly the Width setting, like
  * the reference island, so V3.1's content-hugging is off ([com.droidbubble.app.island.layout.CompactSlots.HUG_CONTENT]).
  */
-fun mainPillWidth(settings: IslandSettings, measured: MeasuredHeights): Dp =
-    measured.compactSide?.takeIf { com.droidbubble.app.island.layout.CompactSlots.HUG_CONTENT }?.let {
-        com.droidbubble.app.island.layout.CompactSlots.width(
-            side = it,
-            cameraZone = measured.cameraZone,
-            inset = com.droidbubble.app.island.layout.CompactSlots.inset(settings.heightDp.dp),
-            wMax = settings.widthDp.dp,
-        )
-    } ?: settings.widthDp.dp
+fun mainPillWidth(settings: IslandSettings, measured: MeasuredHeights): Dp {
+    val side = measured.compactSide ?: return settings.widthDp.dp
+    val slots = com.droidbubble.app.island.layout.CompactSlots
+    val inset = slots.inset(settings.heightDp.dp)
+    if (slots.HUG_CONTENT) return slots.width(side, measured.cameraZone, inset, wMax = settings.widthDp.dp)
+    // The Width setting, unless the pill shows text that needs more (a name, a percentage, a
+    // timer): then it grows just enough, like the ringer pill (owner's "text missing" report)
+    val needed = measured.cameraZone + minOf(side, slots.TEXT_SIDE_MAX) * 2 + inset * 2
+    return maxOf(settings.widthDp.dp, minOf(needed, pillMaxForBubble(settings, measured.screenWidth)))
+}
+
+/**
+ * The widest a grown pill may be so the secondary bubble still fits beside it on screen (owner:
+ * "the pill must not get so wide it cuts the bubble"): the bubble, its gap and an 8 dp margin
+ * stay inside the screen on the pill's side. Never below the Width setting.
+ */
+fun pillMaxForBubble(settings: IslandSettings, screenWidth: Dp?): Dp {
+    val screen = screenWidth ?: return Dp.Infinity
+    val room = screen / 2f - kotlin.math.abs(settings.horizontalOffsetDp).dp - IslandTokens.Shell.BubbleGap - settings.heightDp.dp - BUBBLE_SCREEN_MARGIN
+    return maxOf(settings.widthDp.dp, room * 2f)
+}
+
+val BUBBLE_SCREEN_MARGIN = 8.dp
 
 /** Where every part of the island is heading, in dp. The view animates toward these. */
 @Immutable
