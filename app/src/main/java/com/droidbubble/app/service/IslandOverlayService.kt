@@ -382,8 +382,8 @@ class IslandOverlayService : Service() {
         serviceInstance = this
         // F3.5: island timeouts follow the phone's "Time to take action" accessibility setting
         IslandStateManager.timings = com.droidbubble.app.island.IslandTimings.from(this)
-        // D2.2: new message banners peek open, then recede; not while TalkBack is on
-        IslandStateManager.peekBanners = true
+        // D2.2: new message banners peek open, then recede (the "Peek at New Messages" switch,
+        // applied with the other settings below); never while TalkBack is on
         getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.let { am ->
             IslandStateManager.touchExplorationOn = am.isTouchExplorationEnabled
             am.addTouchExplorationStateChangeListener { on -> IslandStateManager.touchExplorationOn = on }
@@ -821,6 +821,7 @@ class IslandOverlayService : Service() {
                 settingsReceived = true
                 IslandStateManager.dismissMediaOnPause = settings.dismissMediaOnPause
                 IslandStateManager.autoDismissNotifications = settings.autoDismissNotifications
+                IslandStateManager.peekBanners = settings.peekNewMessages
                 if (!settings.isEnabled) {
                     removeOverlay()
                 } else if (composeView == null) {

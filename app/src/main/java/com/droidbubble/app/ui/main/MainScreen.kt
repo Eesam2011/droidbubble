@@ -2366,7 +2366,27 @@ fun AccessibilityPage(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    SettingsCardItem(position = GroupPosition.TOP, isActive = settings.autoDismissNotifications) {
+                    // D2.2: on by default
+                    SettingsCardItem(position = GroupPosition.TOP, isActive = settings.peekNewMessages) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = { Text("Peek at New Messages", fontWeight = FontWeight.SemiBold) },
+                            supportingContent = { Text("A new message opens its card for a moment, then shrinks back to the pill. Touch it to keep it open") },
+                            leadingContent = {
+                                Icon(AppIcons.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.peekNewMessages,
+                                    onCheckedChange = { peek ->
+                                        onUpdateSettings { it.copy(peekNewMessages = peek) }
+                                    }
+                                )
+                            }
+                        )
+                    }
+
+                    SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.autoDismissNotifications) {
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Auto-Dismiss Notifications", fontWeight = FontWeight.SemiBold) },

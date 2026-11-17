@@ -61,6 +61,7 @@ internal object PreferencesKeys {
     val DISMISS_MEDIA_ON_PAUSE = booleanPreferencesKey("dismiss_media_on_pause")
     val ALWAYS_SHOW_PILL = booleanPreferencesKey("always_show_pill")
     val AUTO_DISMISS_NOTIFICATIONS = booleanPreferencesKey("auto_dismiss_notifications")
+    val PEEK_NEW_MESSAGES = booleanPreferencesKey("peek_new_messages")
     val BLURRED_ALBUM_ART_BACKGROUND = booleanPreferencesKey("blurred_album_art_background")
     val HIDE_ON_LOCK_SCREEN = booleanPreferencesKey("hide_on_lock_screen")
     val EXPAND_DAMPING = floatPreferencesKey("expand_damping")
@@ -164,6 +165,7 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         dismissMediaOnPause = this[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] ?: false,
         alwaysShowPill = this[PreferencesKeys.ALWAYS_SHOW_PILL] ?: false,
         autoDismissNotifications = this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] ?: false,
+        peekNewMessages = this[PreferencesKeys.PEEK_NEW_MESSAGES] ?: true,
         blurredAlbumArtBackground = this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] ?: false,
         hideOnLockScreen = this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] ?: false,
         autoCalibrate = this[PreferencesKeys.AUTO_CALIBRATE] ?: true,
@@ -225,6 +227,7 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     this[PreferencesKeys.DISMISS_MEDIA_ON_PAUSE] = s.dismissMediaOnPause
     this[PreferencesKeys.ALWAYS_SHOW_PILL] = s.alwaysShowPill
     this[PreferencesKeys.AUTO_DISMISS_NOTIFICATIONS] = s.autoDismissNotifications
+    this[PreferencesKeys.PEEK_NEW_MESSAGES] = s.peekNewMessages
     this[PreferencesKeys.BLURRED_ALBUM_ART_BACKGROUND] = s.blurredAlbumArtBackground
     this[PreferencesKeys.HIDE_ON_LOCK_SCREEN] = s.hideOnLockScreen
     this[PreferencesKeys.AUTO_CALIBRATE] = s.autoCalibrate

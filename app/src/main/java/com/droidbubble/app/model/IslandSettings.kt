@@ -77,6 +77,8 @@ data class IslandSettings(
     val dismissMediaOnPause: Boolean = false,
     val alwaysShowPill: Boolean = false,
     val autoDismissNotifications: Boolean = false,
+    /** D2.2: a new message opens its card for a moment, then shrinks back to the pill. */
+    val peekNewMessages: Boolean = true,
     val blurredAlbumArtBackground: Boolean = false,
     val hideOnLockScreen: Boolean = false,
     // D5.1: the user's motion curves by feel (seconds at speed 1, bounce); see CurveMigration
