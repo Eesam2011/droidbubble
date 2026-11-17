@@ -1710,7 +1710,15 @@ internal fun IslandShell(
                                     alertSides.charging - (IslandTokens.Glyph.Compact - ChargingBolt.SHRINK) - ChargingBolt.GAP,
                                     chargingStyle,
                                 )
-                                chargingFit.text?.let {
+                                if (wattage != null && wattage >= 1.0) {
+                                    // D3.1: the wattage rolls; it always fits, so no squeeze
+                                    RollingNumberText(
+                                        text = chargingLabel,
+                                        color = IslandTokens.ChargingGreen,
+                                        fontSize = IslandType.CompactValue,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                } else chargingFit.text?.let {
                                     Text(
                                         text = it,
                                         color = IslandTokens.ChargingGreen,
@@ -1729,12 +1737,13 @@ internal fun IslandShell(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
-                                Text(
+                                // D3.1: rolls up as it charges, in a "100%" slot
+                                RollingNumberText(
                                     text = "${charging?.percentage ?: 100}%",
                                     color = IslandTokens.ChargingGreen,
                                     fontSize = IslandType.CompactValue,
                                     fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1
+                                    slotTemplate = "100%",
                                 )
                             }
                         }

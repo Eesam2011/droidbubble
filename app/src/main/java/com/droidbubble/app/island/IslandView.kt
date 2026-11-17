@@ -519,7 +519,16 @@ fun AuxiliaryBubbleContent(
                             trackColor = IslandTokens.ControlTrack
                         )
                         if (bubbleNumeralFits(labelWidth, digitHeight, ring)) {
-                            Text(text = label, style = numeralStyle, maxLines = 1, softWrap = false)
+                            // D3.1: rolls as the download counts, centred in a "100" slot
+                            RollingNumberText(
+                                text = label,
+                                color = Color.White,
+                                fontSize = numeralStyle.fontSize,
+                                fontWeight = numeralStyle.fontWeight ?: FontWeight.Bold,
+                                lineHeight = numeralStyle.lineHeight,
+                                slotTemplate = "100",
+                                slotAlign = Alignment.CenterHorizontally,
+                            )
                         }
                     }
                 }
@@ -817,7 +826,8 @@ fun CompactContent(
                             color = Color.White,
                             fontSize = IslandType.CompactSmall,
                             lineHeight = LocalIslandType.current.compactLabelLineHeight,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            slotTemplate = "100%",
                         )
                     } else {
                         Text(
@@ -880,13 +890,15 @@ fun CompactContent(
                             trackColor = IslandTokens.ControlTrack
                         )
                     } else {
-                        // The download pill keeps its smaller "42%" (owner, 2026-11-15)
-                        Text(
+                        // The download pill keeps its smaller "42%" (owner, 2026-11-15); D3.1: it
+                        // rolls, in a "100%" slot so the pill never shifts as it counts
+                        RollingNumberText(
                             text = "${(pct * 100).roundToInt()}%",
                             color = IslandTokens.ControlLight,
-                            style = com.droidbubble.app.island.layout.CompactText.small(compactType),
-                            maxLines = 1,
-                            softWrap = false
+                            fontSize = IslandType.CompactSmall,
+                            lineHeight = compactType.compactLabelLineHeight,
+                            fontWeight = FontWeight.SemiBold,
+                            slotTemplate = "100%",
                         )
                     }
                 }

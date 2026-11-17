@@ -10,6 +10,7 @@ import com.droidbubble.app.island.icon.MorphIcon
 import com.droidbubble.app.island.icon.MorphShapes
 import com.droidbubble.app.island.motion.LocalIslandMotion
 import com.droidbubble.app.island.motion.MotionTween
+import com.droidbubble.app.island.motion.MotionTier
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
@@ -434,9 +435,17 @@ fun RollingNumberText(
     fontSize: TextUnit,
     fontWeight: FontWeight,
     modifier: Modifier = Modifier,
-    countDown: Boolean = false,
+    /** null: roll down when the number gets smaller, up when it grows (D3.1). */
+    countDown: Boolean? = null,
     lineHeight: TextUnit = TextUnit.Unspecified,
-    lineHeightStyle: LineHeightStyle? = null
+    lineHeightStyle: LineHeightStyle? = null,
+    /**
+     * D3.1: the widest value this text shows ("100%"; digits count as "0"). The text is as wide
+     * as that, whatever the current value, so nothing around it moves as it ticks; the value
+     * sits in it by [slotAlign].
+     */
+    slotTemplate: String? = null,
+    slotAlign: Alignment.Horizontal = Alignment.End,
 ) {
     val style = LocalTextStyle.current.merge(
         TextStyle(
@@ -455,6 +464,9 @@ fun RollingNumberText(
     }
     val measurer = rememberTextMeasurer(cacheSize = 8)
     val current = remember(text, style) { measurer.measure(text, style, maxLines = 1, softWrap = false) }
+    val slotWidth = remember(slotTemplate, style) {
+        slotTemplate?.let { measurer.measure(com.droidbubble.app.island.slotTemplate(it), style, maxLines = 1, softWrap = false).size.width } ?: 0
+    }
 
     // The value we're rolling away from, while a roll is running
     var shown by remember { mutableStateOf(text) }
@@ -475,10 +487,19 @@ fun RollingNumberText(
     val fromLayout = remember(from, style) { from?.let { measurer.measure(it, style, maxLines = 1, softWrap = false) } }
     val pending = shown != text
 
-    val w = current.size.width
+    val w = maxOf(current.size.width, slotWidth)
     val h = current.size.height
+    // Where the value sits in a wider slot
+    val dx = when (slotAlign) {
+        Alignment.Start -> 0f
+        Alignment.CenterHorizontally -> (w - current.size.width) / 2f
+        else -> (w - current.size.width).toFloat()
+    }
     // Old text is lined up on its right edge, where the digits that change sit ("9:59" -> "10:00")
-    val fromShift = if (fromLayout != null) (w - fromLayout.size.width).toFloat() else 0f
+    val fromShift = if (fromLayout != null) (current.size.width - fromLayout.size.width) + dx else 0f
+    val down = countDown ?: (from != null && numericValue(text) < numericValue(from))
+    // M5 Reduced: the digits cross-fade in place instead of rolling
+    val travelFactor = if (motion.tier == MotionTier.REDUCED) 0f else 0.72f
     Spacer(
         modifier = modifier
             .semantics { contentDescription = text }
@@ -492,11 +513,11 @@ fun RollingNumberText(
             .drawBehind {
                 val p = if (pending) 0f else progress.value.coerceIn(0f, 1f)
                 if (from == null || fromLayout == null || p >= 1f) {
-                    drawText(current)
+                    drawText(current, topLeft = Offset(dx, 0f))
                     return@drawBehind
                 }
-                val dir = if (countDown) -1f else 1f
-                val travel = size.height * 0.72f
+                val dir = if (down) -1f else 1f
+                val travel = size.height * travelFactor
                 // Every character is drawn from the whole-string layout, cut out by its own column,
                 // so unchanged characters (the ":" above all) stay on exactly the pixels they had
                 // before and after the roll. Re-measuring single glyphs shifted them by the letter
@@ -513,9 +534,9 @@ fun RollingNumberText(
                     for (i in text.indices) {
                         val j = from.length - (text.length - i) // compared from the right
                         if (j >= 0 && from[j] == text[i]) {
-                            column(current, i, 0f, 0f, 1f)
+                            column(current, i, dx, 0f, 1f)
                         } else {
-                            column(current, i, 0f, (1f - p) * travel * dir, p)
+                            column(current, i, dx, (1f - p) * travel * dir, p)
                             if (j >= 0) column(fromLayout, j, fromShift, -p * travel * dir, 1f - p)
                         }
                     }
@@ -527,6 +548,10 @@ fun RollingNumberText(
             }
     )
 }
+
+/** The digits of [text] read as one number ("12:04" → 1204), for the roll's direction. */
+internal fun numericValue(text: String): Long =
+    text.filter { it.isDigit() }.take(18).toLongOrNull() ?: 0L
 
 /** How a round control is filled. See [LiveLayout] rule 4. */
 enum class LiveButtonStyle { SOLID, TINTED, GLASS }

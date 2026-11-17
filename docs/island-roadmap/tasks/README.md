@@ -208,7 +208,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | D2.2 | Banners peek, then recede | todo |
 | D2.3 | "Same app, new event" signal | todo |
 | D2.4 | Haptics at the neck snap and merge | todo |
-| D3.1 | Rolling numbers in compact and bubble | todo |
+| D3.1 | Rolling numbers in compact and bubble | done (RollingNumberText gains slotTemplate + slotAlign (width from the template, so nothing shifts as it ticks), rolls down when the number shrinks unless told otherwise, and cross-fades in place under Reduce motion; download %, torch % and battery % in "100%" slots, the wattage rolls, the bubble numeral rolls centred in "100"; FPS, weather and network speed no longer exist; RollingSlotTest; four goldens re-recorded, only the shared −0.01 em number tracking differs) |
 | D3.2 | Rolling numbers in expanded cards | todo |
 | D3.3 | Spring on progress rings | todo |
 | D4.1 | Shared art, avatar and icon between compact and expanded | on hold (owner, 2026-11-15: not approved, risk without the one body; ask again) |
