@@ -343,6 +343,22 @@ object IslandStateManager {
     var autoDismissNotifications: Boolean = false
     private var autoDismissNotificationJob: Job? = null
 
+    /**
+     * D2.2: new message banners peek open into their card, then recede. Set by the overlay
+     * service; off here so tests and previews that post messages see the compact island.
+     */
+    @Volatile
+    var peekBanners: Boolean = false
+
+    /** D2.2: TalkBack (touch exploration) is on. Set by the overlay service. */
+    @Volatile
+    var touchExplorationOn: Boolean = false
+
+    /** D2.2: the open card is a peek: it recedes after [IslandTimings.peek] unless touched. */
+    private val _isPeeking = MutableStateFlow(false)
+    val isPeeking: StateFlow<Boolean> = _isPeeking.asStateFlow()
+    private val lastPeekByPackage = HashMap<String, Long>()
+
     val isMediaActive: Boolean
         get() {
             val media = _activeMedia.value ?: return false
@@ -694,18 +710,39 @@ object IslandStateManager {
         } else if (isNewNotification) {
             restoreIsland()
             triggerPopIn()
-            // Live activities (calls, timers, recorders) stay until the app removes them
-            val isLiveActivity = notification.isLiveActivity
-            if (autoDismissNotifications && !isLiveActivity) {
-                val notifKey = notification.key
-                autoDismissNotificationJob = scope.launch {
-                    delay(timings.notificationAuto)
-                    if (_activeNotification.value?.key == notifKey && (!_isExpanded.value || _expandedPriority.value != IslandPriority.POP_NOTIFICATION)) {
-                        dismissCurrentNotification()
-                    }
-                }
+            scheduleAutoDismiss(notification)
+            // D2.2: a new message peeks open into its card, then recedes (see the auto-collapse
+            // loop in the shell); a touch keeps it open
+            val now = nowMs()
+            if (peekBanners && PeekPolicy.shouldPeek(
+                    notification, isNew = true, nowMs = now, lastPeekMs = lastPeekByPackage[notification.packageName],
+                    locked = _isDeviceLocked.value, touchExploration = touchExplorationOn, expanded = _isExpanded.value,
+                )
+            ) {
+                lastPeekByPackage[notification.packageName] = now
+                expand(IslandPriority.POP_NOTIFICATION)
+                _isPeeking.value = true
             }
         }
+    }
+
+    /** "Auto-dismiss notifications": a message leaves after a while unless its card is open. */
+    private fun scheduleAutoDismiss(notification: NotificationInfo) {
+        // Live activities (calls, timers, recorders) stay until the app removes them
+        if (!autoDismissNotifications || notification.isLiveActivity) return
+        val notifKey = notification.key
+        autoDismissNotificationJob?.cancel()
+        autoDismissNotificationJob = scope.launch {
+            delay(timings.notificationAuto)
+            if (_activeNotification.value?.key == notifKey && (!_isExpanded.value || _expandedPriority.value != IslandPriority.POP_NOTIFICATION)) {
+                dismissCurrentNotification()
+            }
+        }
+    }
+
+    /** D2.2: a touch on a peeking card: it stays open like any card the user opened. */
+    fun cancelPeek() {
+        _isPeeking.value = false
     }
 
     fun updateProgress(progress: NotificationInfo?) {
@@ -823,6 +860,7 @@ object IslandStateManager {
 
     fun expand(priority: IslandPriority? = null) {
         CrashLog.breadcrumb("state", "expand priority=${priority?.name ?: "current"}")
+        _isPeeking.value = false
         val resolved = priority ?: currentPriority
         if (resolved == IslandPriority.POP_NOTIFICATION) {
             autoDismissNotificationJob?.cancel()
@@ -835,9 +873,13 @@ object IslandStateManager {
 
     fun collapse() {
         CrashLog.breadcrumb("state", "collapse")
+        val receded = _isPeeking.value
+        _isPeeking.value = false
         _isExpanded.value = false
         _expandedPriority.value = null
         _isKeyboardFocused.value = false
+        // D2.2: a message that peeked and receded leaves on the usual auto-dismiss timer
+        if (receded) _activeNotification.value?.let { scheduleAutoDismiss(it) }
     }
 
     /** Puts the island back to a clean idle state. Tests only: the object is a process singleton. */
@@ -880,5 +922,9 @@ object IslandStateManager {
         dismissMediaOnPause = false
         autoDismissNotifications = false
         timings = IslandTimings.Unscaled
+        peekBanners = false
+        touchExplorationOn = false
+        _isPeeking.value = false
+        lastPeekByPackage.clear()
     }
 }

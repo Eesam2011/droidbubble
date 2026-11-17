@@ -27,6 +27,9 @@ class IslandTimings(private val recommend: (originalMs: Int, flags: Int) -> Int)
     /** "Auto-dismiss notifications": how long a message stays. */
     val notificationAuto: Long get() = scaled(3_000, TEXT)
 
+    /** D2.2: how long a new message's card stays open on its own before it recedes. */
+    val peek: Long get() = scaled(2_500, TEXT)
+
     /** How long a new notification holds the bubble before the island returns to compact. */
     val popIn: Long get() = scaled(4_500, TEXT)
 

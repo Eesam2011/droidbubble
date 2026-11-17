@@ -855,13 +855,17 @@ internal fun IslandShell(
             if (pressed) {
                 pressed = touchPresses.receive()
             } else {
-                val timeout = IslandStateManager.timings.autoCollapseFor(openCard.value, isAlarm = false) ?: return@LaunchedEffect
+                // D2.2: a peeking banner recedes sooner; read on each wait, so a touch that
+                // turned it into a normal card gives it the normal time
+                val timeout = if (IslandStateManager.isPeeking.value) IslandStateManager.timings.peek
+                    else IslandStateManager.timings.autoCollapseFor(openCard.value, isAlarm = false) ?: return@LaunchedEffect
                 val next = withTimeoutOrNull(timeout) { touchPresses.receive() }
                 if (next == null) {
                     IslandStateManager.collapse()
                     return@LaunchedEffect
                 }
                 pressed = next
+                if (next) IslandStateManager.cancelPeek()
             }
         }
     }
