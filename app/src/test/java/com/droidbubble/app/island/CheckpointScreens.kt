@@ -82,7 +82,7 @@ class CheckpointScreens(private val case: Case) {
         h.advanceFrozen(100)
         rule.runOnIdle(case.setUp)
         h.advanceFrozen(1500)
-        val image = h.islandCrop()
+        val image = h.islandCrop(toScreenTop = case.settings.isNotch)
         if (record) {
             write(image, File(BASELINE_DIR, case.fileName))
         } else {

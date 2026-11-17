@@ -124,7 +124,8 @@ class IslandHarness(
      * Draws the window and crops it to the island's union bounds (pill, bubble, cards and their
      * content roots) plus 8 dp, so window size changes don't create noise in screenshots.
      */
-    fun islandCrop(): Bitmap {
+    /** [toScreenTop]: start the crop at the top of the window (the notch style hangs from it). */
+    fun islandCrop(toScreenTop: Boolean = false): Bitmap {
         // Every node of each tag: dual mode has two cards (and a pill plus a bubble)
         // plus the content roots: card 2 overflows card 1's node and only carries its content tag
         val contentRoots = rule.onAllNodes(
@@ -147,7 +148,7 @@ class IslandHarness(
         // boundsInRoot is in px; the margin is 8 dp
         val margin = 8f * rule.density.density
         val left = floor(rects.minOf { it.left } - margin).toInt().coerceIn(0, root.width - 1)
-        val top = floor(rects.minOf { it.top } - margin).toInt().coerceIn(0, root.height - 1)
+        val top = if (toScreenTop) 0 else floor(rects.minOf { it.top } - margin).toInt().coerceIn(0, root.height - 1)
         val right = ceil(rects.maxOf { it.right } + margin).toInt().coerceIn(left + 1, root.width)
         val bottom = ceil(rects.maxOf { it.bottom } + margin).toInt().coerceIn(top + 1, root.height)
         return Bitmap.createBitmap(root, left, top, right - left, bottom - top)
