@@ -200,5 +200,21 @@ fun notchBridgePath(width: Float, height: Float, ear: Float): Path {
     }
 }
 
+/**
+ * V6.2: the edge of [notchBridgePath] that shows, as an open path: each concave ear and the side
+ * below it. The top edge is the screen's, so it is never stroked.
+ */
+fun notchEarsPath(width: Float, height: Float, ear: Float): Path {
+    val e = ear.coerceIn(0f, min(width / 2f, height))
+    return Path().apply {
+        moveTo(0f, 0f)
+        quadraticTo(e, 0f, e, e)
+        lineTo(e, height)
+        moveTo(width, 0f)
+        quadraticTo(width - e, 0f, width - e, e)
+        lineTo(width - e, height)
+    }
+}
+
 /** Notch-style pill: square top (it hangs from the screen edge), round bottom corners (V2.3: squircle family). */
 fun notchPillShape(bottomRadius: Dp): Shape = islandShape(0.dp, 0.dp, bottomRadius, bottomRadius)

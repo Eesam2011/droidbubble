@@ -681,11 +681,9 @@ class IslandOverlayService : Service() {
                     Configuration.UI_MODE_NIGHT_YES
                 // The view draws the line for ALWAYS only; AUTO and high contrast resolve to it here
                 val keylineOn = Keyline.visible(storedSettings.keylineMode, darkWallpaper || night, highContrast)
+                // High contrast's colour and 1.5 dp floor come from IslandOutline in the view (V6.2)
                 val liveSettings = storedSettings.copy(
                     keylineMode = if (keylineOn) KeylineMode.ALWAYS else KeylineMode.OFF,
-                    // The colour comes from IslandTokens.HighContrastOutline in the view (B5.1)
-                    outlineThicknessDp = if (highContrast) storedSettings.outlineThicknessDp.coerceAtLeast(1.5f)
-                        else storedSettings.outlineThicknessDp
                 ).withCalibration(camera)
                 val cameraZone = storedSettings.effective(camera).cameraZoneDp.dp
 

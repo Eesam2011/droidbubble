@@ -302,6 +302,10 @@ class CheckpointScreens(private val case: Case) {
                 settings = BASE.copy(keylineMode = KeylineMode.ALWAYS, islandStyle = IslandSettings.STYLE_NOTCH)) {
                 IslandStateManager.updateMedia(IslandFixtures.song)
             },
+            Case("hc_compact_dual_media_message", setOf(3), settings = BASE.copy(keylineMode = KeylineMode.ALWAYS), highContrast = true) {
+                IslandStateManager.updateMedia(IslandFixtures.song)
+                IslandStateManager.updateNotification(IslandFixtures.message())
+            },
             Case("hc_expanded_message", setOf(3), settings = BASE.copy(keylineMode = KeylineMode.ALWAYS), highContrast = true) {
                 IslandStateManager.updateNotification(IslandFixtures.message())
                 IslandStateManager.expand(null)

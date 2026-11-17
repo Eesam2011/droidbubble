@@ -2,6 +2,8 @@ package com.droidbubble.app.island.layout
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -23,10 +25,16 @@ object Keyline {
  * so the line is [width] wide all round, squircle corners included. [shape] is read in the draw
  * phase, so a corner that animates every frame doesn't recompose the surface.
  */
-fun Modifier.islandKeyline(color: () -> Color, width: Dp, shape: () -> Shape): Modifier =
+fun Modifier.islandKeyline(color: () -> Color, width: Dp, openTop: Boolean = false, shape: () -> Shape): Modifier =
     drawWithCache {
-        val path = Path().apply { addOutline(shape().createOutline(size, layoutDirection, this@drawWithCache)) }
-        val stroke = Stroke(width.toPx() * 2f)
+        val strokePx = width.toPx() * 2f
+        // V6.2 [openTop] (the notch hangs from the screen edge): the shape is drawn taller and
+        // raised, so its top edge and that edge's stroke land above the clip and only the sides
+        // and bottom show. Needs a square top, as the notch pill has.
+        val lift = if (openTop) strokePx * 2f else 0f
+        val outline = shape().createOutline(Size(size.width, size.height + lift), layoutDirection, this@drawWithCache)
+        val path = Path().apply { addOutline(outline); if (lift > 0f) translate(Offset(0f, -lift)) }
+        val stroke = Stroke(strokePx)
         onDrawWithContent {
             drawContent()
             val c = color()

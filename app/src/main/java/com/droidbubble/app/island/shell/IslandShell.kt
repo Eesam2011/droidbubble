@@ -134,6 +134,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -181,8 +182,9 @@ import com.droidbubble.app.island.shell.rememberIslandShellState
 import com.droidbubble.app.island.shell.rememberWindowReady
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.IslandSettings
-import com.droidbubble.app.model.KeylineMode
 import com.droidbubble.app.island.layout.islandKeyline
+import com.droidbubble.app.island.layout.IslandOutline
+import com.droidbubble.app.island.layout.OutlineSurface
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
@@ -319,39 +321,16 @@ internal fun IslandShell(
     val primaryPriority: IslandPriority = scene.primary
     val secondaryPriority: IslandPriority? = scene.secondary
 
-    // Dynamic non-customizable outline colors (around 15% opacity):
-    val redRecordingOutline = IslandTokens.RecordingRed.copy(alpha = IslandTokens.OutlineAlphaTask)
-    val defaultTaskOutline = Color.White.copy(alpha = IslandTokens.OutlineAlphaTask)
-    val mediaOutline = if (mediaAccentColor != Color.Transparent) {
-        mediaAccentColor.copy(alpha = IslandTokens.OutlineAlphaTask)
-    } else {
-        defaultTaskOutline
-    }
-    val flashlightOutline = Color.White.copy(alpha = IslandTokens.OutlineAlphaFlashlight)
-
-    // Card 1 (Main Island):
-    val primaryTaskOutline = when {
-        isCharging -> IslandTokens.ChargingGreen.copy(alpha = IslandTokens.OutlineAlphaCharging)
-        primaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
-        primaryPriority == IslandPriority.MEDIA -> mediaOutline
-        primaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
-        else -> defaultTaskOutline
-    }
-
-    // Card 2 / Auxiliary Bubble (Secondary Island):
-    // Secondary islands have the color of their respective task (15% opacity white usually, or red for recording) instead of the media color
-    val secondaryTaskOutline = when {
-        secondaryPriority == IslandPriority.SCREEN_RECORDING -> redRecordingOutline
-        secondaryPriority == IslandPriority.MEDIA -> mediaOutline
-        secondaryPriority == IslandPriority.FLASHLIGHT -> flashlightOutline
-        else -> defaultTaskOutline
-    }
-    // B5.1: high contrast draws every island edge (pill, bubble, both cards) with the 55 % white
-    // outline instead of the tasks' 15 % tints
-    // V6.1: the overlay service resolves AUTO and high contrast, so here the line is on or off
-    val keylineOn = settings.keylineMode == KeylineMode.ALWAYS
-    val primaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else primaryTaskOutline
-    val secondaryOutlineColor = if (IslandTokens.highContrast) IslandTokens.HighContrastOutline else secondaryTaskOutline
+    // V6.2: one rule for every outline (pill or notch, bubble, both cards): IslandOutline.
+    // AUTO and high contrast are resolved by the overlay service; null means no line.
+    fun outlineFor(surface: OutlineSurface, priority: IslandPriority?) = IslandOutline.resolve(
+        surface, priority, isCharging, mediaAccentColor, settings.keylineMode,
+        IslandTokens.highContrast, settings.outlineThicknessDp.dp,
+    )
+    val pillOutline = outlineFor(if (settings.isNotch) OutlineSurface.NOTCH else OutlineSurface.PILL, primaryPriority)
+    val card1Outline = outlineFor(OutlineSurface.CARD1, primaryPriority)
+    val bubbleOutline = outlineFor(OutlineSurface.BUBBLE, secondaryPriority)
+    val card2Outline = outlineFor(OutlineSurface.CARD2, secondaryPriority)
 
     // F3.2: every animation spec comes from IslandMotion (the user's curves and speed included)
     val motion = LocalIslandMotion.current
@@ -981,8 +960,8 @@ internal fun IslandShell(
                                 }
                                 .background(if (card1Filled) cardBackgroundBrush else SolidColor(Color.Transparent))
                                 .then(
-                                    if (keylineOn && card1Outlined) {
-                                        Modifier.islandKeyline({ primaryOutlineColor }, settings.outlineThicknessDp.dp) {
+                                    if (card1Outline != null && card1Outlined) {
+                                        Modifier.islandKeyline({ card1Outline.color }, card1Outline.width) {
                                             IslandShapeCache.get(shell.geometry.corner.coerceAtLeast(0.dp))
                                         }
                                     } else Modifier
@@ -1206,8 +1185,8 @@ internal fun IslandShell(
                                 }
                                 .background(cardBackgroundBrush)
                                 .then(
-                                    if (keylineOn) {
-                                        Modifier.islandKeyline({ secondaryOutlineColor }, settings.outlineThicknessDp.dp) {
+                                    if (card2Outline != null) {
+                                        Modifier.islandKeyline({ card2Outline.color }, card2Outline.width) {
                                             IslandShapeCache.get(shell.geometry.corner.coerceAtLeast(0.dp))
                                         }
                                     } else Modifier
@@ -1409,8 +1388,11 @@ internal fun IslandShell(
                             .clip(IslandShapeCache.get(bubbleSize / 2))
                             .background(Color.Black)
                             .then(
-                                if (keylineOn && animatedBubbleOffsetX > compactMainHalf * 0.7f) {
-                                    Modifier.islandKeyline({ secondaryOutlineColor }, settings.outlineThicknessDp.dp) {
+                                if (bubbleOutline != null) {
+                                    // Fades in as the neck snaps, so no second edge while it still touches the pill
+                                    val gap = animatedBubbleOffsetX - bubbleSize / 2f - animatedCompactWidth / 2f
+                                    val emergence = IslandOutline.bubbleEmergence(gap)
+                                    Modifier.islandKeyline({ bubbleOutline.colorAt(emergence) }, bubbleOutline.width) {
                                         IslandShapeCache.get(bubbleSize / 2)
                                     }
                                 } else Modifier
@@ -1515,7 +1497,19 @@ internal fun IslandShell(
                             scaleX = pillPressScale * (1f + swapSquash.value)
                         }
                 ) {
-                    drawPath(notchBridgePath(size.width, size.height, notchEar.toPx()), Color.Black)
+                    val bridge = notchBridgePath(size.width, size.height, notchEar.toPx())
+                    drawPath(bridge, Color.Black)
+                    // V6.2: the ears carry the pill's outline up to the screen edge; the stroke
+                    // is doubled and clipped to the bridge, so it sits inside like the pill's
+                    pillOutline?.let { o ->
+                        clipPath(bridge) {
+                            drawPath(
+                                notchEarsPath(size.width, size.height, notchEar.toPx()),
+                                o.colorAt(compactPillAlpha),
+                                style = Stroke(o.width.toPx() * 2f),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1537,11 +1531,12 @@ internal fun IslandShell(
                         .clip(compactPillShape)
                         .background(if (pillFilled) Color.Black else Color.Transparent)
                         .then(
-                            // Deliberately no pill outline in notch style: the notch is fused to the screen edge
-                            if (keylineOn && !settings.isNotch && pillOutlined) {
+                            // V6.2: the notch is outlined too, sides and bottom only (its top is the screen edge)
+                            if (pillOutline != null && pillOutlined) {
                                 Modifier.islandKeyline(
-                                    { primaryOutlineColor.copy(alpha = (primaryOutlineColor.alpha * compactPillAlpha).coerceIn(0f, 1f)) },
-                                    settings.outlineThicknessDp.dp
+                                    { pillOutline.colorAt(compactPillAlpha) },
+                                    pillOutline.width,
+                                    openTop = settings.isNotch,
                                 ) { compactPillShape }
                             } else Modifier
                         )

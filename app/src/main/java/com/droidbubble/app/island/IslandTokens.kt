@@ -126,6 +126,8 @@ object IslandTokens {
 
     /** Outline drawn around the island in high contrast mode, so it stands out on dark wallpapers. */
     val HighContrastOutline = Color.White.copy(alpha = 0.55f)
+    /** The high-contrast outline is never thinner than this, whatever thickness is chosen (V6.2). */
+    val HighContrastOutlineWidth: Dp = 1.5.dp
 
     /**
      * The numbers that define the island's body (not what is inside a card). The view, the target
