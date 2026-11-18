@@ -20,6 +20,16 @@ object LiveActivityTester {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var tickJob: Job? = null
 
+    // A2.6: each stacked demo keeps its own ticker
+    private val demoJobs = mutableMapOf<Demo, Job>()
+
+    /**
+     * A2.6: when true, [show] keeps the demos already on the island, so several activities can be
+     * stacked (call + timer + message + download + media) to check the arbiter by hand.
+     */
+    @Volatile
+    var stack: Boolean = false
+
     enum class Demo(val label: String) {
         CALL("Incoming call"),
         TIMER("Timer"),
@@ -86,16 +96,16 @@ object LiveActivityTester {
     }
 
     fun show(demo: Demo) {
-        clear()
+        if (stack) demoJobs.remove(demo)?.cancel() else clear()
         val first = demoNotification(demo, System.currentTimeMillis())
         when (demo) {
-            Demo.DOWNLOAD -> tick(first, steps = 50, everyMs = 200L) { n, i -> n.copy(progress = i * 2) }
-            Demo.RIDE -> tick(first, steps = 50, everyMs = 1_000L) { n, i ->
+            Demo.DOWNLOAD -> tick(demo, first, steps = 50, everyMs = 200L) { n, i -> n.copy(progress = i * 2) }
+            Demo.RIDE -> tick(demo, first, steps = 50, everyMs = 1_000L) { n, i ->
                 val mins = (5 - i / 10).coerceAtLeast(1)
                 n.copy(progress = i * 2, shortCriticalText = if (i >= 48) "Here" else "$mins min")
             }
-            Demo.DELIVERY -> tick(first, steps = 30, everyMs = 1_000L) { n, i -> n.copy(progress = 40 + i * 2) }
-            Demo.SCORE -> tick(first, steps = 20, everyMs = 1_500L) { n, i ->
+            Demo.DELIVERY -> tick(demo, first, steps = 30, everyMs = 1_000L) { n, i -> n.copy(progress = 40 + i * 2) }
+            Demo.SCORE -> tick(demo, first, steps = 20, everyMs = 1_500L) { n, i ->
                 val minute = 67 + i
                 n.copy(
                     title = if (i >= 12) "Arsenal 3 - 1 Chelsea" else n.title,
@@ -125,9 +135,9 @@ object LiveActivityTester {
         }
     }
 
-    private fun tick(start: NotificationInfo, steps: Int, everyMs: Long, step: (NotificationInfo, Int) -> NotificationInfo) {
+    private fun tick(demo: Demo, start: NotificationInfo, steps: Int, everyMs: Long, step: (NotificationInfo, Int) -> NotificationInfo) {
         post(start)
-        tickJob = scope.launch {
+        demoJobs[demo] = scope.launch {
             for (i in 1..steps) {
                 delay(everyMs)
                 post(step(start, i))
@@ -139,10 +149,12 @@ object LiveActivityTester {
 
     private fun remove(key: String) = IslandStateManager.removeNotification(key)
 
-    /** Removes every test activity from the island. */
+    /** Removes every test activity from the island (A2.6: "Clear all", stacked ones included). */
     fun clear() {
         tickJob?.cancel()
         tickJob = null
+        demoJobs.values.forEach { it.cancel() }
+        demoJobs.clear()
         Demo.entries.forEach { remove(key(it)) }
         remove(IconDemo.KEY_MESSAGE)
         remove(IconDemo.KEY_DOWNLOAD)
