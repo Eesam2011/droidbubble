@@ -248,7 +248,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | A1.7 | Media, flashlight and recording become store entries | todo |
 | A1.8 | Expanded card, height, open target and outline from the spec | todo |
 | A1.9 | Delete the legacy single-slot state | todo |
-| A2.1 | Pure `arbitrate()` with the tier table | todo |
+| A2.1 | Pure `arbitrate()` with the tier table | done (`island/activity/Arbiter.kt`, `TierTable.kt`: tiers, peek into the secondary place, newest T4 glance unless a T0 shows, foreground hide except T0, fullscreen gate and lock SECRET placeholders for A6/A5, per-app overrides (never into or out of T0), priority apps head T2; "why" reasons per activity; the 6 intended differences from today's order are listed in the KDoc; nothing uses it until A2.2; ArbiterTest 21 cases, branch coverage not measured) |
 | A2.2 | The scene uses the arbiter | todo |
 | A2.3 | Banners recede | todo |
 | A2.4 | "+N" overflow | todo |
