@@ -88,6 +88,14 @@ data class NotificationInfo(
     val progressFraction: Float
         get() = if (maxProgress > 0 && progress >= 0) (progress.toFloat() / maxProgress).coerceIn(0f, 1f) else 0f
 
+    /**
+     * A1.1: the live-activity kind, classified once per instance. `copy()` makes a new instance,
+     * so it is classified again; it's a body property, so it's not part of equals() or hashCode().
+     */
+    val kind: com.droidbubble.app.island.LiveActivityKind by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        com.droidbubble.app.island.liveActivityKind(this)
+    }
+
     /** Calls, running timers/recorders and other ongoing activities (vs one-off alerts). */
     val isLiveActivity: Boolean
         get() = isCall || liveTimerBaseMs > 0L || isOngoing || isAlert || isPromoted

@@ -218,6 +218,11 @@ fun isTimerAlert(n: NotificationInfo): Boolean {
     return "timer" in words || "time's up" in words || "time’s up" in words || "time is up" in words
 }
 
+/** A1.1: counts classifier runs, so a test (or a debugger) can check it runs once per post. */
+object LiveActivityKindStats {
+    val calls = java.util.concurrent.atomic.AtomicInteger()
+}
+
 /** Buttons of a ringing alert: Stop / Dismiss, and +1:00 / Snooze. */
 data class AlertControls(val stop: NotificationAction?, val extra: NotificationAction?)
 
@@ -232,9 +237,13 @@ fun alertControls(n: NotificationInfo): AlertControls {
  * Picks the native design for [n]: calls, alerts, voice recorders, timers, stopwatches, alarms,
  * rides / deliveries / flights and live scores get their own cards (like iOS live activities);
  * everything else uses the regular notification card.
+ *
+ * A1.1: read `n.kind` instead ([NotificationInfo.kind]), which runs this once per instance. It
+ * stays public for LiveActivityKindTest and the fixture tests.
  */
 fun liveActivityKind(n: NotificationInfo?): LiveActivityKind {
     if (n == null) return LiveActivityKind.NONE
+    LiveActivityKindStats.calls.incrementAndGet()
     if (n.isCall) return LiveActivityKind.CALL
     if (n.isAlert) return LiveActivityKind.ALERT
     val words = "${n.appName} ${n.title} ${n.text}".lowercase()
@@ -273,7 +282,7 @@ fun liveActivityKind(n: NotificationInfo?): LiveActivityKind {
 fun notificationSlotGate(n: NotificationInfo): com.droidbubble.app.model.NotificationGateKind =
     com.droidbubble.app.model.gateKind(
         isCall = n.isCall,
-        isLive = n.isLiveActivity || liveActivityKind(n) != LiveActivityKind.NONE,
+        isLive = n.isLiveActivity || n.kind != LiveActivityKind.NONE,
         hasProgress = false,
     )
 

@@ -440,7 +440,7 @@ fun AuxiliaryBubbleContent(
             PulsingRecordingDot()
         }
         IslandPriority.POP_NOTIFICATION -> {
-            val liveKind = liveActivityKind(notification)
+            val liveKind = notification?.kind ?: LiveActivityKind.NONE
             if (notification != null && liveKind == LiveActivityKind.RECORDING) {
                 // I2.3: the mic is slashed while the recorder is paused
                 val paused = remember(notification) { liveActivityControls(notification).isPaused }
@@ -702,7 +702,7 @@ fun CompactContent(
                 }
 
                 IslandPriority.POP_NOTIFICATION -> {
-                    val liveKind = liveActivityKind(notification)
+                    val liveKind = notification?.kind ?: LiveActivityKind.NONE
                     if (notification != null && liveKind != LiveActivityKind.NONE) {
                         LiveActivityCompactIcon(liveKind, notification)
                     } else if (notification != null && notification.liveTimerBaseMs > 0L) {
@@ -852,7 +852,7 @@ fun CompactContent(
                 }
 
                 IslandPriority.POP_NOTIFICATION -> {
-                    val liveKind = liveActivityKind(notification)
+                    val liveKind = notification?.kind ?: LiveActivityKind.NONE
                     val isTimedKind = liveKind != LiveActivityKind.NONE && liveKind != LiveActivityKind.CALL
                     // Rides show the ETA, scores the score, alerts "Time's up" / the alarm time
                     val liveTimer = notification?.let { liveCompactText(it, liveKind) }
@@ -1629,7 +1629,7 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
 @Composable
 fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> Unit, scale: Float = 1.0f) {
     // Native one-row designs for calls, voice recorders, timers and stopwatches
-    val liveKind = liveActivityKind(notification)
+    val liveKind = notification?.kind ?: LiveActivityKind.NONE
     if (notification != null && liveKind == LiveActivityKind.CALL) {
         LiveCallView(notification, onCollapse, scale)
         return

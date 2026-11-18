@@ -7,7 +7,6 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import com.droidbubble.app.island.LiveActivityKind
 import com.droidbubble.app.island.isTimerAlert
-import com.droidbubble.app.island.liveActivityKind
 import com.droidbubble.app.model.NotificationInfo
 
 /**
@@ -51,7 +50,7 @@ class SpokenAlerts(private val context: Context) {
             return
         }
         val phrase = phraseFor(n) ?: return
-        val key = "${n.key}|${liveActivityKind(n)}"
+        val key = "${n.key}|${n.kind}"
         if (key == lastSpokenKey) return
         lastSpokenKey = key
         val audio = context.getSystemService(AudioManager::class.java)
@@ -74,7 +73,7 @@ class SpokenAlerts(private val context: Context) {
 
     companion object {
         /** What to say for [n], or null when it isn't something worth speaking. */
-        fun phraseFor(n: NotificationInfo): String? = when (liveActivityKind(n)) {
+        fun phraseFor(n: NotificationInfo): String? = when (n.kind) {
             LiveActivityKind.CALL -> if (n.isIncomingCall) {
                 n.title.takeIf { it.isNotBlank() }?.let { "Call from $it" } ?: "Incoming call"
             } else null

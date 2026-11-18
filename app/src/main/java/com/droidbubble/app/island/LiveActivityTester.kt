@@ -131,7 +131,7 @@ object LiveActivityTester {
     }
 
     private fun post(n: NotificationInfo) {
-        if (n.hasProgress && liveActivityKind(n) == LiveActivityKind.NONE) {
+        if (n.hasProgress && n.kind == LiveActivityKind.NONE) {
             IslandStateManager.updateProgress(n)
         } else {
             IslandStateManager.updateNotification(n)

@@ -393,7 +393,7 @@ class IslandOverlayService : Service() {
         val appContext = applicationContext
         IslandStateManager.safeModeFilter = { info ->
             com.droidbubble.app.util.SafeMode.activePause(appContext, System.currentTimeMillis())
-                ?.covers(info.packageName, com.droidbubble.app.island.liveActivityKind(info).name) == true
+                ?.covers(info.packageName, info.kind.name) == true
         }
         // B8.4: no blocking settings read here. currentSettings keeps its defaults until the first
         // emission of settingsFlow, and the overlay and telemetry wait for it (startSettingsCollector).

@@ -13,7 +13,6 @@ import com.droidbubble.app.island.IslandTokens
 import com.droidbubble.app.island.IslandType
 import com.droidbubble.app.island.LiveActivityKind
 import com.droidbubble.app.island.LocalIslandType
-import com.droidbubble.app.island.liveActivityKind
 import com.droidbubble.app.island.liveCompactText
 import com.droidbubble.app.island.staticLiveTimeText
 import com.droidbubble.app.model.IslandPriority
@@ -80,7 +79,7 @@ object CompactSlots {
                     if (indeterminate) null else "100", trailValue = true, trailUnit = if (indeterminate) null else "%")
             }
             IslandPriority.POP_NOTIFICATION -> {
-                val kind = liveActivityKind(notification)
+                val kind = notification?.kind ?: LiveActivityKind.NONE
                 val lead = when {
                     notification == null -> glyph
                     kind == LiveActivityKind.RECORDING -> RECORDER_WAVEFORM

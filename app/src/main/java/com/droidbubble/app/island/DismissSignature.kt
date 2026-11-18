@@ -19,7 +19,7 @@ fun dismissSignature(n: NotificationInfo): Int =
         n.text.hashCode()
     } else {
         listOf(
-            liveActivityKind(n),
+            n.kind,
             n.isIncomingCall,
             n.isAlert,
             n.liveTimerBaseMs == 0L,

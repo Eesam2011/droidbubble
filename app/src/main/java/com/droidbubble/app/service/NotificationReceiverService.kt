@@ -1310,7 +1310,7 @@ class NotificationReceiverService : NotificationListenerService() {
         // B11.3: safe mode paused this package (or this kind of its cards) after a crash loop
         if (result is ParseResult.Post) {
             val pause = SafeMode.activePause(this, System.currentTimeMillis())
-            if (pause != null && pause.covers(sbn.packageName, com.droidbubble.app.island.liveActivityKind(result.info).name)) {
+            if (pause != null && pause.covers(sbn.packageName, result.info.kind.name)) {
                 IslandStateManager.removeNotification(sbn.key)
                 return
             }
@@ -1321,7 +1321,7 @@ class NotificationReceiverService : NotificationListenerService() {
             is ParseResult.Post -> {
                 // Same key switching between progress and alert (download -> "Download complete")
                 // Live updates / rides keep their own card even with a progress bar
-                if (result.hasProgress && com.droidbubble.app.island.liveActivityKind(result.info) == com.droidbubble.app.island.LiveActivityKind.NONE) {
+                if (result.hasProgress && result.info.kind == com.droidbubble.app.island.LiveActivityKind.NONE) {
                     if (IslandStateManager.activeNotification.value?.key == sbn.key) IslandStateManager.removeNotification(sbn.key)
                     IslandStateManager.updateProgress(result.info)
                 } else {
@@ -1538,6 +1538,8 @@ class NotificationReceiverService : NotificationListenerService() {
             isPromoted = isPromoted,
             shortCriticalText = shortCriticalText
         )
+        // A1.1: classify here, on the parser thread (B10), so the regexes never run on main
+        notifInfo.kind
 
         return ParseResult.Post(notifInfo, hasProgress)
     }

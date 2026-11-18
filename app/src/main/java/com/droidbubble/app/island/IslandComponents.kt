@@ -409,7 +409,7 @@ fun measureNotificationCardHeight(
     val m = NotificationCardMetrics(scale, density.fontScale)
     // Call card: one row (photo, name, round answer / decline buttons)
     // Calls, recorders, timers: one native row (photo / time, round buttons)
-    liveActivityKind(notification).takeIf { it != LiveActivityKind.NONE }?.let { return@with liveActivityCardHeight(it, scale, density.fontScale) }
+    (notification?.kind ?: LiveActivityKind.NONE).takeIf { it != LiveActivityKind.NONE }?.let { return@with liveActivityCardHeight(it, scale, density.fontScale) }
     val innerWidth = (cardWidth - m.horizontalPadding * 2).coerceAtLeast(1.dp)
 
     fun textHeight(text: String, style: TextStyle, width: Dp, maxLines: Int): Dp =

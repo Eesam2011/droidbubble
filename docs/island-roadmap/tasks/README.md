@@ -239,7 +239,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 ### Phase 7: Live activities ([file](phase-7-live-activities.md))
 | ID | Title | Status |
 |---|---|---|
-| A1.1 | Classify each notification once | todo |
+| A1.1 | Classify each notification once | done (`NotificationInfo.kind`, lazy, outside equals; NRS classifies on the parser thread; 15 call sites read it; NotificationInfoKindTest counts 1 classifier run for 60 reads; S2 verify unchanged; check later on the phone: nothing, no visible change) |
 | A1.2 | LiveActivitySpec, Slot and legacy mapper | todo |
 | A1.3 | ActivityStore in shadow mode | todo |
 | A1.4 | Old slots become store projections; delete the stash | todo |
