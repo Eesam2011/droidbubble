@@ -1,6 +1,11 @@
 package com.droidbubble.app.island
 
 import com.droidbubble.app.util.CrashLog
+import com.droidbubble.app.island.activity.ActivityId
+import com.droidbubble.app.island.activity.ActivityKind
+import com.droidbubble.app.island.activity.ActivitySource
+import com.droidbubble.app.island.activity.ActivityStore
+import com.droidbubble.app.island.activity.LegacySpecMapper
 import com.droidbubble.app.model.ActiveCallState
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.MediaInfo
@@ -138,6 +143,33 @@ object IslandStateManager {
     /** I3.1: counters that trigger the icons' one-shot effects (bounce, wiggle, appear). */
     private val _iconSignals = MutableStateFlow(com.droidbubble.app.island.icon.IconSignals())
     val iconSignals: StateFlow<com.droidbubble.app.island.icon.IconSignals> = _iconSignals.asStateFlow()
+
+    /**
+     * A1.3: every activity, in shadow mode. Each change below is written here as well as to the
+     * old single slots; nothing reads it until A1.4 makes the slots projections of it.
+     */
+    val store = ActivityStore(now = { IslandClock.wallMs() }, threadCheck = ::checkMainThreadInDebug)
+
+    private fun checkMainThreadInDebug() {
+        if (!com.droidbubble.app.BuildConfig.DEBUG) return
+        val main = runCatching { android.os.Looper.getMainLooper() }.getOrNull() ?: return
+        // A warning, not check(): in shadow mode a wrong thread must not crash the debug build on
+        // the phone; A1.4 (when the store becomes the source) can make it fatal
+        if (android.os.Looper.myLooper() != main) {
+            android.util.Log.w("ActivityStore", "written off the main thread", IllegalStateException(Thread.currentThread().name))
+        }
+    }
+
+    private fun mirrorNotification(n: NotificationInfo) {
+        store.upsert(LegacySpecMapper.fromNotification(n, store.get(ActivityId.notification(n.key))))
+    }
+
+    /** Removes every notification-sourced entry of one family (the listener disconnected). */
+    private fun clearStore(progress: Boolean) {
+        store.activities.value.values
+            .filter { it.source == ActivitySource.NOTIFICATION && (it.kind == ActivityKind.PROGRESS) == progress }
+            .forEach { store.remove(it.id) }
+    }
 
     private val _activeNotification = MutableStateFlow<NotificationInfo?>(null)
     val activeNotification: StateFlow<NotificationInfo?> = _activeNotification.asStateFlow()
@@ -435,6 +467,11 @@ object IslandStateManager {
         _isFlashlightOn.value = enabled
         _flashlightLevel.value = level.coerceIn(1, 4)
         _maxFlashlightLevel.value = 4
+        if (enabled) {
+            store.upsert(LegacySpecMapper.fromTorch(_flashlightLevel.value, 4, IslandClock.wallMs(), store.get(ActivityId.TORCH)))
+        } else {
+            store.remove(ActivityId.TORCH)
+        }
         if (!enabled && _isExpanded.value && (_expandedPriority.value == IslandPriority.FLASHLIGHT || !isOccupied)) {
             collapse()
         }
@@ -565,6 +602,16 @@ object IslandStateManager {
     }
 
     fun updateMedia(media: MediaInfo?) {
+        // A1.3: the store keeps its own dismissal (signature = playing), so a swiped-away paused
+        // session comes back only when it plays again
+        when {
+            media == null -> store.activities.value.values.filter { it.kind == ActivityKind.MEDIA }.forEach { store.remove(it.id) }
+            dismissMediaOnPause && !media.isPlaying -> store.remove(ActivityId.media(media.packageName))
+            else -> {
+                val id = ActivityId.media(media.packageName)
+                store.upsert(LegacySpecMapper.fromMedia(media, IslandClock.wallMs(), store.get(id)))
+            }
+        }
         if (dismissMediaOnPause && media != null && !media.isPlaying) {
             _activeMedia.value = null
             if (_isExpanded.value && (_expandedPriority.value == IslandPriority.MEDIA || !isOccupied)) {
@@ -603,6 +650,7 @@ object IslandStateManager {
 
     fun dismissMedia() {
         val current = _activeMedia.value
+        current?.let { store.dismiss(ActivityId.media(it.packageName)) }
         dismissedMediaPackage = current?.packageName
         onPauseMedia?.invoke()
         _activeMedia.value = null
@@ -613,6 +661,7 @@ object IslandStateManager {
 
     fun unDismissMedia(packageName: String? = null) {
         if (packageName == null || dismissedMediaPackage == packageName) {
+            dismissedMediaPackage?.let { store.undismiss(ActivityId.media(it)) }
             dismissedMediaPackage = null
         }
     }
@@ -655,6 +704,9 @@ object IslandStateManager {
             updateProgress(notification)
             return
         }
+        // A1.3: the store takes every update, including ones the single slot keeps out (a message
+        // while a call rings); its own dismissal memory skips a dismissed card's ticks
+        if (notification == null) clearStore(progress = false) else mirrorNotification(notification)
         if (notification == null) {
             stashedLiveNotification = null
         } else {
@@ -751,6 +803,11 @@ object IslandStateManager {
     }
 
     fun updateProgress(progress: NotificationInfo?) {
+        if (progress == null) {
+            clearStore(progress = true)
+        } else {
+            store.upsert(LegacySpecMapper.fromProgress(progress, store.get(ActivityId.notification(progress.key))))
+        }
         // A progress card the user dismissed stays gone while the download keeps ticking
         if (progress != null && progress.key in dismissedProgressKeys) return
         if (progress != null && _activeProgress.value?.key != progress.key) restoreIsland()
@@ -767,6 +824,7 @@ object IslandStateManager {
     }
 
     fun removeNotification(key: String) {
+        store.remove(ActivityId.notification(key))
         var removed = false
         dismissedSignatures.remove(key)
         dismissedProgressKeys.remove(key)
@@ -814,6 +872,7 @@ object IslandStateManager {
         autoDismissNotificationJob?.cancel()
         // Dismiss card only, without cancelling actual system notification
         val wasRinging = isIncomingCallRinging
+        store.dismiss(ActivityId.notification(notif.key))
         dismissedSignatures[notif.key] = dismissSignature(notif)
         _activeNotification.value = null
         _isPopInActive.value = false
@@ -834,6 +893,7 @@ object IslandStateManager {
     fun dismissProgress(): Boolean {
         val prog = _activeProgress.value ?: return false
         // Dismiss card only, without cancelling actual system notification
+        store.dismiss(ActivityId.notification(prog.key))
         dismissedProgressKeys += prog.key
         _activeProgress.value = null
         if (_isExpanded.value && (_expandedPriority.value == IslandPriority.PROGRESS || !isOccupied)) {
@@ -847,6 +907,11 @@ object IslandStateManager {
     }
 
     fun updateRecordingState(state: ScreenRecordingState) {
+        if (state.isRecording) {
+            store.upsert(LegacySpecMapper.fromRecording(state, IslandClock.wallMs(), store.get(ActivityId.SCREEN_RECORDING)))
+        } else {
+            store.remove(ActivityId.SCREEN_RECORDING)
+        }
         val wasRecording = _screenRecordingState.value.isRecording
         if (state.isRecording && !wasRecording) restoreIsland()
         _screenRecordingState.value = state
@@ -901,6 +966,7 @@ object IslandStateManager {
         _activeMedia.value = null
         _activeNotification.value = null
         _activeProgress.value = null
+        store.clear()
         _screenRecordingState.value = ScreenRecordingState()
         _activeCallState.value = ActiveCallState()
         _isExpanded.value = false
