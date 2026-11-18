@@ -41,7 +41,13 @@ data class NotificationAction(
     val actionIntent: PendingIntent?,
     val remoteInputKey: String? = null,
     val remoteInputLabel: String? = null,
-    val remoteInputChoices: List<String> = emptyList()
+    val remoteInputChoices: List<String> = emptyList(),
+    // A4.1: Action.getSemanticAction() (0 = none), the icon's resource entry name, and the role
+    // ControlResolver gives them (structured, semantic, icon name, then the title)
+    val semanticAction: Int = 0,
+    val iconResName: String? = null,
+    val role: com.droidbubble.app.island.activity.controls.ControlRole =
+        com.droidbubble.app.island.activity.controls.ControlRole.UNKNOWN
 ) {
     val isReply: Boolean get() = remoteInputKey != null
 }

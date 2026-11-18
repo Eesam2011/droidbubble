@@ -1492,17 +1492,38 @@ class NotificationReceiverService : NotificationListenerService() {
         val liveTimerBaseMs = liveTimerBases.stabilize("${sbn.key}|$liveTimerCountDown", rawLiveTimerBaseMs, baseFromText)
 
         val actions = mutableListOf<NotificationAction>()
+        // A4.1: each button's role, from CallStyle intents, the semantic action and the icon name
+        // before its (language-dependent) title
+        val resolveContext = com.droidbubble.app.island.activity.controls.ResolveContext(
+            isCall = isCall,
+            answer = if (isCall) callIntent("android.answerIntent") else null,
+            decline = if (isCall) callIntent("android.declineIntent") else null,
+            hangUp = if (isCall) callIntent("android.hangUpIntent") else null,
+        )
         notification.actions?.forEach { action ->
             if (action != null && !action.title.isNullOrBlank()) {
                 val remoteInput = action.remoteInputs?.firstOrNull()
                 val choices = remoteInput?.choices?.map { it.toString() } ?: emptyList()
+                val title = action.title.toString()
+                val semantic = runCatching { action.semanticAction }.getOrDefault(0)
+                val iconName = actionIconName(action)
+                val role = com.droidbubble.app.island.activity.controls.ControlResolver.resolve(
+                    com.droidbubble.app.island.activity.controls.ActionSnapshot(
+                        title = title, semanticAction = semantic, iconResName = iconName,
+                        hasRemoteInput = remoteInput != null, intent = action.actionIntent,
+                    ),
+                    resolveContext,
+                )
                 actions.add(
                     NotificationAction(
-                        title = action.title.toString(),
+                        title = title,
                         actionIntent = action.actionIntent,
                         remoteInputKey = remoteInput?.resultKey,
                         remoteInputLabel = remoteInput?.label?.toString(),
-                        remoteInputChoices = choices
+                        remoteInputChoices = choices,
+                        semanticAction = semantic,
+                        iconResName = iconName,
+                        role = role
                     )
                 )
             }
@@ -1599,6 +1620,22 @@ class NotificationReceiverService : NotificationListenerService() {
     }
 
     private val appIconCache = android.util.LruCache<String, Bitmap>(30)
+
+    // A4.1: "pkg/resId" -> icon entry name ("" = none), so each icon is looked up once
+    private val actionIconNames = android.util.LruCache<String, String>(64)
+
+    /** A4.1: the action icon's resource entry name in the posting package, or null. Never throws. */
+    private fun actionIconName(action: Notification.Action): String? = runCatching {
+        val icon = action.getIcon() ?: return@runCatching null
+        if (icon.type != android.graphics.drawable.Icon.TYPE_RESOURCE) return@runCatching null
+        val cacheKey = "${icon.resPackage}/${icon.resId}"
+        actionIconNames.get(cacheKey)?.let { return@runCatching it.ifEmpty { null } }
+        val name = runCatching {
+            packageManager.getResourcesForApplication(icon.resPackage).getResourceEntryName(icon.resId)
+        }.getOrNull()
+        actionIconNames.put(cacheKey, name ?: "")
+        name
+    }.getOrNull()
 
     // Kept across remove + repost, which many recorders do on every tick
     private val liveTimerBases = com.droidbubble.app.model.LiveTimerBaseStabilizer()
