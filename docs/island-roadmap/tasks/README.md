@@ -260,7 +260,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | A3.4 | ProgressStyle parser | todo |
 | A3.5 | Journey bar | todo |
 | A3.6 | Navigation adapter | todo |
-| A3.7 | Chronometer and timer reader | todo |
+| A3.7 | Chronometer and timer reader | done, minus the overtime display (`island/activity/adapters/ChronometerReader.kt`: the custom-view gate (with `CATEGORY_STOPWATCH`), the custom-view running rule and the base rules, verbatim, plus `isOvertime`; NRS calls it; fixture golden, LiveTimerBaseStabilizerTest and CustomTimerCacheTest unchanged; the "−0:12" overtime text after Time's up is a visible change, waiting on the owner; ChronometerAdapter registers with A3.1; check later on the phone: nothing visible) |
 | A4.1 | ControlRole resolver | done (`island/activity/controls/`: structured CallStyle intents and RemoteInput, then `getSemanticAction()`, then the icon resource name (cached per package and resId), then an English title table until A4.2; NRS fills `role`, `semanticAction`, `iconResName` on every `NotificationAction`; nothing reads the role yet (A4.3); no S5 fixture carries a semantic action or a resource icon, so ControlResolverTest covers those with synthetic actions; FixtureCharacterizationTest unchanged; check later on the phone: nothing visible) |
 | A4.2 | Per-locale tables and digit normalization | todo |
 | A4.3 | Wire roles into every control consumer | todo |

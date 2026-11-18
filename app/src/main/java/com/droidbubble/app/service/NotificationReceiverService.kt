@@ -7,6 +7,8 @@ import com.droidbubble.app.util.SafeMode
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
+import com.droidbubble.app.island.activity.adapters.ChronometerReader
+import com.droidbubble.app.island.activity.adapters.ChronometerReader.CustomViewTimer
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -1389,10 +1391,15 @@ class NotificationReceiverService : NotificationListenerService() {
         // progress (downloads, navigation), calls, or a running timer / stopwatch / recorder.
         // Clock apps (AOSP / Google Clock) draw the countdown in a custom view, so the notification
         // has no title, text or chronometer extras at all: read the timer out of that view instead.
-        val customTimer = if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall &&
-            !extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) &&
-            (isClockOrRecorderPackage(packageName) || notification.category == Notification.CATEGORY_ALARM ||
-                notification.category == "stopwatch")
+        // A3.7: the gate and the timer rules live in ChronometerReader
+        val customTimer = if (ChronometerReader.wantsCustomViewTimer(
+                ongoingOrForeground = isOngoing || isForegroundServiceNotif,
+                hasProgress = hasProgress,
+                isCall = isCall,
+                showsChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
+                clockOrRecorderPackage = isClockOrRecorderPackage(packageName),
+                category = notification.category,
+            )
         ) cachedCustomViewTimer(sbn.key, notification) else null
         val looksLikeTimer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) ||
             parseTimerTextMillis(extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()) != null ||
@@ -1474,22 +1481,22 @@ class NotificationReceiverService : NotificationListenerService() {
         // Live timers (voice recorders, calls, stopwatches): the app either shows a system
         // chronometer counting from `when`, or posts a static "00:00"-style title that the
         // listener never sees tick. Keep a base so the island can count locally.
-        val showsChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)
-        val timerTitleMs = parseTimerTextMillis(title)
-        val isTimerPaused = text?.contains("pause", ignoreCase = true) == true
         val isForegroundService = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
-        val baseFromText = !(showsChronometer && notification.`when` > 0L) && customTimer == null
-        val rawLiveTimerBaseMs = when {
-            showsChronometer && notification.`when` > 0L -> notification.`when`
-            customTimer != null -> if (customTimer.running) customTimer.baseWallMs else 0L
-            timerTitleMs != null && !isTimerPaused && (isForegroundService || isOngoing) -> sbn.postTime - timerTitleMs
-            else -> 0L
-        }
-        // A paused countdown keeps the flag so it still gets the timer design, not the stopwatch one
-        val liveTimerCountDown = (showsChronometer && extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false)) ||
-            customTimer?.countDown == true
+        val timer = ChronometerReader.read(
+            ChronometerReader.Inputs(
+                showsChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
+                chronometerCountDown = extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
+                whenMs = notification.`when`,
+                postTime = sbn.postTime,
+                title = title,
+                text = text,
+                ongoingOrForeground = isForegroundService || isOngoing,
+                customTimer = customTimer,
+            )
+        )
+        val liveTimerCountDown = timer.countDown
         // Same start time on every update, so the island clock never steps back or stalls
-        val liveTimerBaseMs = liveTimerBases.stabilize("${sbn.key}|$liveTimerCountDown", rawLiveTimerBaseMs, baseFromText)
+        val liveTimerBaseMs = liveTimerBases.stabilize("${sbn.key}|$liveTimerCountDown", timer.rawBaseMs, timer.baseFromText)
 
         val actions = mutableListOf<NotificationAction>()
         // A4.1: each button's role, from CallStyle intents, the semantic action and the icon name
@@ -1686,15 +1693,6 @@ class NotificationReceiverService : NotificationListenerService() {
         segments?.sumOf { it.getInt("length", 0) } ?: 0
     }.getOrDefault(0)
 
-    /** A timer read from a notification's custom RemoteViews (see [readCustomViewTimer]). */
-    private data class CustomViewTimer(
-        val baseWallMs: Long,
-        val countDown: Boolean,
-        val running: Boolean,
-        val timeText: String?,
-        val label: String?
-    )
-
     /**
      * Inflates a custom-view notification and pulls the [android.widget.Chronometer] out of it.
      * Only standard notifications built with setCustomContentView carry these views; for everything
@@ -1736,18 +1734,15 @@ class NotificationReceiverService : NotificationListenerService() {
         }
         walk(root)
         val c = chrono ?: return null
-        val countDown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && c.isCountDown
-        val baseWall = System.currentTimeMillis() + (c.base - android.os.SystemClock.elapsedRealtime())
-        val timeText = c.text?.toString()?.replace("−", "")?.replace("-", "")?.trim()?.takeIf { it.isNotEmpty() }
-        // Chronometer exposes no "started" flag: a running timer offers Pause, a paused one Resume / Start
-        val actionTitles = notification.actions?.mapNotNull { it?.title?.toString()?.lowercase() }.orEmpty()
-        val offersPause = actionTitles.any { "pause" in it || "stop" in it && "stopwatch" !in it }
-        val offersResume = actionTitles.any { "resume" in it || "start" in it || "continue" in it }
-        val saysPaused = labels.any { it.contains("paused", ignoreCase = true) }
-        val running = !saysPaused && (offersPause || !offersResume)
-        val label = labels.firstOrNull { parseTimerTextMillis(it) == null }
-            ?: if (countDown) "Timer" else "Stopwatch"
-        return CustomViewTimer(baseWall, countDown, running, timeText, label)
+        return ChronometerReader.fromCustomView(
+            chronoBaseElapsed = c.base,
+            elapsedNow = android.os.SystemClock.elapsedRealtime(),
+            wallNow = System.currentTimeMillis(),
+            isCountDown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && c.isCountDown,
+            chronoText = c.text?.toString(),
+            labels = labels,
+            actionTitles = notification.actions?.mapNotNull { it?.title?.toString() }.orEmpty(),
+        )
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
