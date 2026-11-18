@@ -135,6 +135,8 @@ class CheckpointScreens(private val case: Case) {
         private val COMPACT = setOf(1, 2, 4)
         private val EXPANDED = setOf(1, 3, 4)
         private val ALERT = setOf(2, 4)
+        /** Phase 7 owner questions (render with -Pcheckpoint=CP7; no committed baseline). */
+        private val P7 = setOf(7)
 
         private val ongoingCall get() = IslandFixtures.incomingCall.copy(
             isIncomingCall = false,
@@ -222,6 +224,25 @@ class CheckpointScreens(private val case: Case) {
                 IslandStateManager.updateMedia(IslandFixtures.song)
                 IslandStateManager.updateNotification(IslandFixtures.message())
                 IslandStateManager.expand(null)
+            },
+        )
+
+        /**
+         * A3.7: a countdown 12 s past its end, the way Google Clock keeps posting it (count-down
+         * chronometer, `when` in the past), as a running timer and as "Time's up".
+         */
+        private fun overtime(): List<Case> = listOf(
+            Case("p7_compact_timer_overtime", P7) {
+                IslandStateManager.updateNotification(IslandFixtures.timer.copy(liveTimerBaseMs = IslandClock.wallMs() - 12_000L))
+            },
+            Case("p7_expanded_timer_overtime", P7) {
+                IslandStateManager.updateNotification(IslandFixtures.timer.copy(liveTimerBaseMs = IslandClock.wallMs() - 12_000L))
+                IslandStateManager.expand(IslandPriority.POP_NOTIFICATION)
+            },
+            Case("p7_expanded_times_up_overtime", P7) {
+                IslandStateManager.updateNotification(
+                    IslandFixtures.timesUp.copy(liveTimerBaseMs = IslandClock.wallMs() - 12_000L, liveTimerCountDown = true)
+                )
             },
         )
 
@@ -318,7 +339,7 @@ class CheckpointScreens(private val case: Case) {
 
         val all: List<Case> by lazy {
             val both = listOf(1f, 1.3f)
-            atFontScales(compact() + expanded() + backdrops(), both) +
+            atFontScales(compact() + expanded() + backdrops() + overtime(), both) +
                 atFontScales(scaled() + keylines() + highContrast(), listOf(1f))
         }
 
