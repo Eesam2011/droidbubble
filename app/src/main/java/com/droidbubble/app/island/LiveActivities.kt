@@ -141,15 +141,17 @@ private val SPORTS_PACKAGE_HINTS = listOf(
     "bbc.sport", "forzafootball", "365scores", "scores365", "flashscore", "cricbuzz", "cricinfo", "nba", "nfl",
     "mlb", "premierleague", "uefa", "fifa"
 )
-private val PAUSE_RESUME_REGEX = Regex("""\b(pause|resume|continue|play|start)\b""", RegexOption.IGNORE_CASE)
-private val RESUME_REGEX = Regex("""\b(resume|continue|play|start)\b""", RegexOption.IGNORE_CASE)
-private val STOP_REGEX = Regex("""\b(stop|end|finish|save|done|cancel|delete|dismiss|reset|discard|hang up)\b""", RegexOption.IGNORE_CASE)
-private val ALERT_STOP_REGEX = Regex("""\b(stop|dismiss|turn off|cancel|done)\b""", RegexOption.IGNORE_CASE)
-private val ALERT_EXTRA_REGEX = Regex("""(\+\s?\d|\badd\b|\bsnooze\b|\bminute|\bmin\b)""", RegexOption.IGNORE_CASE)
-private val CLOCK_TIME_REGEX = Regex("""\b\d{1,2}:\d{2}(\s?[AaPp]\.?[Mm]\.?)?""")
-private val ETA_REGEX = Regex("""\b(\d{1,3})\s?(min|mins|minutes)\b""", RegexOption.IGNORE_CASE)
+// A4.2: explicit boundaries and [0-9] (after Digits.normalizeDigits), never \b or \d, so the
+// JVM and Android's ICU regex agree on non-Latin text
+private val PAUSE_RESUME_REGEX = Regex("""(?<![\p{L}\p{N}])(pause|resume|continue|play|start)(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+private val RESUME_REGEX = Regex("""(?<![\p{L}\p{N}])(resume|continue|play|start)(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+private val STOP_REGEX = Regex("""(?<![\p{L}\p{N}])(stop|end|finish|save|done|cancel|delete|dismiss|reset|discard|hang up)(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+private val ALERT_STOP_REGEX = Regex("""(?<![\p{L}\p{N}])(stop|dismiss|turn off|cancel|done)(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+private val ALERT_EXTRA_REGEX = Regex("""(\+\s?[0-9]|(?<![\p{L}\p{N}])add(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])snooze(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])minute|(?<![\p{L}\p{N}])min(?![\p{L}\p{N}]))""", RegexOption.IGNORE_CASE)
+private val CLOCK_TIME_REGEX = Regex("""(?<![\p{L}\p{N}])[0-9]{1,2}:[0-9]{2}(\s?[AaPp]\.?[Mm]\.?)?""")
+private val ETA_REGEX = Regex("""(?<![\p{L}\p{N}])([0-9]{1,3})\s?(min|mins|minutes)(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
 // "Arsenal 2 - 1 Chelsea", "ARS 2–1 CHE", "Lakers 98 : 101 Celtics" (a colon only from a sports app)
-private val SCORE_REGEX = Regex("""^\s*(.+?)\s+(\d{1,3})\s*([-–—:])\s*(\d{1,3})\s+(.+?)\s*$""")
+private val SCORE_REGEX = Regex("""^\s*(.+?)\s+([0-9]{1,3})\s*([-–—:])\s*([0-9]{1,3})\s+(.+?)\s*$""")
 // A clock time, not a score: "10:45 PM", "10:30 p.m.", "18:00 h"
 private val TIME_SUFFIX_REGEX = Regex("""^(a\.?m\b\.?|p\.?m\b\.?|h\b)""", RegexOption.IGNORE_CASE)
 // Words that sit next to a time, never a team: "Arrive at 10-11", "Boarding until 10-30 gate B"
@@ -181,7 +183,9 @@ data class LiveScore(val home: String, val homeScore: String, val awayScore: Str
 
 fun parseLiveScore(n: NotificationInfo): LiveScore? {
     val colonOk = isSportsPackage(n.packageName)
-    return matchScore(n.title, colonOk, status = n.text) ?: matchScore(n.text, colonOk, status = n.title)
+    val title = com.droidbubble.app.island.activity.text.Digits.normalizeDigits(n.title)
+    val text = com.droidbubble.app.island.activity.text.Digits.normalizeDigits(n.text)
+    return matchScore(title, colonOk, status = text) ?: matchScore(text, colonOk, status = title)
 }
 
 /**
@@ -203,13 +207,14 @@ private fun matchScore(line: String, colonOk: Boolean, status: String): LiveScor
 
 /** Wall-clock time an alarm is set for, as printed ("7:00 AM"). */
 fun alarmTimeText(n: NotificationInfo): String? =
-    CLOCK_TIME_REGEX.find(n.text)?.value ?: CLOCK_TIME_REGEX.find(n.title)?.value
+    CLOCK_TIME_REGEX.find(com.droidbubble.app.island.activity.text.Digits.normalizeDigits(n.text))?.value
+        ?: CLOCK_TIME_REGEX.find(com.droidbubble.app.island.activity.text.Digits.normalizeDigits(n.title))?.value
 
 /** Short status for a ride / delivery / flight: the app's own chip, an ETA, or the progress. */
 fun trackingChipText(n: NotificationInfo): String? =
     n.shortCriticalText?.takeIf { it.isNotBlank() }
-        ?: ETA_REGEX.find(n.title)?.let { "${it.groupValues[1]} min" }
-        ?: ETA_REGEX.find(n.text)?.let { "${it.groupValues[1]} min" }
+        ?: ETA_REGEX.find(com.droidbubble.app.island.activity.text.Digits.normalizeDigits(n.title))?.let { "${it.groupValues[1]} min" }
+        ?: ETA_REGEX.find(com.droidbubble.app.island.activity.text.Digits.normalizeDigits(n.text))?.let { "${it.groupValues[1]} min" }
         ?: n.progressFraction.takeIf { n.maxProgress > 0 && n.progress >= 0 }?.let { "${(it * 100).toInt()}%" }
 
 /** Whether a ringing alert is an expired timer (vs an alarm). */

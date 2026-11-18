@@ -107,11 +107,12 @@ data class NotificationInfo(
         get() = isCall || liveTimerBaseMs > 0L || isOngoing || isAlert || isPromoted
 }
 
-private val TIMER_TEXT_REGEX = Regex("""^\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s*$""")
+// A4.2: [0-9] after normalising Arabic-Indic and Persian digits, so "٠٠:٤٢" reads like "00:42"
+private val TIMER_TEXT_REGEX = Regex("""^\s*(?:([0-9]{1,2}):)?([0-9]{1,2}):([0-9]{2})\s*$""")
 
 /** Parses timer-looking text such as "00:42" or "1:02:03" into millis, or null if it isn't one. */
 fun parseTimerTextMillis(text: String?): Long? {
-    val match = TIMER_TEXT_REGEX.matchEntire(text ?: return null) ?: return null
+    val match = TIMER_TEXT_REGEX.matchEntire(com.droidbubble.app.island.activity.text.Digits.normalizeDigits(text ?: return null)) ?: return null
     val (h, m, s) = match.destructured
     val hours = h.toLongOrNull() ?: 0L
     return ((hours * 3600) + (m.toLong() * 60) + s.toLong()) * 1000L

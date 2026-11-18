@@ -100,13 +100,14 @@ class ControlResolverTest {
         assertEquals(UNKNOWN, role("Send"))
         assertEquals(UNKNOWN, role("Weekend"))
         assertEquals(UNKNOWN, role("Display"))
-        assertEquals(UNKNOWN, role("Ende")) // German, waits for A4.2
+        assertEquals(UNKNOWN, role("Ende")) // German "end": no fixture backs it, so A4.2 doesn't guess it
     }
 
     @Test
     fun structuredCallIntentsAreChecked() {
-        // Without real PendingIntents (pure JVM) the structured step is skipped, never guessed
-        val ctx = ResolveContext(isCall = true)
-        assertEquals(ControlRole.UNKNOWN, ControlResolver.resolve(ActionSnapshot("رد"), ctx))
+        // Without real PendingIntents (pure JVM) the structured step is skipped, never guessed;
+        // the locale tables (A4.2) then read "رد" as Answer on a call and Reply elsewhere
+        assertEquals(ControlRole.ANSWER, ControlResolver.resolve(ActionSnapshot("رد"), ResolveContext(isCall = true)))
+        assertEquals(ControlRole.REPLY, ControlResolver.resolve(ActionSnapshot("رد"), ResolveContext(isCall = false)))
     }
 }

@@ -7,14 +7,15 @@ import android.app.PendingIntent
  *
  * [answer], [decline] and [hangUp] are the CallStyle extras (`android.answerIntent` …). The
  * system builds those buttons itself, so an action whose intent is one of them is that role.
- * [titleTable] is step (d): A4.2 swaps in the per-locale tables; until then it is English only.
+ * [titleTable] is step (d): the per-locale tables (A4.2).
  */
 data class ResolveContext(
     val isCall: Boolean = false,
     val answer: PendingIntent? = null,
     val decline: PendingIntent? = null,
     val hangUp: PendingIntent? = null,
-    val titleTable: (String) -> ControlRole? = EnglishTitleTable::match,
+    /** Step (d): (title, isCall) -> role. A4.2's per-locale tables. */
+    val titleTable: (String, Boolean) -> ControlRole? = LocaleTables::match,
 )
 
 /**
@@ -39,7 +40,7 @@ object ControlResolver {
         structured(a, ctx)
             ?: semantic(a.semanticAction, ctx)
             ?: a.iconResName?.let(::fromIconName)
-            ?: a.title.takeIf { it.isNotBlank() }?.let(ctx.titleTable)
+            ?: a.title.takeIf { it.isNotBlank() }?.let { ctx.titleTable(it, ctx.isCall) }
             ?: ControlRole.UNKNOWN
 
     private fun structured(a: ActionSnapshot, ctx: ResolveContext): ControlRole? {
@@ -89,35 +90,4 @@ object ControlResolver {
         val n = name.lowercase()
         return ICON_TOKENS.firstOrNull { (re, _) -> re.containsMatchIn(n) }?.second
     }
-}
-
-/**
- * A4.1 step (d) until A4.2: the English words today's regexes already use
- * (`LiveActivities.kt` PAUSE_RESUME / STOP / ALERT_*; NRS answer and decline words). Boundaries
- * are explicit so the JVM and Android's ICU regex agree.
- */
-object EnglishTitleTable {
-    private fun words(vararg w: String) =
-        Regex("""(?<![\p{L}\p{N}])(?:${w.joinToString("|")})(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
-
-    private val TABLE: List<Pair<Regex, ControlRole>> = listOf(
-        words("hang up", "end call") to ControlRole.HANG_UP,
-        words("answer", "accept") to ControlRole.ANSWER,
-        words("decline", "reject") to ControlRole.DECLINE,
-        words("unmute") to ControlRole.UNMUTE,
-        words("mute") to ControlRole.MUTE,
-        words("speaker") to ControlRole.SPEAKER,
-        words("pause") to ControlRole.PAUSE,
-        words("resume", "continue", "play", "start") to ControlRole.RESUME,
-        words("snooze") to ControlRole.SNOOZE,
-        Regex("""\+\s?\d|(?<![\p{L}\p{N}])(?:add|minutes?|mins?)(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE) to ControlRole.ADD_TIME,
-        words("reply") to ControlRole.REPLY,
-        words("mark as read") to ControlRole.MARK_READ,
-        words("stop", "end", "finish", "save", "done") to ControlRole.STOP,
-        words("cancel", "delete", "discard", "reset") to ControlRole.CANCEL,
-        words("dismiss", "turn off") to ControlRole.DISMISS,
-        words("open") to ControlRole.OPEN,
-    )
-
-    fun match(title: String): ControlRole? = TABLE.firstOrNull { (re, _) -> re.containsMatchIn(title) }?.second
 }
