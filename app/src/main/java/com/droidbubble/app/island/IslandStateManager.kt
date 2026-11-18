@@ -3,9 +3,12 @@ package com.droidbubble.app.island
 import com.droidbubble.app.util.CrashLog
 import com.droidbubble.app.island.activity.ActivityId
 import com.droidbubble.app.island.activity.ActivityKind
+import com.droidbubble.app.island.activity.ActivityPayload
 import com.droidbubble.app.island.activity.ActivitySource
 import com.droidbubble.app.island.activity.ActivityStore
+import com.droidbubble.app.island.activity.LegacySlots
 import com.droidbubble.app.island.activity.LegacySpecMapper
+import com.droidbubble.app.island.activity.projectLegacySlots
 import com.droidbubble.app.model.ActiveCallState
 import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.MediaInfo
@@ -145,8 +148,9 @@ object IslandStateManager {
     val iconSignals: StateFlow<com.droidbubble.app.island.icon.IconSignals> = _iconSignals.asStateFlow()
 
     /**
-     * A1.3: every activity, in shadow mode. Each change below is written here as well as to the
-     * old single slots; nothing reads it until A1.4 makes the slots projections of it.
+     * Every activity the island knows about (A1.3). Since A1.4 the old single slots
+     * ([activeNotification], [activeProgress]) are projections of it, so a third live activity is
+     * no longer lost behind a one-off alert.
      */
     val store = ActivityStore(now = { IslandClock.wallMs() }, threadCheck = ::checkMainThreadInDebug)
 
@@ -160,9 +164,17 @@ object IslandStateManager {
         }
     }
 
-    private fun mirrorNotification(n: NotificationInfo) {
-        store.upsert(LegacySpecMapper.fromNotification(n, store.get(ActivityId.notification(n.key))))
+    /** A1.4: the specs behind the two old slots, as last projected. */
+    private var legacySlots = LegacySlots.Empty
+
+    /** Re-projects the two slots after a store change; [changed] is the entry just posted. */
+    private fun projectSlots(changed: ActivityId? = null): LegacySlots {
+        legacySlots = projectLegacySlots(store.activities.value.values, legacySlots, changed)
+        return legacySlots
     }
+
+    private val com.droidbubble.app.island.activity.LiveActivitySpec?.info: NotificationInfo?
+        get() = (this?.payload as? ActivityPayload.Notification)?.info
 
     /** Removes every notification-sourced entry of one family (the listener disconnected). */
     private fun clearStore(progress: Boolean) {
@@ -303,7 +315,8 @@ object IslandStateManager {
 
     /** True while a phone / VoIP call is ringing (shown or waiting behind another card). */
     val isIncomingCallRinging: Boolean
-        get() = _activeNotification.value?.isIncomingCall == true || stashedLiveNotification?.isIncomingCall == true
+        get() = _activeNotification.value?.isIncomingCall == true ||
+            store.activities.value.values.any { it.kind == ActivityKind.CALL_RINGING }
 
     // Liquid glass: on-screen rects of the expanded cards, published every frame while they
     // morph, which the overlay service backs with blur windows. Empty once collapsed.
@@ -666,24 +679,11 @@ object IslandStateManager {
         }
     }
 
-    // A live activity (call, timer, recorder) pushed aside by a one-off alert; it comes back
-    // when the alert is dismissed or removed instead of being lost
-    private var stashedLiveNotification: NotificationInfo? = null
-
-    // Cards the user dismissed, by key -> dismissSignature at dismissal (B4.5). Apps re-post the
-    // same notification often (timers, ongoing calls, ride ETAs); a re-post that only ticks a
-    // number must not bring the card back, a real state change does.
-    private val dismissedSignatures = mutableMapOf<String, Int>()
-    private val dismissedProgressKeys = mutableSetOf<String>()
+    // A1.4: cards the user dismissed are remembered by the store (id -> stateSignature, B4.5):
+    // a re-post that only ticks a number doesn't bring the card back, a real state change does.
+    // A download stays dismissed until the app removes it.
 
     private val NotificationInfo.isRingingOrAlert: Boolean get() = isIncomingCall || isAlert
-
-    private fun restoreStashedLive(): Boolean {
-        val live = stashedLiveNotification ?: return false
-        stashedLiveNotification = null
-        _activeNotification.value = live
-        return true
-    }
 
     /** B11.3: true for a notification safe mode has paused. Set by the island service. */
     @Volatile
@@ -698,44 +698,28 @@ object IslandStateManager {
         )
         // B11.3: a kind paused by safe mode is refused here too (the listener drops it first)
         if (notification != null && safeModeFilter?.invoke(notification) == true) return
+        val wasRinging = isIncomingCallRinging
         // Plain downloads go to the progress card; rides, deliveries and Android 16 live updates
         // keep their own live-activity design even though they carry a progress bar
         if (notification != null && notification.hasProgress && notification.kind == LiveActivityKind.NONE) {
             updateProgress(notification)
             return
         }
-        // A1.3: the store takes every update, including ones the single slot keeps out (a message
-        // while a call rings); its own dismissal memory skips a dismissed card's ticks
-        if (notification == null) clearStore(progress = false) else mirrorNotification(notification)
+        // A1.4: the store takes every update, including ones the slot keeps out (a message while
+        // a call rings); a dismissed card's ticks are refused there. The projection then picks the
+        // slot: a ringing call or alarm isn't covered, a live re-post waits behind a one-off card,
+        // and whatever waits stays in the store until the card in front goes.
         if (notification == null) {
-            stashedLiveNotification = null
+            clearStore(progress = false)
+            legacySlots = legacySlots.copy(notification = null)
         } else {
-            if (dismissedSignatures[notification.key] == dismissSignature(notification)) return
-            dismissedSignatures.remove(notification.key)
-            val current = _activeNotification.value
-            // A ringing call keeps the card: other alerts that arrive meanwhile (missed-call
-            // reminders, messages...) stay in the shade instead of covering the answer button
-            // (a ringing alarm / "Time's up" is protected the same way)
-            if (current != null && current.key != notification.key && (current.isIncomingCall || current.isAlert) &&
-                !notification.isCall && !notification.isAlert
-            ) {
-                return
-            }
-            if (current != null && current.key != notification.key) {
-                // Live re-post while an alert is showing: just refresh the waiting live activity
-                if (notification.isLiveActivity && !current.isLiveActivity && !notification.isIncomingCall) {
-                    stashedLiveNotification = notification
-                    return
-                }
-                // An alert (or a ringing call) takes the card; a live activity waits for it
-                if (current.isLiveActivity) stashedLiveNotification = current
-            }
-            if (stashedLiveNotification?.key == notification.key) stashedLiveNotification = null
+            val id = ActivityId.notification(notification.key)
+            if (!store.upsert(LegacySpecMapper.fromNotification(notification, store.get(id)))) return
+            if (projectSlots(id).notification?.id != id) return
         }
         autoDismissNotificationJob?.cancel()
         val previous = _activeNotification.value
         val isNewNotification = notification != null && previous?.key != notification.key
-        val wasRinging = isIncomingCallRinging
         // D2.3: the same app again with something new: one beat per 600 ms per app, which the
         // icon (I3), the haptic tick and the pill's 3 % pulse all follow
         if (pulseDetector.onUpdate(previous, notification, nowMs()) != null) {
@@ -805,11 +789,13 @@ object IslandStateManager {
     fun updateProgress(progress: NotificationInfo?) {
         if (progress == null) {
             clearStore(progress = true)
+            legacySlots = legacySlots.copy(progress = null)
         } else {
-            store.upsert(LegacySpecMapper.fromProgress(progress, store.get(ActivityId.notification(progress.key))))
+            // A progress card the user dismissed stays gone while the download keeps ticking
+            val id = ActivityId.notification(progress.key)
+            if (!store.upsert(LegacySpecMapper.fromProgress(progress, store.get(id)))) return
+            projectSlots(id)
         }
-        // A progress card the user dismissed stays gone while the download keeps ticking
-        if (progress != null && progress.key in dismissedProgressKeys) return
         if (progress != null && _activeProgress.value?.key != progress.key) restoreIsland()
         _activeProgress.value = progress
         if (progress == null) {
@@ -824,22 +810,21 @@ object IslandStateManager {
     }
 
     fun removeNotification(key: String) {
+        val wasRinging = isIncomingCallRinging
+        // Also forgets a dismissal: the next post of this key is a new card
         store.remove(ActivityId.notification(key))
         var removed = false
-        dismissedSignatures.remove(key)
-        dismissedProgressKeys.remove(key)
-        if (stashedLiveNotification?.key == key) stashedLiveNotification = null
         if (_activeNotification.value?.key == key) {
-            val wasRinging = isIncomingCallRinging
             autoDismissNotificationJob?.cancel()
-            _activeNotification.value = null
+            // The newest live activity left in the store takes the card (none is lost)
+            _activeNotification.value = projectSlots().notification.info
             _isPopInActive.value = false
-            restoreStashedLive()
             onRingingChanged(wasRinging)
             removed = true
         }
         if (_activeProgress.value?.key == key) {
-            _activeProgress.value = null
+            // Another download still running takes its place
+            _activeProgress.value = projectSlots().progress.info
             removed = true
         }
         if (removed && _isExpanded.value && !isOccupied) {
@@ -873,13 +858,12 @@ object IslandStateManager {
         // Dismiss card only, without cancelling actual system notification
         val wasRinging = isIncomingCallRinging
         store.dismiss(ActivityId.notification(notif.key))
-        dismissedSignatures[notif.key] = dismissSignature(notif)
-        _activeNotification.value = null
+        // A live activity that was waiting behind this card takes its place
+        val restored = projectSlots().notification.info
+        _activeNotification.value = restored
         _isPopInActive.value = false
-        // A live activity that was waiting behind this alert takes its place
-        val restored = restoreStashedLive()
         onRingingChanged(wasRinging)
-        if (restored) return true
+        if (restored != null) return true
         if (_isExpanded.value && (_expandedPriority.value == IslandPriority.POP_NOTIFICATION || !isOccupied)) {
             if (!isOccupied) {
                 collapse()
@@ -894,8 +878,7 @@ object IslandStateManager {
         val prog = _activeProgress.value ?: return false
         // Dismiss card only, without cancelling actual system notification
         store.dismiss(ActivityId.notification(prog.key))
-        dismissedProgressKeys += prog.key
-        _activeProgress.value = null
+        _activeProgress.value = projectSlots().progress.info
         if (_isExpanded.value && (_expandedPriority.value == IslandPriority.PROGRESS || !isOccupied)) {
             if (!isOccupied) {
                 collapse()
@@ -983,11 +966,9 @@ object IslandStateManager {
         _userMinimized.value = false
         torchRawOn = false
         torchToggleTimes.clear()
-        stashedLiveNotification = null
-        dismissedSignatures.clear()
+        legacySlots = LegacySlots.Empty
         CountdownTotals.resetForTest()
         safeModeFilter = null
-        dismissedProgressKeys.clear()
         dismissedMediaPackage = null
         lastTrackKey = null
         dismissMediaOnPause = false

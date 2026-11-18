@@ -71,8 +71,8 @@ object LegacySpecMapper {
             minimal = Slot.Progress(fraction),
             expanded = ExpandedSpec(ExpandedPresentation.PROGRESS_CARD, controls = controls(n)),
             open = OpenTarget(n.contentIntent, n.packageName),
-            // A download comes back when it starts over or switches between known and unknown progress
-            stateSignature = listOf(n.isIndeterminate, n.title).hashCode(),
+            // A dismissed download stays gone while it ticks, until the app removes it (as before A1.4)
+            stateSignature = 0,
             payload = ActivityPayload.Notification(n),
         )
     }
