@@ -1144,7 +1144,7 @@ private fun AlertPillButton(
 
 /** I3.2: a ringing call's handset and answer button repeat their effect this often. */
 private const val CALL_REPEAT_MS = 2_400L
-private val CALL_WIGGLE = IconEffect.Wiggle(repeatEveryMs = CALL_REPEAT_MS)
+internal val CALL_WIGGLE = IconEffect.Wiggle(repeatEveryMs = CALL_REPEAT_MS)
 
 private val ALERT_ICON_BREATHE = IconEffect.Breathe(
     minAlpha = 1f,

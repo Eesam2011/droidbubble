@@ -50,85 +50,72 @@ object LiveActivityTester {
         isOngoing = true
     )
 
+    /**
+     * The first notification [demo] posts. Pure, so tests (and A1.2's mapper test) can use the
+     * same demos the Test lab shows.
+     */
+    fun demoNotification(demo: Demo, now: Long): NotificationInfo = when (demo) {
+        Demo.CALL -> base(demo, "com.google.android.dialer", "Phone", "Sam Carter", "Incoming call").copy(
+            isCall = true, isIncomingCall = true, isOngoing = false
+        )
+        Demo.TIMER -> timer(remainingMs = 5 * 60_000L, running = true, now = now)
+        Demo.TIMES_UP -> base(demo, "com.google.android.deskclock", "Clock", "Time's up", "Tea").copy(
+            isAlert = true, liveTimerBaseMs = now, actions = actions("+1:00", "Stop")
+        )
+        Demo.ALARM -> base(demo, "com.google.android.deskclock", "Clock", "Wake up", "7:00 AM").copy(
+            isAlert = true, actions = actions("Snooze", "Dismiss")
+        )
+        Demo.SNOOZED -> base(demo, "com.google.android.deskclock", "Clock", "Alarm", "Snoozing until 7:10 AM").copy(
+            actions = actions("Dismiss")
+        )
+        Demo.STOPWATCH -> base(demo, "com.google.android.deskclock", "Clock", "Stopwatch", "").copy(
+            liveTimerBaseMs = now - 83_000L, actions = actions("Pause", "Reset")
+        )
+        Demo.RECORDER -> base(demo, "com.google.android.apps.recorder", "Recorder", "Recording", "").copy(
+            liveTimerBaseMs = now, actions = actions("Pause", "Stop")
+        )
+        Demo.DOWNLOAD -> base(demo, "com.android.vending", "Google Play", "Downloading Droidbubble", "12 MB of 40 MB")
+            .copy(isOngoing = false, progress = 0, maxProgress = 100)
+        Demo.RIDE -> base(demo, "com.ubercab", "Uber", "Driver arriving", "Toyota Camry · ABC 123")
+            .copy(progress = 0, maxProgress = 100, shortCriticalText = "5 min")
+        Demo.DELIVERY -> base(demo, "com.example.food", "Food", "Order on the way", "Rider is 1.2 km away")
+            .copy(isPromoted = true, progress = 40, maxProgress = 100, shortCriticalText = "12 min")
+        Demo.FLIGHT -> base(demo, "com.flightradar24free", "Flightradar24", "EK 202 to New York", "Departs 10:40 · Gate B12")
+            .copy(progress = 0, maxProgress = 100, shortCriticalText = "Boarding")
+        Demo.SCORE -> base(demo, "com.mobilefootball", "FotMob", "Arsenal 2 - 1 Chelsea", "67'")
+    }
+
     fun show(demo: Demo) {
         clear()
-        val now = System.currentTimeMillis()
+        val first = demoNotification(demo, System.currentTimeMillis())
         when (demo) {
-            Demo.CALL -> post(
-                base(demo, "com.google.android.dialer", "Phone", "Sam Carter", "Incoming call").copy(
-                    isCall = true, isIncomingCall = true, isOngoing = false
-                )
-            )
-            Demo.TIMER -> postTimer(remainingMs = 5 * 60_000L, running = true)
-            Demo.TIMES_UP -> post(
-                base(demo, "com.google.android.deskclock", "Clock", "Time's up", "Tea").copy(
-                    isAlert = true, liveTimerBaseMs = now, actions = actions("+1:00", "Stop")
-                )
-            )
-            Demo.ALARM -> post(
-                base(demo, "com.google.android.deskclock", "Clock", "Wake up", "7:00 AM").copy(
-                    isAlert = true, actions = actions("Snooze", "Dismiss")
-                )
-            )
-            Demo.SNOOZED -> post(
-                base(demo, "com.google.android.deskclock", "Clock", "Alarm", "Snoozing until 7:10 AM").copy(
-                    actions = actions("Dismiss")
-                )
-            )
-            Demo.STOPWATCH -> post(
-                base(demo, "com.google.android.deskclock", "Clock", "Stopwatch", "").copy(
-                    liveTimerBaseMs = now - 83_000L, actions = actions("Pause", "Reset")
-                )
-            )
-            Demo.RECORDER -> post(
-                base(demo, "com.google.android.apps.recorder", "Recorder", "Recording", "").copy(
-                    liveTimerBaseMs = now, actions = actions("Pause", "Stop")
-                )
-            )
-            Demo.DOWNLOAD -> {
-                val start = base(demo, "com.android.vending", "Google Play", "Downloading Droidbubble", "12 MB of 40 MB")
-                    .copy(isOngoing = false, progress = 0, maxProgress = 100)
-                tick(start, steps = 50, everyMs = 200L) { n, i -> n.copy(progress = i * 2) }
+            Demo.DOWNLOAD -> tick(first, steps = 50, everyMs = 200L) { n, i -> n.copy(progress = i * 2) }
+            Demo.RIDE -> tick(first, steps = 50, everyMs = 1_000L) { n, i ->
+                val mins = (5 - i / 10).coerceAtLeast(1)
+                n.copy(progress = i * 2, shortCriticalText = if (i >= 48) "Here" else "$mins min")
             }
-            Demo.RIDE -> {
-                val ride = base(demo, "com.ubercab", "Uber", "Driver arriving", "Toyota Camry · ABC 123")
-                    .copy(progress = 0, maxProgress = 100, shortCriticalText = "5 min")
-                tick(ride, steps = 50, everyMs = 1_000L) { n, i ->
-                    val mins = (5 - i / 10).coerceAtLeast(1)
-                    n.copy(progress = i * 2, shortCriticalText = if (i >= 48) "Here" else "$mins min")
-                }
+            Demo.DELIVERY -> tick(first, steps = 30, everyMs = 1_000L) { n, i -> n.copy(progress = 40 + i * 2) }
+            Demo.SCORE -> tick(first, steps = 20, everyMs = 1_500L) { n, i ->
+                val minute = 67 + i
+                n.copy(
+                    title = if (i >= 12) "Arsenal 3 - 1 Chelsea" else n.title,
+                    text = if (i >= 19) "FT" else "$minute'"
+                )
             }
-            Demo.DELIVERY -> {
-                val food = base(demo, "com.example.food", "Food", "Order on the way", "Rider is 1.2 km away")
-                    .copy(isPromoted = true, progress = 40, maxProgress = 100, shortCriticalText = "12 min")
-                tick(food, steps = 30, everyMs = 1_000L) { n, i -> n.copy(progress = 40 + i * 2) }
-            }
-            Demo.FLIGHT -> post(
-                base(demo, "com.flightradar24free", "Flightradar24", "EK 202 to New York", "Departs 10:40 · Gate B12")
-                    .copy(progress = 0, maxProgress = 100, shortCriticalText = "Boarding")
-            )
-            Demo.SCORE -> {
-                val match = base(demo, "com.mobilefootball", "FotMob", "Arsenal 2 - 1 Chelsea", "67'")
-                tick(match, steps = 20, everyMs = 1_500L) { n, i ->
-                    val minute = 67 + i
-                    n.copy(
-                        title = if (i >= 12) "Arsenal 3 - 1 Chelsea" else n.title,
-                        text = if (i >= 19) "FT" else "$minute'"
-                    )
-                }
-            }
+            else -> post(first)
         }
     }
 
-    private fun postTimer(remainingMs: Long, running: Boolean) {
-        val n = base(Demo.TIMER, "com.google.android.deskclock", "Clock", "Timer", if (running) "" else formatTimerText(remainingMs))
+    private fun timer(remainingMs: Long, running: Boolean, now: Long): NotificationInfo =
+        base(Demo.TIMER, "com.google.android.deskclock", "Clock", "Timer", if (running) "" else formatTimerText(remainingMs))
             .copy(
-                liveTimerBaseMs = if (running) System.currentTimeMillis() + remainingMs else 0L,
+                liveTimerBaseMs = if (running) now + remainingMs else 0L,
                 liveTimerCountDown = true,
                 actions = if (running) actions("Pause", "+1:00", "Cancel") else actions("Resume", "Cancel")
             )
-        post(n)
-    }
+
+    private fun postTimer(remainingMs: Long, running: Boolean) =
+        post(timer(remainingMs, running, System.currentTimeMillis()))
 
     private fun post(n: NotificationInfo) {
         if (n.hasProgress && n.kind == LiveActivityKind.NONE) {
