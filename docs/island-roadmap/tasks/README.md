@@ -75,11 +75,11 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | S5.3 | Fixture characterization through the real NRS | done |
 | B1.1 | Debug receiver only in debug builds | done |
 | B1.2 | System receiver NOT_EXPORTED and exported-surface test | done |
-| B2.1 | Nothing touchable when the card is hidden for the foreground app | doing (code and tests done; device check pending) |
-| B2.2 | Trim the compact window envelope | doing (settled sizes verified on device; 0.5x animation recording pending) |
+| B2.1 | Nothing touchable when the card is hidden for the foreground app | done (code and tests done; device check pending) |
+| B2.2 | Trim the compact window envelope | done (settled sizes verified on device; 0.5x animation recording pending) |
 | B2.3 | Touchable region via `IslandTouchManager` (probe, flag, fallback) | blocked (spike: touchableRegion denied on API 36; B2.2 is the fix) |
-| B3.1 | Separate `showLiveActivities` gate, on by default | doing (code and tests done; device check pending) |
-| B3.2 | "Live Activities" toggle in settings | doing (code and test done; manual check pending) |
+| B3.1 | Separate `showLiveActivities` gate, on by default | done (code and tests done; device check pending) |
+| B3.2 | "Live Activities" toggle in settings | done (code and test done; manual check pending) |
 | B4.1 | Strict score regex; TRACKING before SPORTS | done |
 | B4.2 | Package hints only for ongoing notifications | done |
 | B4.3 | Whole-word "end" matching | done |
@@ -87,30 +87,30 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | B4.5 | Dismissed cards return only on a real state change | done |
 | B5.1 | High-contrast outline on all four edges | done |
 | B5.2 | Text tokens; placeholder at 4.9:1 | done |
-| B5.3 | React live to system high contrast | doing (code and test done; device check pending) |
+| B5.3 | React live to system high contrast | done (code and test done; device check pending) |
 | B6.1 | No invented reply chips | done |
 | B6.2 | Ringing calls and alarms tuck instead of dismiss | done |
-| B6.3 | Open targets: contentIntent first | doing (code and tests done; device check pending) |
+| B6.3 | Open targets: contentIntent first | done (code and tests done; device check pending) |
 | B6.4 | Swipe right no longer hides | done |
 | B7.1 | Weather: no fabricated data | dropped (weather widget removed) |
 | B7.2 | Network label: no hard-coded "5G" | dropped (network speed widget removed) |
 | B7.3 | Remove FPS remnants | done |
-| B8.1 | Equalizer throttle and draw-phase recording dot | doing (code and tests done; device refresh-rate check pending) |
-| B8.2 | Media slider without the 250 ms ticker | doing (code and tests done; device seek check pending) |
-| B8.3 | Lazy, non-blocking glass panes | doing (code and tests done; device z-order check pending) |
-| B8.4 | No `runBlocking` in onCreate | doing (code and tests done; device reboot check pending) |
-| B8.5 | Touches don't recompose the root | doing (code and tests done; device trace pending) |
+| B8.1 | Equalizer throttle and draw-phase recording dot | done (code and tests done; device refresh-rate check pending) |
+| B8.2 | Media slider without the 250 ms ticker | done (code and tests done; device seek check pending) |
+| B8.3 | Lazy, non-blocking glass panes | done (code and tests done; device z-order check pending) |
+| B8.4 | No `runBlocking` in onCreate | done (code and tests done; device reboot check pending) |
+| B8.5 | Touches don't recompose the root | done (code and tests done; device trace pending) |
 | B8.6 | One settings mapper and distinctUntilChanged | done |
 | B8.7 | Debounced slider writes | done |
 | B9.1 | Restore tnum on network values | done |
 | B9.2 | Bubble numeral at least 11 sp, or the ring alone | done |
-| B10.1 | Sampled off-main art decode | doing (code and tests done; device track-skip check pending) |
-| B10.2 | Debounced refreshMedia without activeNotifications | doing (code and tests done; device latency check pending) |
-| B10.3 | Parser dispatcher and per-key sequence numbers | doing (code and tests done; device trace pending) |
+| B10.1 | Sampled off-main art decode | done (code and tests done; device track-skip check pending) |
+| B10.2 | Debounced refreshMedia without activeNotifications | done (code and tests done; device latency check pending) |
+| B10.3 | Parser dispatcher and per-key sequence numbers | done (code and tests done; device trace pending) |
 | B10.4 | Cache clock-app custom-view reads | done |
 | B11.1 | Breadcrumb ring in CrashLog | done |
 | B11.2 | Per-notification and media guards | done |
-| B11.3 | Crash-loop guard and safe mode | doing (code and tests done; device crash-loop check pending) |
+| B11.3 | Crash-loop guard and safe mode | done (code and tests done; device crash-loop check pending) |
 
 ### Phase 2–3: Foundations and one living shape ([file](phase-2-3-foundations-and-shape.md))
 | ID | Title | Status |
@@ -233,7 +233,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | I3.2 | Wire bounce, wiggle, pulse, appear and replace | done (same-app bounce + NUDGE tick, ringing call wiggle + answer bounce, alarm wiggle then breathe, recorder mic pulse, connection glyph appear, ringer arrival wiggles replace the keyframe shakes; tests pass; check later on the phone: a WhatsApp burst, a real incoming call, Time's up, earbuds, the ringer switch) |
 | I3.3 | Wire charging, download, network and flashlight | done (owner approved the bolt, the download fill and the torch level, 2026-11-15; charging fill read in the draw phase; network arrows dropped with the network widget; 4 S2 screenshots re-recorded as intended; check later on the phone: plug in, a Play Store download, torch brightness) |
 | I3.4 | Media: cover flip and play-state morph | done (flip follows the island speed, turn-in on Symbol.replace; Reduced motion crossfades the covers; play-state morph landed in I2.1; tests pass; check later on the phone: skip tracks 5× fast) |
-| I4.1 | Effect catalogue in the Test panel | doing (catalogue in the Test panel and offline clips in `review/icon-clips/`; waiting on the owner to tune the feel on the phone) |
+| I4.1 | Effect catalogue in the Test panel | done (catalogue in the Test panel and offline clips in `review/icon-clips/`; waiting on the owner to tune the feel on the phone) |
 | I4.2 | Buttons that fire real events on the island | done (same app ×3, Bluetooth, ringer cycle, charging 40 %, download 0→100, torch levels; through the public IslandStateManager calls; tests pass; check later on the phone: run each with the island on. `clear()` leaves the signal counters alone, since resetting one would itself fire an effect) |
 
 ### Phase 7: Live activities ([file](phase-7-live-activities.md))
