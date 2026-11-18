@@ -254,7 +254,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | A2.4 | "+N" overflow | todo |
 | A2.5 | (optional) "Why is this primary?" and overrides | todo |
 | A2.6 | Test lab: stack demo activities | todo |
-| A3.1 | NotificationSnapshot and adapter chain | todo |
+| A3.1 | NotificationSnapshot and adapter chain | done (`island/activity/adapters/`: SnapshotReader reads each field in its own runCatching (a wrong-type extra gives its default and a breadcrumb), AdapterRegistry runs the chain with crash containment, LegacyAdapter holds the old parse rules verbatim; the custom-view inflation and the app label / bitmaps are read only when the adapter asks (no extra work for dropped notifications); adapters return an AdapterOutcome (Drop / Ignore / Post with info + spec) instead of a bare spec, since the listener still needs Drop vs Ignore until A1.9; FixtureCharacterizationTest unchanged; AdapterChainTest 9 cases; check later on the phone: nothing visible) |
 | A3.2 | CallStyle adapter | todo |
 | A3.3 | Live Updates: promotion, shortCriticalText, countdown | todo |
 | A3.4 | ProgressStyle parser | todo |

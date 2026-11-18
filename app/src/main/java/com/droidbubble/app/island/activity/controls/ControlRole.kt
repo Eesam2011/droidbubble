@@ -21,4 +21,8 @@ data class ActionSnapshot(
     /** The action carries a RemoteInput (an inline reply field). */
     val hasRemoteInput: Boolean = false,
     val intent: PendingIntent? = null,
+    /** A3.1: the RemoteInput's result key, label and canned choices, for the inline reply. */
+    val remoteInputKey: String? = null,
+    val remoteInputLabel: String? = null,
+    val remoteInputChoices: List<String> = emptyList(),
 )

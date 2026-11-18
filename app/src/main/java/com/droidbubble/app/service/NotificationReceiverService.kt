@@ -1,13 +1,16 @@
 package com.droidbubble.app.service
 
-import com.droidbubble.app.model.gateKind
-import com.droidbubble.app.model.allows
 import com.droidbubble.app.util.CrashLog
 import com.droidbubble.app.util.SafeMode
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
+import com.droidbubble.app.island.activity.adapters.AdapterContext
+import com.droidbubble.app.island.activity.adapters.AdapterOutcome
+import com.droidbubble.app.island.activity.adapters.AdapterRegistry
 import com.droidbubble.app.island.activity.adapters.ChronometerReader
+import com.droidbubble.app.island.activity.adapters.SnapshotDetails
+import com.droidbubble.app.island.activity.adapters.SnapshotReader
 import com.droidbubble.app.island.activity.adapters.ChronometerReader.CustomViewTimer
 import android.content.ComponentName
 import android.content.Context
@@ -31,17 +34,11 @@ import android.util.Log
 import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.island.IslandStateManager
 import com.droidbubble.app.model.ActiveCallState
-import com.droidbubble.app.island.isClockOrRecorderPackage
-import com.droidbubble.app.island.isClockPackage
-import com.droidbubble.app.island.isRecorderPackage
-import com.droidbubble.app.island.isSportsPackage
-import com.droidbubble.app.island.isTrackingPackage
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationAction
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
-import com.droidbubble.app.model.parseTimerTextMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,9 +58,6 @@ private const val COMPAT_ARG_SHUFFLE = "android.support.v4.media.session.action.
 private const val COMPAT_SET_REPEAT = "android.support.v4.media.session.action.SET_REPEAT_MODE"
 private const val COMPAT_ARG_REPEAT = "android.support.v4.media.session.action.ARGUMENT_REPEAT_MODE"
 
-// Notification.FLAG_PROMOTED_ONGOING and Notification.EXTRA_SHORT_CRITICAL_TEXT (Android 16)
-private const val FLAG_PROMOTED_ONGOING = 0x00040000
-private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
 
 class NotificationReceiverService : NotificationListenerService() {
 
@@ -1338,6 +1332,10 @@ class NotificationReceiverService : NotificationListenerService() {
      * B10.3: parses a posted notification on the parser thread. Reads only its arguments, the
      * package manager and the notification's drawables. [liveTimerBases] is used only here, so it
      * stays confined to the parser thread.
+     *
+     * A3.1: the notification is read into a NotificationSnapshot (each field guarded), and the
+     * adapter chain decides. Today's rules are LegacyAdapter, last in the chain. The expensive
+     * reads (custom-view inflation, the app label and bitmaps) happen only when an adapter asks.
      */
     private fun buildNotificationInfo(
         sbn: StatusBarNotification,
@@ -1347,229 +1345,51 @@ class NotificationReceiverService : NotificationListenerService() {
         foregroundPackage: String?,
         lowImportance: Boolean,
     ): ParseResult {
-        val packageName = sbn.packageName
-        // 3. Extract live progress tracking (e.g. Google Play Store, downloads, transfers, navigation)
-        val template = extras.getString(Notification.EXTRA_TEMPLATE).orEmpty()
-        val isProgressStyle = template.contains("ProgressStyle")
-        val progress = extras.getInt(Notification.EXTRA_PROGRESS, -1)
-        // Android 16 ProgressStyle: the max is the sum of the segment lengths
-        val maxProgress = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0).takeIf { it > 0 }
-            ?: if (isProgressStyle) progressStyleMax(extras) else 0
-        val isIndeterminate = extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)
-        val isOngoing = (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0 || sbn.isOngoing
-        // Android 16 "Live Updates": promoted ongoing notifications (rides, deliveries, navigation...)
-        val isPromoted = (Build.VERSION.SDK_INT >= 36 && (notification.flags and FLAG_PROMOTED_ONGOING) != 0) ||
-            (isProgressStyle && isOngoing)
-        val shortCriticalText = extras.getCharSequence(EXTRA_SHORT_CRITICAL_TEXT)?.toString()?.takeIf { it.isNotBlank() }
-        val rawWords = "${extras.getCharSequence(Notification.EXTRA_TITLE)} ${extras.getCharSequence(Notification.EXTRA_TEXT)}".lowercase()
-        // Ringing alarm or expired timer: the clock app posts it as an alarm with a full-screen intent
-        val isAlert = isClockPackage(packageName) && (
-            (notification.category == Notification.CATEGORY_ALARM && notification.fullScreenIntent != null) ||
-                "time's up" in rawWords || "time\u2019s up" in rawWords || "time is up" in rawWords
-            )
-        // Android 14 foreground-service notifications can lack FLAG_ONGOING_EVENT, so check both.
-        val isForegroundServiceNotif = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
-        val ongoingLike = isOngoing || isForegroundServiceNotif
-        // Live activities that aren't timers: alerts, live updates, rides / deliveries / flights,
-        // live scores and clock / recorder apps (alarms, paused recordings).
-        // B4.2: a ride, sports or recorder app only counts when its notification is ongoing, so its
-        // marketing and silent pushes still meet the ongoing, silent-channel and on-screen filters.
-        // An upcoming alarm isn't always ongoing, so the clock clause stays as it is.
-        val isLiveCandidate = isAlert || isPromoted ||
-            (ongoingLike && (isTrackingPackage(packageName) || isSportsPackage(packageName) || isRecorderPackage(packageName))) ||
-            (isClockPackage(packageName) && ("alarm" in rawWords || "snooz" in rawWords))
-        val isNavCategory = notification.category == Notification.CATEGORY_NAVIGATION
-        val isNavApp = packageName == "com.google.android.apps.maps" || packageName == "com.waze" || packageName.contains("maps")
-        val isNavigation = (isNavCategory || isNavApp) && isOngoing
-        val hasProgress = maxProgress > 0 || isIndeterminate || (progress >= 0 && maxProgress > 0) || isNavigation
-
-        val callType = extras.getInt("android.callType", 0) // CallStyle: 1 incoming, 2 ongoing, 3 screening
-        val isCall = notification.category == Notification.CATEGORY_CALL ||
-            extras.getString(Notification.EXTRA_TEMPLATE)?.contains("CallStyle") == true
-
-        // Skip persistent notifications ("App is running", VPN...) UNLESS they are live activities:
-        // progress (downloads, navigation), calls, or a running timer / stopwatch / recorder.
-        // Clock apps (AOSP / Google Clock) draw the countdown in a custom view, so the notification
-        // has no title, text or chronometer extras at all: read the timer out of that view instead.
-        // A3.7: the gate and the timer rules live in ChronometerReader
-        val customTimer = if (ChronometerReader.wantsCustomViewTimer(
-                ongoingOrForeground = isOngoing || isForegroundServiceNotif,
-                hasProgress = hasProgress,
-                isCall = isCall,
-                showsChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
-                clockOrRecorderPackage = isClockOrRecorderPackage(packageName),
-                category = notification.category,
-            )
-        ) cachedCustomViewTimer(sbn.key, notification) else null
-        val looksLikeTimer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false) ||
-            parseTimerTextMillis(extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()) != null ||
-            customTimer != null
-        // B3.1: each kind has its own toggle. "Incoming Notifications" only covers message banners;
-        // calls, live activities and progress pass on their own switches.
-        if (!settings.allows(gateKind(isCall = isCall, isLive = looksLikeTimer || isLiveCandidate, hasProgress = hasProgress))) {
-            return ParseResult.Drop
+        val snapshot = SnapshotReader.read(sbn, lowImportance, iconName = ::actionIconName)
+        val ctx = AdapterContext(
+            settings = settings,
+            foregroundPackage = foregroundPackage,
+            customViewTimer = { cachedCustomViewTimer(sbn.key, notification) },
+            details = { isCall -> readDetails(sbn.packageName, notification, extras, isCall) },
+            stabilizeBase = { key, raw, fromText -> liveTimerBases.stabilize(key, raw, fromText) },
+        )
+        return when (val outcome = AdapterRegistry.adapt(snapshot, ctx)) {
+            AdapterOutcome.Drop -> ParseResult.Drop
+            // Every adapter failed (each left a breadcrumb): keep whatever card shows
+            AdapterOutcome.Ignore, null -> ParseResult.Ignore
+            is AdapterOutcome.Post -> ParseResult.Post(outcome.info, outcome.hasProgress)
         }
-        if ((isOngoing || isForegroundServiceNotif) && !hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate) {
-            return ParseResult.Drop
-        }
+    }
 
-        // Silent / low-importance channels don't pop the island (calls and live activities always do)
-        if (!isCall && !looksLikeTimer && !hasProgress && !isLiveCandidate && lowImportance) {
-            return ParseResult.Drop
-        }
-
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }
-            ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.takeIf { it.isNotBlank() }
-            ?: customTimer?.label
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }
-            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }
-            ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.takeIf { it.isNotBlank() }
-            ?: customTimer?.timeText
-
-        if (title.isNullOrBlank() && text.isNullOrBlank()) return ParseResult.Drop
-        // Not from the app on screen -- except calls, whose answered/ended updates must get through
-        // even while the in-call screen is open
-        // An update of a card that's already showing is ignored too, but the card is kept: it is hidden
-        // while its app is on screen and only ends when swiped away or cleared from the shade.
-        // Timers / stopwatches / recorders are the exception too: they're almost always started from
-        // inside their app, and a countdown is never reposted, so dropping that first post would
-        // mean the timer never reaches the island. The island keeps it hidden until the app is left.
-        if (!hasProgress && !isCall && !looksLikeTimer && !isLiveCandidate && packageName == foregroundPackage) {
-            return ParseResult.Ignore
-        }
-
+    /** A3.1: the app label, bitmaps and, for a call, the CallStyle person. Parser thread. */
+    private fun readDetails(packageName: String, notification: Notification, extras: android.os.Bundle, isCall: Boolean): SnapshotDetails {
         val appName = try {
             val pm = packageManager
-            val appInfo = pm.getApplicationInfo(packageName, 0)
-            pm.getApplicationLabel(appInfo).toString()
+            pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
         } catch (e: Exception) {
             packageName
         }
-
         val iconBitmap = extractNotificationBitmap(notification, packageName)
         val callPerson: android.app.Person? = if (isCall) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                extras.getParcelable("android.callPerson", android.app.Person::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                extras.getParcelable("android.callPerson") as? android.app.Person
-            }
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    extras.getParcelable("android.callPerson", android.app.Person::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    extras.getParcelable("android.callPerson") as? android.app.Person
+                }
+            }.getOrNull()
         } else null
         val avatarBitmap = callPerson?.icon?.let { icon ->
             runCatching { icon.loadDrawable(this)?.let { drawableToBitmap(it) } }.getOrNull()
         } ?: extractAvatarBitmap(notification)
-
-        // Answer / decline: CallStyle extras first, then the notification's own buttons
-        fun callIntent(key: String): PendingIntent? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                extras.getParcelable(key, PendingIntent::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                extras.getParcelable(key) as? PendingIntent
-            }
-        fun actionIntent(vararg words: String): PendingIntent? = notification.actions?.firstOrNull { action ->
-            (action.title?.toString() ?: "").hasWord(*words)
-        }?.actionIntent
-        val answerIntent = if (isCall) callIntent("android.answerIntent") ?: actionIntent("answer", "accept") else null
-        val declineIntent = if (isCall) {
-            callIntent("android.declineIntent") ?: callIntent("android.hangUpIntent") ?: actionIntent("decline", "reject", "hang up", "end")
-        } else null
-        val isIncomingCall = isCall && (callType == 1 || (callType == 0 && answerIntent != null))
-        val callerNumber = callPerson?.uri?.takeIf { it.startsWith("tel:") }?.removePrefix("tel:")
-            ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { t -> t.any { it.isDigit() } && t.count { it.isDigit() } >= 5 }
-
-        // Live timers (voice recorders, calls, stopwatches): the app either shows a system
-        // chronometer counting from `when`, or posts a static "00:00"-style title that the
-        // listener never sees tick. Keep a base so the island can count locally.
-        val isForegroundService = (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0
-        val timer = ChronometerReader.read(
-            ChronometerReader.Inputs(
-                showsChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
-                chronometerCountDown = extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
-                whenMs = notification.`when`,
-                postTime = sbn.postTime,
-                title = title,
-                text = text,
-                ongoingOrForeground = isForegroundService || isOngoing,
-                customTimer = customTimer,
-            )
-        )
-        val liveTimerCountDown = timer.countDown
-        // Same start time on every update, so the island clock never steps back or stalls
-        val liveTimerBaseMs = liveTimerBases.stabilize("${sbn.key}|$liveTimerCountDown", timer.rawBaseMs, timer.baseFromText)
-
-        val actions = mutableListOf<NotificationAction>()
-        // A4.1: each button's role, from CallStyle intents, the semantic action and the icon name
-        // before its (language-dependent) title
-        val resolveContext = com.droidbubble.app.island.activity.controls.ResolveContext(
-            isCall = isCall,
-            answer = if (isCall) callIntent("android.answerIntent") else null,
-            decline = if (isCall) callIntent("android.declineIntent") else null,
-            hangUp = if (isCall) callIntent("android.hangUpIntent") else null,
-        )
-        notification.actions?.forEach { action ->
-            if (action != null && !action.title.isNullOrBlank()) {
-                val remoteInput = action.remoteInputs?.firstOrNull()
-                val choices = remoteInput?.choices?.map { it.toString() } ?: emptyList()
-                val title = action.title.toString()
-                val semantic = runCatching { action.semanticAction }.getOrDefault(0)
-                val iconName = actionIconName(action)
-                val role = com.droidbubble.app.island.activity.controls.ControlResolver.resolve(
-                    com.droidbubble.app.island.activity.controls.ActionSnapshot(
-                        title = title, semanticAction = semantic, iconResName = iconName,
-                        hasRemoteInput = remoteInput != null, intent = action.actionIntent,
-                    ),
-                    resolveContext,
-                )
-                actions.add(
-                    NotificationAction(
-                        title = title,
-                        actionIntent = action.actionIntent,
-                        remoteInputKey = remoteInput?.resultKey,
-                        remoteInputLabel = remoteInput?.label?.toString(),
-                        remoteInputChoices = choices,
-                        semanticAction = semantic,
-                        iconResName = iconName,
-                        role = role
-                    )
-                )
-            }
-        }
-
-        val notifInfo = NotificationInfo(
-            key = sbn.key,
-            packageName = packageName,
+        return SnapshotDetails(
             appName = appName,
-            title = callPerson?.name?.toString()?.takeIf { it.isNotBlank() } ?: title ?: appName,
-            text = text ?: "",
             iconBitmap = iconBitmap,
             avatarBitmap = avatarBitmap,
-            contentIntent = notification.contentIntent,
-            actions = actions.take(3),
-            timestamp = sbn.postTime,
-            progress = progress,
-            maxProgress = maxProgress,
-            isIndeterminate = isIndeterminate || (isNavigation && maxProgress <= 0),
-            // Android 14 lets foreground-service notifications be swiped, dropping the ongoing flag;
-            // they are still live activities (recorders, timers)
-            isOngoing = isOngoing || (notification.flags and Notification.FLAG_FOREGROUND_SERVICE) != 0,
-            liveTimerBaseMs = liveTimerBaseMs,
-            liveTimerCountDown = liveTimerCountDown,
-            isAutoCancel = (notification.flags and Notification.FLAG_AUTO_CANCEL) != 0,
-            isCall = isCall,
-            isIncomingCall = isIncomingCall,
-            callerNumber = callerNumber,
-            answerIntent = answerIntent,
-            declineIntent = declineIntent,
-            category = notification.category,
-            isAlert = isAlert,
-            isPromoted = isPromoted,
-            shortCriticalText = shortCriticalText
+            callPersonName = callPerson?.name?.toString(),
+            callPersonUri = callPerson?.uri,
         )
-        // A1.1: classify here, on the parser thread (B10), so the regexes never run on main
-        notifInfo.kind
-
-        return ParseResult.Post(notifInfo, hasProgress)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -1685,13 +1505,6 @@ class NotificationReceiverService : NotificationListenerService() {
             null
         }
     }
-
-    /** Sum of an Android 16 ProgressStyle's segment lengths (its progress max). */
-    private fun progressStyleMax(extras: Bundle): Int = runCatching {
-        @Suppress("DEPRECATION")
-        val segments = extras.getParcelableArrayList<Bundle>("android.progressSegments")
-        segments?.sumOf { it.getInt("length", 0) } ?: 0
-    }.getOrDefault(0)
 
     /**
      * Inflates a custom-view notification and pulls the [android.widget.Chronometer] out of it.
