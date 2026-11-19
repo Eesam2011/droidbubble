@@ -2,6 +2,7 @@ package com.droidbubble.app.ui.main
 
 
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import com.droidbubble.app.icons.AppIcons
@@ -143,6 +144,11 @@ enum class MainScreenPage {
     ACCESSIBILITY
 }
 
+
+/** Test tags for the companion screens (C3.1). Semantics only: no layout or drawing. */
+object MainScreenTestTags {
+    const val ENABLE_SWITCH = "main_enable_switch"
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -404,7 +410,8 @@ fun MainScreen(
                                 checked = settings.isEnabled,
                                 onCheckedChange = { enabled ->
                                     viewModel.toggleEnabled(context, enabled)
-                                }
+                                },
+                                modifier = Modifier.testTag(MainScreenTestTags.ENABLE_SWITCH)
                             )
                         }
                     )
