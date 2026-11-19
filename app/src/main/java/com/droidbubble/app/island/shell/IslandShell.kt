@@ -150,6 +150,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -355,6 +357,21 @@ internal fun IslandShell(
         val now = if (speechClock > 0L) speechClock else IslandClock.wallMs()
         val activity = activitySubject(secondaryPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, now)
         nodeSpeech(islandSpeech, activity, null, false, secondaryAppName, longClickTarget(secondaryPriority, activity, currentNotif))
+    }
+    // C3.5: the swipe-only actions, in TalkBack's Actions menu. The card acts on what card 1 shows.
+    val cardPriority = if (isExpanded) primaryPriority else null
+    val cardSpeech = remember(cardPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, islandSpeech) {
+        val activity = activitySubject(cardPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, IslandClock.wallMs())
+        nodeSpeech(islandSpeech, activity, null, false, null, null)
+    }
+    val cardActions = remember(cardSpeech, cardPriority, currentNotif) {
+        islandCustomActions(islandSpeech, SpeechNode.CARD, cardSpeech, cardPriority, currentNotif)
+    }
+    val pillActions = remember(pillSpeech, primaryPriority, currentNotif) {
+        islandCustomActions(islandSpeech, SpeechNode.PILL, pillSpeech, primaryPriority, currentNotif)
+    }
+    val bubbleActions = remember(bubbleSpeech, secondaryPriority, currentNotif) {
+        islandCustomActions(islandSpeech, SpeechNode.BUBBLE, bubbleSpeech, secondaryPriority, currentNotif)
     }
 
     // V6.2: one rule for every outline (pill or notch, bubble, both cards): IslandOutline.
@@ -1018,6 +1035,7 @@ internal fun IslandShell(
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD)
+                                .semantics { if (cardActions.isNotEmpty()) customActions = cardActions }
                                 .offset { IntOffset(animatedCard1OffsetX.roundToInt(), 0) }
                                 .layoutSize(width = { shell.geometry.width }, height = { shell.geometry.height })
                                 .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
@@ -1459,7 +1477,7 @@ internal fun IslandShell(
                     Box(
                         modifier = Modifier
                             .testTag(IslandTestTags.BUBBLE)
-                            .islandNodeSemantics(bubbleSpeech)
+                            .islandNodeSemantics(bubbleSpeech, bubbleActions)
                             .offset { IntOffset(x = bubbleOffsetXPx, y = 0) }
                             .size(bubbleSize)
                             .graphicsLayer {
@@ -1603,7 +1621,7 @@ internal fun IslandShell(
                 Box(
                     modifier = Modifier
                         .testTag(IslandTestTags.PILL)
-                        .islandNodeSemantics(pillSpeech)
+                        .islandNodeSemantics(pillSpeech, pillActions)
                         .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)
                         .graphicsLayer {

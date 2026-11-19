@@ -121,4 +121,68 @@ class IslandSemanticsTest {
         assertTrue("pill $pill, bubble $bubble", setOf(pill, bubble) == setOf("Timer", "Now playing: Song, Artist"))
         node(IslandTestTags.BUBBLE).assert(A11yMatchers.hasClickLabel("Expand"))
     }
+
+    // --- C3.5: custom actions -------------------------------------------------------------
+
+    private fun runAction(tag: String, label: String) {
+        val actions = config(tag).getOrNull(SemanticsActions.CustomActions).orEmpty()
+        val action = actions.firstOrNull { it.label == label } ?: error("No '$label' on $tag: ${actions.map { it.label }}")
+        rule.runOnIdle { action.action() }
+        h.settle()
+    }
+
+    private fun actionLabels(tag: String) = config(tag).getOrNull(SemanticsActions.CustomActions).orEmpty().map { it.label }
+
+    @Test
+    fun timerPill_actionsMenu() {
+        h.onState { IslandStateManager.updateNotification(IslandFixtures.timer) }
+        h.settle()
+        assertEquals(listOf("Minimise", "Hide until next update"), actionLabels(IslandTestTags.PILL).take(2))
+        runAction(IslandTestTags.PILL, "Minimise")
+        assertTrue(IslandStateManager.userMinimized.value)
+        // The ring offers only "Hide until next update"
+        assertEquals(listOf("Hide until next update"), actionLabels(IslandTestTags.PILL))
+    }
+
+    @Test
+    fun messagePill_dismissClearsIt_hideHidesTheIsland() {
+        h.onState { IslandStateManager.updateNotification(IslandFixtures.message()) }
+        h.settle()
+        assertTrue("Dismiss" in actionLabels(IslandTestTags.PILL))
+        runAction(IslandTestTags.PILL, "Dismiss")
+        assertNull(IslandStateManager.activeNotification.value)
+
+        h.onState { IslandStateManager.updateNotification(IslandFixtures.message("m2")) }
+        h.settle()
+        runAction(IslandTestTags.PILL, "Hide until next update")
+        assertTrue(IslandStateManager.userHidden.value)
+    }
+
+    @Test
+    fun ringingCall_hasNoDismiss_anywhere() {
+        // A ringing call opens its card by itself
+        h.onState {
+            IslandStateManager.updateNotification(IslandFixtures.incomingCall)
+            IslandStateManager.expand(null)
+        }
+        h.settle()
+        assertTrue(IslandStateManager.isExpanded.value)
+        assertEquals(listOf("Collapse"), actionLabels(IslandTestTags.CARD))
+        // Collapsed (tucked), the pill offers no Dismiss either
+        runAction(IslandTestTags.CARD, "Collapse")
+        assertTrue(h.exists(IslandTestTags.PILL))
+        assertTrue("Dismiss" !in actionLabels(IslandTestTags.PILL))
+    }
+
+    @Test
+    fun mediaCard_collapseAndDismiss() {
+        h.onState {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.expand(null)
+        }
+        h.settle()
+        assertEquals(listOf("Collapse", "Dismiss"), actionLabels(IslandTestTags.CARD))
+        runAction(IslandTestTags.CARD, "Collapse")
+        assertTrue(!IslandStateManager.isExpanded.value)
+    }
 }

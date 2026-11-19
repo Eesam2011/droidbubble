@@ -8,7 +8,9 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -146,7 +148,7 @@ fun rememberAppLabel(packageName: String?): String? {
  * skips the idle pill and a glance reads its headline and value only, with no tap action. Other
  * nodes keep their click actions; their labels come through `combinedClickable`.
  */
-fun Modifier.islandNodeSemantics(speech: NodeSpeech?): Modifier = when {
+fun Modifier.islandNodeSemantics(speech: NodeSpeech?, actions: List<CustomAccessibilityAction> = emptyList()): Modifier = when {
     speech == null -> clearAndSetSemantics {}
     speech.subject.isGlance -> clearAndSetSemantics {
         contentDescription = speech.headline
@@ -155,5 +157,46 @@ fun Modifier.islandNodeSemantics(speech: NodeSpeech?): Modifier = when {
     else -> semantics {
         contentDescription = speech.headline
         speech.value?.let { stateDescription = it }
+        if (actions.isNotEmpty()) customActions = actions
+    }
+}
+
+/**
+ * C3.5: what the card's sideways swipe does for [priority], as a function; null when the swipe
+ * doesn't dismiss (a ringing call or alarm tucks instead, B6.2; calls, recording and the
+ * flashlight have their own buttons).
+ */
+fun dismissFor(priority: IslandPriority?, notification: NotificationInfo?): (() -> Unit)? = when (priority) {
+    IslandPriority.MEDIA -> { { IslandStateManager.dismissMedia() } }
+    IslandPriority.POP_NOTIFICATION ->
+        if (notification?.isIncomingCall == true || notification?.isAlert == true) null
+        else { { IslandStateManager.clearCurrentNotification() } }
+    IslandPriority.PROGRESS -> { { IslandStateManager.dismissProgress() } }
+    else -> null
+}
+
+/**
+ * C3.5: TalkBack's Actions menu for [node]: every swipe-only action gets a labelled alternative
+ * with the same effect. The list (and its exclusions) comes from [IslandSpeech.availableActions].
+ */
+fun islandCustomActions(
+    speech: IslandSpeech,
+    node: SpeechNode,
+    nodeSpeech: NodeSpeech?,
+    priority: IslandPriority?,
+    notification: NotificationInfo?,
+): List<CustomAccessibilityAction> {
+    val subject = nodeSpeech?.subject ?: return emptyList()
+    val dismiss = dismissFor(priority, notification)
+    return speech.availableActions(node, subject).mapNotNull { action ->
+        val run: () -> Unit = when (action) {
+            IslandA11yAction.MINIMISE -> IslandStateManager::minimizeIsland
+            IslandA11yAction.HIDE -> IslandStateManager::hideIsland
+            IslandA11yAction.DISMISS -> dismiss ?: return@mapNotNull null
+            IslandA11yAction.TURN_OFF_FLASHLIGHT -> IslandStateManager::turnOffFlashlight
+            IslandA11yAction.COLLAPSE -> IslandStateManager::collapse
+            IslandA11yAction.PAUSE_ISLAND -> return@mapNotNull null // C4.1
+        }
+        CustomAccessibilityAction(speech.actionLabel(action)) { run(); true }
     }
 }
