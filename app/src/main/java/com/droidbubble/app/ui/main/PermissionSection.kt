@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -23,13 +24,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.droidbubble.app.icons.AppIcons
 
@@ -202,4 +210,52 @@ private fun SkippedRow(count: Int, position: GroupPosition, onReview: () -> Unit
             }
         )
     }
+}
+
+/**
+ * C1.3: the Allow path for every setup item. Items that need a disclosure first (the status bar
+ * layer) show [AccessibilityDisclosureDialog]; "Continue" then calls [onGrant], "Not now" does
+ * nothing. Others go straight to [onGrant]. Returns the function to call on Allow.
+ */
+@Composable
+fun rememberDisclosureGate(onGrant: (PermissionItem) -> Unit): (PermissionItem) -> Unit {
+    var asking by remember { mutableStateOf<PermissionItem?>(null) }
+    asking?.let { item ->
+        AccessibilityDisclosureDialog(
+            onContinue = { asking = null; onGrant(item) },
+            onDismiss = { asking = null }
+        )
+    }
+    return { item -> if (item.grantKind == GrantKind.DISCLOSURE_THEN_SETTINGS) asking = item else onGrant(item) }
+}
+
+/** C1.3 copy. Every claim matches `res/xml/accessibility_service_config.xml`. */
+internal const val DISCLOSURE_TITLE = "Turn on Droidbubble's status bar layer?"
+
+/**
+ * C1.3: what the accessibility service does and doesn't do, before Android's Accessibility
+ * settings open. Keep it true to the service config (window-state events only, no window
+ * content); when a new use is added (for example opening the shade), add it here first.
+ */
+@Composable
+fun AccessibilityDisclosureDialog(onContinue: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(DISCLOSURE_TITLE) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("What it does: ") }
+                    append("lets the island sit above the status bar and respond to touches there, and tells Droidbubble the name of the app on screen so that app's own activity can be hidden while you use it.")
+                })
+                Text(buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("What it can't do: ") }
+                    append("read what's on your screen, what you type, or passwords. Droidbubble doesn't send this anywhere.")
+                })
+                Text("You can turn it off at any time in Settings › Accessibility.")
+            }
+        },
+        confirmButton = { TextButton(onClick = onContinue) { Text("Continue") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
+    )
 }

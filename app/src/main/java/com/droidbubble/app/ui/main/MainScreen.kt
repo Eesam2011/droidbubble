@@ -210,7 +210,8 @@ fun MainScreen(
             runCatching { context.startActivity(item.createIntent(context)) }
         }
     }
-    val onAllowPermission: (PermissionItem) -> Unit = { item ->
+    // C1.3: the status bar layer shows its disclosure before Accessibility settings open
+    val onAllowPermission: (PermissionItem) -> Unit = rememberDisclosureGate { item ->
         val runtime = item.runtimePermission
         if (item.grantKind == GrantKind.RUNTIME && runtime != null) {
             runtimeRequest = item

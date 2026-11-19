@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- C1.3: the disclosure dialog (ui/main/PermissionSection.kt, AccessibilityDisclosureDialog)
+     and accessibility_service_description promise only what this config allows: window-state
+     events, no window content. Update them before adding an event type or a capability. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"

@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Droidbubble</string>
-    <string name="accessibility_service_description">Enables DroidBubble to receive touch interactions directly on the camera cutout and status bar across all applications.</string>
-    <string name="accessibility_service_title">DroidBubble Island Service</string>
+    <string name="accessibility_service_description">Lets the Droidbubble island appear above the status bar and respond to touches there. Droidbubble also learns which app is open (its name only) to hide that app\'s own activity. It can\'t read screen content or what you type.</string>
+    <string name="accessibility_service_title">Droidbubble status bar layer</string>
 
     <!-- C3.3: what the island says to TalkBack (island/IslandSpeech.kt) -->
     <string name="speech_media_headline">Now playing: %1$s, %2$s</string>
