@@ -324,6 +324,39 @@ internal fun IslandShell(
     val primaryPriority: IslandPriority = scene.primary
     val secondaryPriority: IslandPriority? = scene.secondary
 
+    // C3.4: what TalkBack reads on the pill and the bubble. Rebuilt when what they show changes
+    // (and, only while a screen reader is on, once a second for ticking values), never per frame.
+    val speechClock = rememberSpeechClock()
+    val islandSpeech = remember(context.resources, configuration) { IslandSpeech(context.resources) }
+    val flashlightPercent = (flashlightLevel * 100 / maxFlashlightLevel.coerceAtLeast(1)).coerceIn(0, 100)
+    val primaryAppName = rememberAppLabel(currentMedia?.packageName.takeIf { primaryPriority == IslandPriority.MEDIA })
+        ?: (if (primaryPriority == IslandPriority.PROGRESS) currentProgress?.appName else currentNotif?.appName)
+    val secondaryAppName = rememberAppLabel(currentMedia?.packageName.takeIf { secondaryPriority == IslandPriority.MEDIA })
+        ?: (if (secondaryPriority == IslandPriority.PROGRESS) currentProgress?.appName else currentNotif?.appName)
+    val pillSpeech = remember(
+        primaryPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, userMinimized,
+        isCharging, charging?.percentage, isUnlock, isBluetooth, connectionAlert, isRingerMode, displayRingerMode,
+        primaryAppName, islandSpeech, speechClock,
+    ) {
+        val now = if (speechClock > 0L) speechClock else IslandClock.wallMs()
+        val activity = if (isOccupied) activitySubject(primaryPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, now) else null
+        val glance = glanceSubject(
+            isCharging, charging?.percentage, isUnlock, isBluetooth, connectionAlert, isRingerMode, displayRingerMode,
+        ) { if (it == IslandStateManager.ConnectionAlert.WIFI) "Wi-Fi" else "Bluetooth" }
+        nodeSpeech(
+            islandSpeech, activity, glance, userMinimized, primaryAppName,
+            longClickTarget(primaryPriority, activity, currentNotif),
+        )
+    }
+    val bubbleSpeech = remember(
+        secondaryPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent,
+        secondaryAppName, islandSpeech, speechClock,
+    ) {
+        val now = if (speechClock > 0L) speechClock else IslandClock.wallMs()
+        val activity = activitySubject(secondaryPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, now)
+        nodeSpeech(islandSpeech, activity, null, false, secondaryAppName, longClickTarget(secondaryPriority, activity, currentNotif))
+    }
+
     // V6.2: one rule for every outline (pill or notch, bubble, both cards): IslandOutline.
     // AUTO and high contrast are resolved by the overlay service; null means no line.
     fun outlineFor(surface: OutlineSurface, priority: IslandPriority?) = IslandOutline.resolve(
@@ -1426,6 +1459,7 @@ internal fun IslandShell(
                     Box(
                         modifier = Modifier
                             .testTag(IslandTestTags.BUBBLE)
+                            .islandNodeSemantics(bubbleSpeech)
                             .offset { IntOffset(x = bubbleOffsetXPx, y = 0) }
                             .size(bubbleSize)
                             .graphicsLayer {
@@ -1449,6 +1483,8 @@ internal fun IslandShell(
                             .combinedClickable(
                                 interactionSource = bubbleInteraction,
                                 indication = null,
+                                onClickLabel = bubbleSpeech?.clickLabel,
+                                onLongClickLabel = bubbleSpeech?.longClickLabel,
                                 onClick = {
                                     haptics.perform(IslandHapticEvent.TAP_EXPAND)
                                     IslandStateManager.expand(secondaryPriority)
@@ -1567,6 +1603,7 @@ internal fun IslandShell(
                 Box(
                     modifier = Modifier
                         .testTag(IslandTestTags.PILL)
+                        .islandNodeSemantics(pillSpeech)
                         .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)
                         .graphicsLayer {
@@ -1620,6 +1657,8 @@ internal fun IslandShell(
                         .combinedClickable(
                             interactionSource = pillInteraction,
                             indication = null,
+                            onClickLabel = pillSpeech?.clickLabel,
+                            onLongClickLabel = pillSpeech?.longClickLabel,
                             onClick = {
                                 if (userMinimized) {
                                     haptics.perform(IslandHapticEvent.RESTORE)
