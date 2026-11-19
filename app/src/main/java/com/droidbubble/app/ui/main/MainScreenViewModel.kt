@@ -115,7 +115,7 @@ class MainScreenViewModel(private val repository: SettingsRepository) : ViewMode
     }
 
     fun checkPermissions(context: Context) {
-        _pendingPermissions.value = PermissionHelper.getPendingPermissions(context)
+        _pendingPermissions.value = PermissionHelper.pending(context)
     }
 
     fun updateSettings(update: (IslandSettings) -> IslandSettings) {

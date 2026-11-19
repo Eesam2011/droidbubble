@@ -971,7 +971,7 @@ fun MainScreen(
                 )
             }
             item {
-                LiveActivityTestPanel(islandRunning = settings.isEnabled && pendingPermissions.none { it.id == "overlay" }, settings = settings)
+                LiveActivityTestPanel(islandRunning = settings.isEnabled && pendingPermissions.none { it.id == PermissionHelper.OVERLAY_ID }, settings = settings)
             }
             // F5.4: the envelope window trial (decision D7), in debug builds only
             if (com.droidbubble.app.BuildConfig.DEBUG) {

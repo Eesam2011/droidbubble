@@ -287,7 +287,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 ### Phase 8: Accessibility and companion fixes ([file](phase-8-accessibility-and-companion.md))
 | ID | Title | Status |
 |---|---|---|
-| C1.1 | Permission catalogue: levels and honest copy | todo |
+| C1.1 | Permission catalogue: levels and honest copy | done (allPermissions(sdkInt) holds levels, grant kinds and the honest copy; pending(context) checks grants; ids unchanged; notification access opens our own toggle on API 30+; 'Nearby devices' is in the catalogue but not listed until C1.5; rows still show titles until C1.2; PermissionCatalogTest 6 cases) |
 | C1.2 | Permission rows: descriptions, levels, "Not now" | todo |
 | C1.3 | Accessibility-service disclosure | todo |
 | C1.4 | Restricted-settings helper | todo |
