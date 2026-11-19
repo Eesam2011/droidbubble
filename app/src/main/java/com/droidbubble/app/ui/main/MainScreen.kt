@@ -2529,7 +2529,7 @@ fun AccessibilityPage(
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineContent = { Text("Spoken Alerts", fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text("Reads \"Time's up\", alarms and who's calling aloud. Stays quiet in silent and vibrate mode.") },
+                            supportingContent = { Text("Reads \"Time's up\", alarms and who's calling aloud. Stays quiet in silent and vibrate mode, and while TalkBack is on (TalkBack announces these instead).") },
                             leadingContent = {
                                 Icon(AppIcons.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },

@@ -305,7 +305,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | C3.6 | Expanded card, backdrop and control labels | todo |
 | C3.7 | Live-region announcements | todo |
 | C3.8 | Auto-collapse pauses under accessibility focus | todo |
-| C3.9 | Spoken Alerts defers to TalkBack | todo |
+| C3.9 | Spoken Alerts defers to TalkBack | done (SpokenAlerts marks the alert spoken, then returns while IslandA11y.screenReaderOn; the Accessibility page copy says it stays quiet while TalkBack is on; SpokenAlertsScreenReaderTest 3 cases; check later on the phone: Spoken Alerts + TalkBack on, Time's up demo, only TalkBack speaks; TalkBack's own announcement arrives with C3.7) |
 | C3.10 | Font scale: non-linear, compact cap, expanded up to 2.0 | todo |
 | C4.1 | Pause model | todo |
 | C4.2 | Pause surfaces | todo |
