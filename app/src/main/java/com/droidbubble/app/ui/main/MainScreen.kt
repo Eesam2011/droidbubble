@@ -100,6 +100,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -260,6 +264,25 @@ fun MainScreen(
     val restrictedHelp by viewModel.restrictedHelp.collectAsState()
     // C1.5: switching the Bluetooth alert adds or removes the "Nearby devices" setup row
     LaunchedEffect(settings.showBluetooth) { viewModel.checkPermissions(context) }
+
+    // C1.6: a light guided first run on this screen: after each required grant, a snackbar names
+    // the next one; after the last, "The island is ready". ("Show sample" waits for C2.1.)
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.setupEvents.collect { event ->
+            when (event) {
+                is SetupEvent.Granted -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "${event.granted.title} is on. Next: ${event.next.title}",
+                        actionLabel = "Allow",
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) onAllowPermission(event.next)
+                }
+                SetupEvent.Ready -> snackbarHostState.showSnackbar("The island is ready")
+            }
+        }
+    }
     val nearbyDevicesItem = remember {
         PermissionHelper.allPermissions(android.os.Build.VERSION.SDK_INT).firstOrNull { it.id == PermissionHelper.BLUETOOTH_CONNECT_ID }
     }
@@ -347,6 +370,7 @@ fun MainScreen(
 
         Scaffold(
             modifier = modifier,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
             Row(
                 modifier = Modifier
@@ -389,6 +413,7 @@ fun MainScreen(
                         onAllow = onAllowPermission,
                         onSkip = viewModel::skipPermission,
                         onReviewSkipped = viewModel::reviewSkipped,
+                        overline = ::setupStepLabel,
                         restrictedHelp = restrictedHelp,
                         onOpenAppInfo = { runCatching { context.startActivity(PermissionHelper.appInfoIntent(context)) } }
                     )

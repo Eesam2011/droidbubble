@@ -11,7 +11,10 @@ import com.droidbubble.app.data.SettingsRepository
 import com.droidbubble.app.model.IslandSettings
 import com.droidbubble.app.service.IslandOverlayService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +28,27 @@ data class AppItem(
     val icon: Drawable? = null,
     val isBlocked: Boolean = false
 )
+
+/** C1.6: one-shot setup events for the main screen's snackbar. Session only. */
+sealed interface SetupEvent {
+    /** [granted] just turned on; [next] is the next required item still missing. */
+    data class Granted(val granted: PermissionItem, val next: PermissionItem) : SetupEvent
+    /** The last required item was just granted. */
+    data object Ready : SetupEvent
+}
+
+/**
+ * C1.6: what changed between two permission checks. Null [before] (the first check) and checks
+ * where no required item was granted give nothing, so people who already granted everything
+ * never see a snackbar.
+ */
+internal fun setupEventFor(before: List<PermissionItem>?, after: List<PermissionItem>): SetupEvent? {
+    if (before == null) return null
+    val requiredAfter = after.filter { it.level == PermissionLevel.REQUIRED }
+    val justGranted = before.filter { it.level == PermissionLevel.REQUIRED && after.none { a -> a.id == it.id } }
+    val granted = justGranted.lastOrNull() ?: return null
+    return if (requiredAfter.isEmpty()) SetupEvent.Ready else SetupEvent.Granted(granted, requiredAfter.first())
+}
 
 /** C1.4: rows that need the restricted-settings help: still pending after at least one try. */
 internal fun restrictedHelpFor(pending: List<PermissionItem>, attempts: Map<String, Int>, sideloadRestricted: Boolean): Set<String> =
@@ -122,9 +146,16 @@ class MainScreenViewModel(private val repository: SettingsRepository) : ViewMode
     fun checkPermissions(context: Context) {
         // C1.5: "Nearby devices" is only listed while the Bluetooth alert wants it
         val pending = PermissionHelper.pending(context, includeBluetooth = settings.value.showBluetooth)
+        setupEventFor(lastChecked, pending)?.let { _setupEvents.tryEmit(it) }
+        lastChecked = pending
         _pendingPermissions.value = pending
         _restrictedHelp.value = restrictedHelpFor(pending, grantAttempts, PermissionHelper.isSideloadRestricted(context))
     }
+
+    // C1.6: the previous check, to tell what was just granted
+    private var lastChecked: List<PermissionItem>? = null
+    private val _setupEvents = MutableSharedFlow<SetupEvent>(extraBufferCapacity = 4)
+    val setupEvents: SharedFlow<SetupEvent> = _setupEvents.asSharedFlow()
 
     // C1.4: how often each restricted setting was opened in this process. If it's still missing
     // when the user comes back, Android probably blocked it ("Restricted setting")

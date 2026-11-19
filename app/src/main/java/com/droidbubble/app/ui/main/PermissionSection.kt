@@ -61,6 +61,17 @@ data class SetupSectionModel(
     }
 }
 
+/**
+ * C1.6: the overline on the main screen. Required rows read "Step 1 of 2" / "Step 2 of 2" (their
+ * place among the required items, so it stays put as items are granted); others their level.
+ */
+fun setupStepLabel(item: PermissionItem): String {
+    if (item.level != PermissionLevel.REQUIRED) return item.level.label()
+    val required = PermissionHelper.allPermissions(android.os.Build.VERSION.SDK_INT).filter { it.level == PermissionLevel.REQUIRED }
+    val step = required.indexOfFirst { it.id == item.id }
+    return if (step < 0) item.level.label() else "Step ${step + 1} of ${required.size}"
+}
+
 /** The level label over a row's title. */
 internal fun PermissionLevel.label(): String = when (this) {
     PermissionLevel.REQUIRED -> "Required"
