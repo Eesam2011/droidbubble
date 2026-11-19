@@ -191,24 +191,32 @@ fun MainScreen(
         }
     }
 
-    // Microphone permission for the live audio visualizer: ask in-app, and once Android stops
-    // showing the prompt ("don't ask again"), send the user to the app's settings page instead
-    val recordAudioLauncher = rememberLauncherForActivityResult(
+    val showSkippedPermissions by viewModel.showSkippedPermissions.collectAsState()
+
+    // C1.2: runtime permissions (notifications, microphone, nearby devices) use the one-tap system
+    // dialog. Once Android stops showing it ("don't ask again"), Allow opens the item's own
+    // settings page instead.
+    var runtimeRequest by remember { mutableStateOf<PermissionItem?>(null) }
+    val runtimePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.checkPermissions(context)
+        val item = runtimeRequest
+        runtimeRequest = null
         val activity = context as? android.app.Activity
-        if (!granted && activity != null &&
-            !activity.shouldShowRequestPermissionRationale(android.Manifest.permission.RECORD_AUDIO)
+        if (!granted && item?.runtimePermission != null && activity != null &&
+            !activity.shouldShowRequestPermissionRationale(item.runtimePermission)
         ) {
-            runCatching {
-                context.startActivity(
-                    Intent(
-                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:${context.packageName}")
-                    )
-                )
-            }
+            runCatching { context.startActivity(item.createIntent(context)) }
+        }
+    }
+    val onAllowPermission: (PermissionItem) -> Unit = { item ->
+        val runtime = item.runtimePermission
+        if (item.grantKind == GrantKind.RUNTIME && runtime != null) {
+            runtimeRequest = item
+            runtimePermissionLauncher.launch(runtime)
+        } else {
+            runCatching { context.startActivity(item.createIntent(context)) }
         }
     }
 
@@ -326,73 +334,18 @@ fun MainScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // SECTION 1: PERMISSIONS (Hides individual item once granted, hides whole section when all granted!)
+            // SECTION 1: SETUP (C1.2). Each row explains itself; optional rows can be skipped; the
+            // section folds to one line when only skipped items remain and goes when nothing is pending
             if (pendingPermissions.isNotEmpty()) {
                 item {
-                    SectionHeader(
-                        title = "Required Setup",
-                        icon = AppIcons.Security,
-                        badge = "${pendingPermissions.size} Pending",
-                        badgeColor = MaterialTheme.colorScheme.error
+                    PermissionSection(
+                        items = pendingPermissions,
+                        skipped = settings.skippedPermissions,
+                        showSkipped = showSkippedPermissions,
+                        onAllow = onAllowPermission,
+                        onSkip = viewModel::skipPermission,
+                        onReviewSkipped = viewModel::reviewSkipped
                     )
-                }
-
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        pendingPermissions.forEachIndexed { index, perm ->
-                            val position = when {
-                                pendingPermissions.size == 1 -> GroupPosition.SINGLE
-                                index == 0 -> GroupPosition.TOP
-                                index == pendingPermissions.size - 1 -> GroupPosition.BOTTOM
-                                else -> GroupPosition.MIDDLE
-                            }
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = getGroupedShape(position),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-                            ) {
-                                ListItem(
-                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                    headlineContent = {
-                                        Text(perm.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                    },
-                                    leadingContent = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.errorContainer),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = AppIcons.Warning,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    },
-                                    trailingContent = {
-                                        Button(
-                                            onClick = {
-                                                if (perm.id == PermissionHelper.RECORD_AUDIO_ID) {
-                                                    recordAudioLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                                                } else {
-                                                    runCatching { context.startActivity(perm.createIntent(context)) }
-                                                }
-                                            },
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Text("Grant", fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
                 }
             }
 

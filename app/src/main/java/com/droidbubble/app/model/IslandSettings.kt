@@ -104,6 +104,8 @@ data class IslandSettings(
      * second card) move a fraction of the finger. Off: every card follows the finger 1:1.
      */
     val swipeResistance: Boolean = true,
+    /** C1.2: optional setup items the user chose "Not now" for. Required items are never in here. */
+    val skippedPermissions: Set<String> = emptySet(),
 ) {
     val isNotch: Boolean get() = islandStyle == STYLE_NOTCH
 

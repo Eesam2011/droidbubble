@@ -55,6 +55,7 @@ internal object PreferencesKeys {
     val LEGACY_ANIMATION_SPEED = stringPreferencesKey("animation_speed")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
     val PRIORITY_APPS = stringSetPreferencesKey("priority_apps")
+    val SKIPPED_PERMISSIONS = stringSetPreferencesKey("skipped_permissions")
     val SHOW_WIFI = booleanPreferencesKey("show_wifi")
     val RESTART_ON_BOOT = booleanPreferencesKey("restart_on_boot")
     val BUBBLE_EFFECT_ENABLED = booleanPreferencesKey("bubble_effect_enabled")
@@ -159,6 +160,7 @@ internal fun Preferences.toIslandSettings(): IslandSettings {
         animationSpeed = resolvedSpeed,
         blockedPackages = this[PreferencesKeys.BLOCKED_PACKAGES] ?: emptySet(),
         priorityApps = this[PreferencesKeys.PRIORITY_APPS] ?: emptySet(),
+        skippedPermissions = this[PreferencesKeys.SKIPPED_PERMISSIONS] ?: emptySet(),
         showWifi = this[PreferencesKeys.SHOW_WIFI] ?: true,
         restartOnBoot = this[PreferencesKeys.RESTART_ON_BOOT] ?: true,
         bubbleEffectEnabled = this[PreferencesKeys.BUBBLE_EFFECT_ENABLED] ?: true,
@@ -221,6 +223,7 @@ internal fun MutablePreferences.write(s: IslandSettings) {
     remove(PreferencesKeys.LEGACY_ANIMATION_SPEED)
     this[PreferencesKeys.BLOCKED_PACKAGES] = s.blockedPackages
     this[PreferencesKeys.PRIORITY_APPS] = s.priorityApps
+    this[PreferencesKeys.SKIPPED_PERMISSIONS] = s.skippedPermissions
     this[PreferencesKeys.SHOW_WIFI] = s.showWifi
     this[PreferencesKeys.RESTART_ON_BOOT] = s.restartOnBoot
     this[PreferencesKeys.BUBBLE_EFFECT_ENABLED] = s.bubbleEffectEnabled

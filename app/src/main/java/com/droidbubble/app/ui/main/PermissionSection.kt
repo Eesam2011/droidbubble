@@ -1,0 +1,205 @@
+package com.droidbubble.app.ui.main
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.droidbubble.app.icons.AppIcons
+
+/** Which pending items the setup section shows, and how (C1.2). Pure, so it's unit-testable. */
+data class SetupSectionModel(
+    /** Rows drawn in full, in catalogue order. */
+    val visible: List<PermissionItem>,
+    /** Skipped optional items still pending, folded into one "Review" row. */
+    val folded: List<PermissionItem>,
+) {
+    val requiredPending: Int get() = visible.count { it.level == PermissionLevel.REQUIRED }
+    val isEmpty: Boolean get() = visible.isEmpty() && folded.isEmpty()
+
+    companion object {
+        fun of(pending: List<PermissionItem>, skipped: Set<String>, showSkipped: Boolean): SetupSectionModel {
+            // Required items can never be skipped, whatever the stored set says
+            val isSkipped = { item: PermissionItem -> item.level != PermissionLevel.REQUIRED && item.id in skipped }
+            return if (showSkipped) SetupSectionModel(pending, emptyList())
+            else SetupSectionModel(pending.filterNot(isSkipped), pending.filter(isSkipped))
+        }
+    }
+}
+
+/** The level label over a row's title. */
+internal fun PermissionLevel.label(): String = when (this) {
+    PermissionLevel.REQUIRED -> "Required"
+    PermissionLevel.RECOMMENDED -> "Recommended"
+    PermissionLevel.OPTIONAL -> "Optional"
+}
+
+/**
+ * C1.2: the main screen's setup section. Each row explains itself; only Required rows are red;
+ * optional rows can be skipped with "Not now", and skipped rows fold into one "Review" row.
+ * Draws nothing when nothing is pending.
+ */
+@Composable
+fun PermissionSection(
+    items: List<PermissionItem>,
+    skipped: Set<String>,
+    showSkipped: Boolean,
+    onAllow: (PermissionItem) -> Unit,
+    onSkip: (String) -> Unit,
+    onReviewSkipped: () -> Unit,
+    modifier: Modifier = Modifier,
+    overline: (PermissionItem) -> String = { it.level.label() },
+) {
+    val model = SetupSectionModel.of(items, skipped, showSkipped)
+    if (model.isEmpty) return
+    Column(modifier.fillMaxWidth()) {
+        if (model.visible.isNotEmpty()) {
+            if (model.requiredPending > 0) {
+                SectionHeader(
+                    title = "Required setup",
+                    icon = AppIcons.Security,
+                    badge = "${model.requiredPending} required",
+                    badgeColor = MaterialTheme.colorScheme.error
+                )
+            } else {
+                SectionHeader(
+                    title = "Finish setup",
+                    icon = AppIcons.Security,
+                    badge = "${model.visible.size} optional",
+                    badgeColor = MaterialTheme.colorScheme.secondary
+                )
+            }
+            // The LazyColumn's item spacing, which used to sit between the header and the rows
+            Spacer(Modifier.height(16.dp))
+        }
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            val rows = model.visible.size + if (model.folded.isNotEmpty()) 1 else 0
+            fun position(index: Int) = when {
+                rows == 1 -> GroupPosition.SINGLE
+                index == 0 -> GroupPosition.TOP
+                index == rows - 1 -> GroupPosition.BOTTOM
+                else -> GroupPosition.MIDDLE
+            }
+            model.visible.forEachIndexed { index, item ->
+                PermissionRow(item, overline(item), position(index), onAllow, onSkip)
+            }
+            if (model.folded.isNotEmpty()) {
+                SkippedRow(model.folded.size, position(rows - 1), onReviewSkipped)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionRow(
+    item: PermissionItem,
+    overline: String,
+    position: GroupPosition,
+    onAllow: (PermissionItem) -> Unit,
+    onSkip: (String) -> Unit,
+) {
+    val required = item.level == PermissionLevel.REQUIRED
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = getGroupedShape(position),
+        color = if (required) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+            else MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = if (required) 0.dp else 1.dp
+    ) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            overlineContent = { Text(overline, fontWeight = FontWeight.SemiBold) },
+            headlineContent = {
+                Text(item.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            },
+            supportingContent = {
+                Column {
+                    Text("${item.whatItDoes} ${item.whyNeeded}")
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val allowSemantics = Modifier.semantics { contentDescription = "Allow ${item.title}" }
+                        if (required) {
+                            Button(onClick = { onAllow(item) }, modifier = allowSemantics, shape = RoundedCornerShape(12.dp)) {
+                                Text("Allow", fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            FilledTonalButton(onClick = { onAllow(item) }, modifier = allowSemantics, shape = RoundedCornerShape(12.dp)) {
+                                Text("Allow", fontWeight = FontWeight.SemiBold)
+                            }
+                            TextButton(onClick = { onSkip(item.id) }) { Text("Not now") }
+                        }
+                    }
+                }
+            },
+            leadingContent = {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (required) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (required) AppIcons.Warning else AppIcons.Info,
+                        contentDescription = null,
+                        tint = if (required) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SkippedRow(count: Int, position: GroupPosition, onReview: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = getGroupedShape(position),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp
+    ) {
+        ListItem(
+            modifier = Modifier.clickable(onClickLabel = "Review skipped items", onClick = onReview),
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    if (count == 1) "1 optional item skipped" else "$count optional items skipped",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingContent = {
+                Text("Review", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+        )
+    }
+}

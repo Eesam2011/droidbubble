@@ -118,6 +118,21 @@ class MainScreenViewModel(private val repository: SettingsRepository) : ViewMode
         _pendingPermissions.value = PermissionHelper.pending(context)
     }
 
+    // C1.2: "Review" shows the skipped setup items again, for this session only
+    private val _showSkippedPermissions = MutableStateFlow(false)
+    val showSkippedPermissions: StateFlow<Boolean> = _showSkippedPermissions.asStateFlow()
+
+    /** C1.2: "Not now" on an optional setup item. Required items can't be skipped. */
+    fun skipPermission(id: String) {
+        val item = PermissionHelper.allPermissions(android.os.Build.VERSION.SDK_INT).firstOrNull { it.id == id }
+        if (item == null || item.level == PermissionLevel.REQUIRED) return
+        updateSettings { it.copy(skippedPermissions = it.skippedPermissions + id) }
+    }
+
+    fun reviewSkipped() {
+        _showSkippedPermissions.value = true
+    }
+
     fun updateSettings(update: (IslandSettings) -> IslandSettings) {
         viewModelScope.launch {
             repository.updateSettings(update)

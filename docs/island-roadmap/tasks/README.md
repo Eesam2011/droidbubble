@@ -288,7 +288,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | ID | Title | Status |
 |---|---|---|
 | C1.1 | Permission catalogue: levels and honest copy | done (allPermissions(sdkInt) holds levels, grant kinds and the honest copy; pending(context) checks grants; ids unchanged; notification access opens our own toggle on API 30+; 'Nearby devices' is in the catalogue but not listed until C1.5; rows still show titles until C1.2; PermissionCatalogTest 6 cases) |
-| C1.2 | Permission rows: descriptions, levels, "Not now" | todo |
+| C1.2 | Permission rows: descriptions, levels, "Not now" | done (PermissionSection in its own file: level overline, what + why under the title, red only for Required, Allow (labelled 'Allow <title>') and 'Not now' on non-required rows; skipped items persist in skipped_permissions and fold into 'N optional items skipped · Review'; header 'Required setup / N required' or 'Finish setup / N optional'; one runtime launcher for notifications / mic / nearby devices with the app-settings fallback; new AppIcons.Info; the explanation isn't capped at 3 lines so the mic copy isn't cut; PermissionSectionTest 6 cases, round-trip test covers the key; check later on the phone: API 33+ notifications open the system dialog) |
 | C1.3 | Accessibility-service disclosure | todo |
 | C1.4 | Restricted-settings helper | todo |
 | C1.5 | Bluetooth permission only when needed | todo |
