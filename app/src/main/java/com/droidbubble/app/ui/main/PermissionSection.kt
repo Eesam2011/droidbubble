@@ -83,6 +83,8 @@ fun PermissionSection(
     onReviewSkipped: () -> Unit,
     modifier: Modifier = Modifier,
     overline: (PermissionItem) -> String = { it.level.label() },
+    restrictedHelp: Set<String> = emptySet(),
+    onOpenAppInfo: () -> Unit = {},
 ) {
     val model = SetupSectionModel.of(items, skipped, showSkipped)
     if (model.isEmpty) return
@@ -115,7 +117,7 @@ fun PermissionSection(
                 else -> GroupPosition.MIDDLE
             }
             model.visible.forEachIndexed { index, item ->
-                PermissionRow(item, overline(item), position(index), onAllow, onSkip)
+                PermissionRow(item, overline(item), position(index), onAllow, onSkip, item.id in restrictedHelp, onOpenAppInfo)
             }
             if (model.folded.isNotEmpty()) {
                 SkippedRow(model.folded.size, position(rows - 1), onReviewSkipped)
@@ -131,6 +133,8 @@ private fun PermissionRow(
     position: GroupPosition,
     onAllow: (PermissionItem) -> Unit,
     onSkip: (String) -> Unit,
+    showRestrictedHelp: Boolean = false,
+    onOpenAppInfo: () -> Unit = {},
 ) {
     val required = item.level == PermissionLevel.REQUIRED
     Surface(
@@ -166,6 +170,7 @@ private fun PermissionRow(
                             TextButton(onClick = { onSkip(item.id) }) { Text("Not now") }
                         }
                     }
+                    if (showRestrictedHelp) RestrictedSettingsHelp(onOpenAppInfo)
                 }
             },
             leadingContent = {
@@ -258,4 +263,33 @@ fun AccessibilityDisclosureDialog(onContinue: () -> Unit, onDismiss: () -> Unit)
         confirmButton = { TextButton(onClick = onContinue) { Text("Continue") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
     )
+}
+
+/**
+ * C1.4: Android 13+ blocks notification access and accessibility for apps installed from a file
+ * until "Allow restricted settings" is on. Shown under a row that is still missing after a try.
+ */
+@Composable
+private fun RestrictedSettingsHelp(onOpenAppInfo: () -> Unit) {
+    Column(
+        modifier = Modifier.padding(top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            "Android blocked this setting because Droidbubble was installed from a file.",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(buildAnnotatedString {
+            append("1. Tap ")
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Open App info") }
+            append(". 2. Tap ⋮ (top right) › ")
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Allow restricted settings") }
+            append(". 3. Come back and tap Allow again.")
+        })
+        Text("Android only shows that option after it has blocked the setting once.")
+        FilledTonalButton(onClick = onOpenAppInfo, shape = RoundedCornerShape(12.dp)) {
+            Text("Open App info", fontWeight = FontWeight.SemiBold)
+        }
+    }
 }

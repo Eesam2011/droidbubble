@@ -26,6 +26,11 @@ data class AppItem(
     val isBlocked: Boolean = false
 )
 
+/** C1.4: rows that need the restricted-settings help: still pending after at least one try. */
+internal fun restrictedHelpFor(pending: List<PermissionItem>, attempts: Map<String, Int>, sideloadRestricted: Boolean): Set<String> =
+    if (!sideloadRestricted) emptySet()
+    else pending.filter { it.restrictedOnSideload && (attempts[it.id] ?: 0) >= 1 }.map { it.id }.toSet()
+
 class MainScreenViewModel(private val repository: SettingsRepository) : ViewModel() {
 
     val settings: StateFlow<IslandSettings> = repository.settingsFlow
@@ -115,7 +120,21 @@ class MainScreenViewModel(private val repository: SettingsRepository) : ViewMode
     }
 
     fun checkPermissions(context: Context) {
-        _pendingPermissions.value = PermissionHelper.pending(context)
+        val pending = PermissionHelper.pending(context)
+        _pendingPermissions.value = pending
+        _restrictedHelp.value = restrictedHelpFor(pending, grantAttempts, PermissionHelper.isSideloadRestricted(context))
+    }
+
+    // C1.4: how often each restricted setting was opened in this process. If it's still missing
+    // when the user comes back, Android probably blocked it ("Restricted setting")
+    private val grantAttempts = mutableMapOf<String, Int>()
+    private val _restrictedHelp = MutableStateFlow<Set<String>>(emptySet())
+    /** Ids of the setup rows that show the "Allow restricted settings" steps. */
+    val restrictedHelp: StateFlow<Set<String>> = _restrictedHelp.asStateFlow()
+
+    /** C1.4: call when a setup item's settings screen is opened. */
+    fun noteGrantAttempt(item: PermissionItem) {
+        if (item.restrictedOnSideload) grantAttempts[item.id] = (grantAttempts[item.id] ?: 0) + 1
     }
 
     // C1.2: "Review" shows the skipped setup items again, for this session only

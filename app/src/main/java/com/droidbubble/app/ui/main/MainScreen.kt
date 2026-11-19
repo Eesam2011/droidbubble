@@ -217,9 +217,11 @@ fun MainScreen(
             runtimeRequest = item
             runtimePermissionLauncher.launch(runtime)
         } else {
+            viewModel.noteGrantAttempt(item)
             runCatching { context.startActivity(item.createIntent(context)) }
         }
     }
+    val restrictedHelp by viewModel.restrictedHelp.collectAsState()
 
     // Re-check permissions on every onResume
     DisposableEffect(lifecycleOwner) {
@@ -345,7 +347,9 @@ fun MainScreen(
                         showSkipped = showSkippedPermissions,
                         onAllow = onAllowPermission,
                         onSkip = viewModel::skipPermission,
-                        onReviewSkipped = viewModel::reviewSkipped
+                        onReviewSkipped = viewModel::reviewSkipped,
+                        restrictedHelp = restrictedHelp,
+                        onOpenAppInfo = { runCatching { context.startActivity(PermissionHelper.appInfoIntent(context)) } }
                     )
                 }
             }

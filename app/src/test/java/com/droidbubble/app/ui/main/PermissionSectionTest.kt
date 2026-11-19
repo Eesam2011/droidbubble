@@ -44,7 +44,9 @@ class PermissionSectionTest {
     private val allowed = mutableListOf<String>()
     private var reviewed = 0
 
-    private fun show(items: List<PermissionItem>, skipped: Set<String> = emptySet(), showSkipped: Boolean = false) {
+    private var appInfoOpened = 0
+
+    private fun show(items: List<PermissionItem>, skipped: Set<String> = emptySet(), showSkipped: Boolean = false, help: Set<String> = emptySet()) {
         rule.setContent {
             DroidbubbleTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -55,7 +57,9 @@ class PermissionSectionTest {
                             showSkipped = showSkipped,
                             onAllow = { allowed += it.id },
                             onSkip = { skippedIds += it },
-                            onReviewSkipped = { reviewed++ }
+                            onReviewSkipped = { reviewed++ },
+                            restrictedHelp = help,
+                            onOpenAppInfo = { appInfoOpened++ }
                         )
                     }
                 }
@@ -101,6 +105,15 @@ class PermissionSectionTest {
         rule.onAllNodesWithText("Finish setup").assertCountEquals(0)
         rule.onNodeWithText("Review").performClick()
         assertEquals(1, reviewed)
+    }
+
+    @Test
+    fun restrictedHelp_underTheBlockedRowOnly() {
+        // C1.4
+        show(all, help = setOf(PermissionHelper.NOTIFICATION_LISTENER_ID))
+        rule.onAllNodesWithText("Android blocked this setting because Droidbubble was installed from a file.").assertCountEquals(1)
+        rule.onNodeWithText("Open App info").performClick()
+        assertEquals(1, appInfoOpened)
     }
 
     @Test

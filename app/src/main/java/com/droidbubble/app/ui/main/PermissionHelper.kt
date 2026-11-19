@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -203,6 +204,24 @@ object PermissionHelper {
             ))
         }
     }.sortedBy { it.level }
+
+    /**
+     * C1.4: whether Android 13+ may block restricted settings (notification access,
+     * accessibility) because the app wasn't installed from a store. A heuristic: the hidden
+     * app-op isn't probed. [packageSource] is `InstallSourceInfo.packageSource`, or null if unknown.
+     */
+    fun isSideloadRestricted(sdkInt: Int, packageSource: Int?): Boolean =
+        sdkInt >= Build.VERSION_CODES.TIRAMISU && packageSource != PackageInstaller.PACKAGE_SOURCE_STORE
+
+    fun isSideloadRestricted(context: Context): Boolean {
+        val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching { context.packageManager.getInstallSourceInfo(context.packageName).packageSource }.getOrNull()
+        } else null
+        return isSideloadRestricted(Build.VERSION.SDK_INT, source)
+    }
+
+    /** "Open App info": where Android's "Allow restricted settings" lives (in the ⋮ menu). */
+    fun appInfoIntent(context: Context): Intent = appDetails(context)
 
     fun isBluetoothConnectGranted(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
