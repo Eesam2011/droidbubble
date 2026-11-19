@@ -120,7 +120,8 @@ class MainScreenViewModel(private val repository: SettingsRepository) : ViewMode
     }
 
     fun checkPermissions(context: Context) {
-        val pending = PermissionHelper.pending(context)
+        // C1.5: "Nearby devices" is only listed while the Bluetooth alert wants it
+        val pending = PermissionHelper.pending(context, includeBluetooth = settings.value.showBluetooth)
         _pendingPermissions.value = pending
         _restrictedHelp.value = restrictedHelpFor(pending, grantAttempts, PermissionHelper.isSideloadRestricted(context))
     }

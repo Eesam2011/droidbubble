@@ -145,6 +145,42 @@ enum class MainScreenPage {
 }
 
 
+/**
+ * C1.5: the Bluetooth alert's row. While the alert is on without "Nearby devices", it says so and
+ * offers Allow; Android only reports Bluetooth connections to apps holding that permission.
+ */
+@Composable
+internal fun BluetoothAlertRow(
+    checked: Boolean,
+    needsPermission: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onAllow: () -> Unit,
+) {
+    SettingsCardItem(position = GroupPosition.TOP, isActive = checked) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = { Text("Bluetooth Connecting", fontWeight = FontWeight.SemiBold) },
+            supportingContent = if (checked && needsPermission) {
+                {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Needs Nearby devices permission", modifier = Modifier.weight(1f, fill = false))
+                        TextButton(
+                            onClick = onAllow,
+                            modifier = Modifier.semantics { contentDescription = "Allow Nearby devices" }
+                        ) { Text("Allow") }
+                    }
+                }
+            } else null,
+            leadingContent = {
+                Icon(AppIcons.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(checked = checked, onCheckedChange = onCheckedChange)
+            }
+        )
+    }
+}
+
 /** Test tags for the companion screens (C3.1). Semantics only: no layout or drawing. */
 object MainScreenTestTags {
     const val ENABLE_SWITCH = "main_enable_switch"
@@ -222,6 +258,11 @@ fun MainScreen(
         }
     }
     val restrictedHelp by viewModel.restrictedHelp.collectAsState()
+    // C1.5: switching the Bluetooth alert adds or removes the "Nearby devices" setup row
+    LaunchedEffect(settings.showBluetooth) { viewModel.checkPermissions(context) }
+    val nearbyDevicesItem = remember {
+        PermissionHelper.allPermissions(android.os.Build.VERSION.SDK_INT).firstOrNull { it.id == PermissionHelper.BLUETOOTH_CONNECT_ID }
+    }
 
     // Re-check permissions on every onResume
     DisposableEffect(lifecycleOwner) {
@@ -847,23 +888,19 @@ fun MainScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    SettingsCardItem(position = GroupPosition.TOP, isActive = settings.showBluetooth) {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Bluetooth Connecting", fontWeight = FontWeight.SemiBold) },
-                            leadingContent = {
-                                Icon(AppIcons.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = settings.showBluetooth,
-                                    onCheckedChange = { show ->
-                                        viewModel.updateSettings { it.copy(showBluetooth = show) }
-                                    }
-                                )
+                    BluetoothAlertRow(
+                        checked = settings.showBluetooth,
+                        // Null below Android 12: BLUETOOTH is granted at install there
+                        needsPermission = nearbyDevicesItem != null &&
+                            pendingPermissions.any { it.id == PermissionHelper.BLUETOOTH_CONNECT_ID },
+                        onCheckedChange = { show ->
+                            viewModel.updateSettings { it.copy(showBluetooth = show) }
+                            if (show && nearbyDevicesItem != null && !PermissionHelper.isBluetoothConnectGranted(context)) {
+                                onAllowPermission(nearbyDevicesItem)
                             }
-                        )
-                    }
+                        },
+                        onAllow = { nearbyDevicesItem?.let(onAllowPermission) }
+                    )
 
                     SettingsCardItem(position = GroupPosition.MIDDLE, isActive = settings.showWifi) {
                         ListItem(
