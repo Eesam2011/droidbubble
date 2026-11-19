@@ -113,6 +113,15 @@ object IslandStateManager {
     private val _userMinimized = MutableStateFlow(false)
     val userMinimized: StateFlow<Boolean> = _userMinimized.asStateFlow()
 
+    // C3.8: TalkBack's focus is on a node inside the island (IslandA11yFrame). The open card's
+    // auto-collapse waits while it is, like it waits for a held finger.
+    private val _a11yFocusInside = MutableStateFlow(false)
+    val a11yFocusInside: StateFlow<Boolean> = _a11yFocusInside.asStateFlow()
+
+    fun setA11yFocusInside(inside: Boolean) {
+        _a11yFocusInside.value = inside
+    }
+
     fun hideIsland() {
         collapse()
         _userMinimized.value = false
@@ -941,6 +950,7 @@ object IslandStateManager {
         listOf(popInJob, chargingJob, unlockJob, bluetoothJob, ringerJob, autoDismissNotificationJob, torchConfirmJob)
             .forEach { it?.cancel() }
         _activeCharging.value = null
+        _a11yFocusInside.value = false
         _cameraGeometry.value = com.droidbubble.app.island.layout.CameraGeometry.None
         _iconSignals.value = com.droidbubble.app.island.icon.IconSignals()
         _isUnlocked.value = false

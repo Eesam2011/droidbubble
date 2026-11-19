@@ -197,7 +197,10 @@ import com.droidbubble.app.model.allows
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -931,13 +934,24 @@ internal fun IslandShell(
         while (true) {
             if (pressed) {
                 pressed = touchPresses.receive()
+            } else if (IslandStateManager.a11yFocusInside.value) {
+                // C3.8: TalkBack is reading the card. Wait until its focus leaves, then the timeout
+                // (already scaled by "Time to take action", F3.5) starts again from the full length
+                IslandStateManager.a11yFocusInside.first { !it }
             } else {
                 // D2.2: a peeking banner recedes sooner; read on each wait, so a touch that
                 // turned it into a normal card gives it the normal time
                 val timeout = if (IslandStateManager.isPeeking.value) IslandStateManager.timings.peek
                     else IslandStateManager.timings.autoCollapseFor(openCard.value, isAlarm = false) ?: return@LaunchedEffect
-                val next = withTimeoutOrNull(timeout) { touchPresses.receive() }
+                // A touch, or TalkBack focus arriving inside the island (C3.8)
+                val next = withTimeoutOrNull(timeout) {
+                    select<Boolean?> {
+                        touchPresses.onReceive { it }
+                        async { IslandStateManager.a11yFocusInside.first { it } }.onAwait { null }
+                    }.also { coroutineContext.cancelChildren() }
+                }
                 if (next == null) {
+                    if (IslandStateManager.a11yFocusInside.value) continue
                     IslandStateManager.collapse()
                     return@LaunchedEffect
                 }

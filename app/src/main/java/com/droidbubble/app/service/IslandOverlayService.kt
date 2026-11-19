@@ -144,6 +144,8 @@ class IslandOverlayService : Service() {
     private val settingsRepository by lazy { SettingsRepository(this) }
     private var windowManager: WindowManager? = null
     private var composeView: ComposeView? = null
+    // C3.8: the window's root; it holds composeView and watches TalkBack focus inside it
+    private var islandFrame: IslandA11yFrame? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
     private val lifecycleOwner = CustomLifecycleOwner()
@@ -555,7 +557,7 @@ class IslandOverlayService : Service() {
 
     /** The outside-tap listener exists only while the envelope trial is on; off, the view is as before. */
     private fun syncOutsideTap() {
-        composeView?.setOnTouchListener(if (currentSettings.envelopeWindowTrial) outsideTapCollapser else null)
+        islandFrame?.setOnTouchListener(if (currentSettings.envelopeWindowTrial) outsideTapCollapser else null)
     }
 
     /**
@@ -660,7 +662,7 @@ class IslandOverlayService : Service() {
         }
         windowSize = WindowState(initialWidth, initialHeight, initialWindow.touchable)
         windowController = OverlayWindowController(layoutParams!!, update = { params ->
-            composeView?.let { view -> if (view.parent != null) windowManager?.updateViewLayout(view, params) }
+            islandFrame?.let { frame -> if (frame.parent != null) windowManager?.updateViewLayout(frame, params) }
         })
 
         val view = ComposeView(aService ?: this).apply {
@@ -721,6 +723,14 @@ class IslandOverlayService : Service() {
         }
 
         composeView = view
+        val frame = IslandA11yFrame(aService ?: this).apply {
+            // The window recomposer looks these up from the window's root view, now the frame
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+            setViewTreeViewModelStoreOwner(lifecycleOwner)
+            addView(view, android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        islandFrame = frame
         syncOutsideTap()
 
         overlayJobs.forEach { it.cancel() }
@@ -735,10 +745,10 @@ class IslandOverlayService : Service() {
         glassPaneWindows = null
         if (currentSettings.liquidGlassCards) {
             glassPaneWindows = GlassPaneWindows(glassContext!!, windowType).also { panes ->
-                panes.create { if (composeView === view && glassPaneWindows === panes) addIslandView(view) }
+                panes.create { if (composeView === view && glassPaneWindows === panes) addIslandView(frame) }
             }
         } else {
-            addIslandView(view)
+            addIslandView(frame)
         }
 
         glassPaneJob?.cancel()
@@ -883,13 +893,14 @@ class IslandOverlayService : Service() {
      */
     private fun syncGlassPanes(on: Boolean) {
         val view = composeView ?: return
+        val frame = islandFrame ?: return
         if (on && glassPaneWindows == null) {
             val context = glassContext ?: return
             glassPaneWindows = GlassPaneWindows(context, glassWindowType).also { panes ->
                 panes.create {
                     if (composeView !== view || glassPaneWindows !== panes) return@create
-                    if (view.parent != null) runCatching { windowManager?.removeViewImmediate(view) }
-                    addIslandView(view)
+                    if (frame.parent != null) runCatching { windowManager?.removeViewImmediate(frame) }
+                    addIslandView(frame)
                     panes.update(glassPanesOnScreen(IslandStateManager.glassPanes.value))
                 }
             }
@@ -1075,13 +1086,14 @@ class IslandOverlayService : Service() {
         IslandStateManager.glassPaneListener = null
         glassPaneWindows?.dismiss()
         glassPaneWindows = null
-        composeView?.let { view ->
+        islandFrame?.let { frame ->
             try {
-                windowManager?.removeView(view)
+                windowManager?.removeView(frame)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+        islandFrame = null
         composeView = null
     }
 

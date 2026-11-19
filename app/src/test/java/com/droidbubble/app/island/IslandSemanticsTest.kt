@@ -229,4 +229,24 @@ class IslandSemanticsTest {
         assertNull("the pane title carries it", liveRegionFor(loud, fresh = true, isExpanded = false))
         assertNull(liveRegionFor(null, fresh = true, isExpanded = false))
     }
+
+    // --- C3.8: TalkBack focus holds the card open ----------------------------------------
+
+    @Test
+    fun a11yFocusInside_keepsTheCardOpen_thenItCollapses() {
+        h.onState {
+            IslandStateManager.updateNotification(IslandFixtures.message())
+            IslandStateManager.expand(null)
+        }
+        h.settle(300)
+        assertTrue(IslandStateManager.isExpanded.value)
+        h.onState { IslandStateManager.setA11yFocusInside(true) }
+        h.settle(10_000)
+        assertTrue("still open while TalkBack reads it", IslandStateManager.isExpanded.value)
+        h.onState { IslandStateManager.setA11yFocusInside(false) }
+        h.settle(3_000)
+        assertTrue("the full timeout starts again when focus leaves", IslandStateManager.isExpanded.value)
+        h.settle(4_000)
+        assertTrue("collapsed after the open-card timeout", !IslandStateManager.isExpanded.value)
+    }
 }
