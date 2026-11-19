@@ -150,7 +150,11 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -992,9 +996,15 @@ internal fun IslandShell(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    // C3.6: "Close island", read after the card
+                    .semantics {
+                        contentDescription = islandSpeech.closeIsland()
+                        traversalIndex = 1f
+                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
+                        onClickLabel = islandSpeech.closeLabel(),
                     ) {
                         haptics.perform(IslandHapticEvent.COLLAPSE)
                         IslandStateManager.collapse()
@@ -1051,7 +1061,12 @@ internal fun IslandShell(
                         Box(
                             modifier = Modifier
                                 .testTag(IslandTestTags.CARD)
-                                .semantics { if (cardActions.isNotEmpty()) customActions = cardActions }
+                                .semantics {
+                                    // C3.6: "Island: Timer" is announced when the card opens; its content is read as one group
+                                    cardSpeech?.let { paneTitle = islandSpeech.paneTitle(it.subject) }
+                                    isTraversalGroup = true
+                                    if (cardActions.isNotEmpty()) customActions = cardActions
+                                }
                                 .offset { IntOffset(animatedCard1OffsetX.roundToInt(), 0) }
                                 .layoutSize(width = { shell.geometry.width }, height = { shell.geometry.height })
                                 .onGloballyPositioned { glassCardBounds[0] = it.boundsInWindow(); publishGlass() }
@@ -1544,12 +1559,14 @@ internal fun IslandShell(
                                     .graphicsLayer { alpha = contentAlpha },
                                 contentAlignment = Alignment.Center
                             ) {
-                                AuxiliaryBubbleContent(
-                                    priority = secondaryPriority,
-                                    media = currentMedia,
-                                    notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
-                                    recording = recording,
-                                )
+                                CompositionLocalProvider(LocalNumbersSpoken provides false) {
+                                    AuxiliaryBubbleContent(
+                                        priority = secondaryPriority,
+                                        media = currentMedia,
+                                        notification = if (secondaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif,
+                                        recording = recording,
+                                    )
+                                }
                             }
                         }
                     }
@@ -2094,17 +2111,19 @@ internal fun IslandShell(
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CompactContent(
-                                        priority = shownPriority,
-                                        media = shown.media,
-                                        notification = shown.notification,
-                                        recording = recording,
-                                        flashlightLevel = flashlightLevel,
-                                        maxFlashlightLevel = maxFlashlightLevel,
-                                        secondaryPriority = secondaryPriority,
-                                        horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp),
-                                        maxSide = compactMaxSide,
-                                    )
+                                    CompositionLocalProvider(LocalNumbersSpoken provides false) {
+                                        CompactContent(
+                                            priority = shownPriority,
+                                            media = shown.media,
+                                            notification = shown.notification,
+                                            recording = recording,
+                                            flashlightLevel = flashlightLevel,
+                                            maxFlashlightLevel = maxFlashlightLevel,
+                                            secondaryPriority = secondaryPriority,
+                                            horizontalInset = ((settings.heightDp.dp - 20.dp) / 2f).coerceIn(6.dp, 14.dp),
+                                            maxSide = compactMaxSide,
+                                        )
+                                    }
                                 }
                             }
                         }

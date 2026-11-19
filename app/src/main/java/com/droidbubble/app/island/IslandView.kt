@@ -1,5 +1,10 @@
 package com.droidbubble.app.island
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import com.droidbubble.app.R
 import com.droidbubble.app.island.motion.MotionTween
 import android.content.Context
 import android.graphics.Bitmap
@@ -471,7 +476,7 @@ fun AuxiliaryBubbleContent(
                     } else if (notification?.iconBitmap != null) {
                         Image(
                             bitmap = notification.iconBitmap.asImageBitmap(),
-                            contentDescription = "Notification Icon",
+                            contentDescription = null,
                             modifier = Modifier
                                 .size(IslandTokens.Glyph.BubbleArt)
                                 .clip(CircleShape)
@@ -551,7 +556,7 @@ fun AuxiliaryBubbleContent(
                 FlippingCoverArt(
                     art = displayArt,
                     trackKey = mediaTrackKey(media),
-                    contentDescription = "Media Art",
+                    contentDescription = null,
                     modifier = Modifier
                         .size(IslandTokens.Glyph.BubbleArt)
                         .clip(CircleShape)
@@ -585,7 +590,7 @@ fun AuxiliaryBubbleContent(
                     LayeredIcon(
                         IslandIcons.Compact.Flashlight,
                         Color.White,
-                        contentDescription = "Flashlight",
+                        contentDescription = null,
                         size = IslandTokens.Glyph.Bubble,
                         level = { torchLevel(torchLevelState.value, torchMaxState.value) },
                     )
@@ -663,7 +668,7 @@ fun CompactContent(
         ) {
             when (priority) {
                 IslandPriority.CALL -> Icon(
-                    IslandIcons.Compact.Call, contentDescription = "Active call",
+                    IslandIcons.Compact.Call, contentDescription = null,
                     tint = LiveActivityColors.CallGreen, modifier = Modifier.size(IslandTokens.Glyph.Compact)
                 )
                 IslandPriority.SCREEN_RECORDING -> {
@@ -694,7 +699,7 @@ fun CompactContent(
                             LayeredIcon(
                                 IslandIcons.Compact.Flashlight,
                                 Color.White,
-                                contentDescription = "Flashlight",
+                                contentDescription = null,
                                 level = { torchLevel(flashlightLevel, maxFlashlightLevel) },
                             )
                         }
@@ -742,7 +747,7 @@ fun CompactContent(
                         if (notification?.iconBitmap != null) {
                             Image(
                                 bitmap = notification.iconBitmap.asImageBitmap(),
-                                contentDescription = "Download Icon",
+                                contentDescription = null,
                                 modifier = Modifier
                                     .size(IslandTokens.Glyph.CompactArt)
                                     .clip(CircleShape)
@@ -766,7 +771,7 @@ fun CompactContent(
                     FlippingCoverArt(
                         art = media?.albumArt ?: media?.appIcon,
                         trackKey = mediaTrackKey(media),
-                        contentDescription = "Media Art",
+                        contentDescription = null,
                         modifier = Modifier
                             .size(IslandTokens.Glyph.CompactArt)
                             .clip(islandShape(IslandTokens.Glyph.CompactArt * com.droidbubble.app.island.layout.CardGeometry.SQUARE_CAP)),
@@ -1545,13 +1550,18 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Shuffle: highlighted when on
+                val onLabel = stringResource(R.string.speech_on)
+                val offLabel = stringResource(R.string.speech_off)
                 IconButton(
                     onClick = { IslandStateManager.onToggleShuffle?.invoke() },
-                    modifier = Modifier.size(sideControlSize)
+                    // C3.6: "Shuffle, On"
+                    modifier = Modifier
+                        .size(sideControlSize)
+                        .semantics { stateDescription = if (media?.isShuffleOn == true) onLabel else offLabel }
                 ) {
                     Icon(
                         imageVector = IslandIcons.Shuffle,
-                        contentDescription = "Shuffle",
+                        contentDescription = stringResource(R.string.speech_shuffle),
                         tint = if (media?.isShuffleOn == true) sliderActiveTint else controlsTint.copy(alpha = 0.45f),
                         modifier = Modifier.size(sideControlIcon)
                     )
@@ -1585,7 +1595,8 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                         glyph = MorphShapes.PlayPause,
                         atEnd = media?.isPlaying == true,
                         tint = playButtonIconTint,
-                        contentDescription = "Play/Pause",
+                        // C3.6: says what a tap does
+                        contentDescription = stringResource(if (media?.isPlaying == true) R.string.speech_pause else R.string.speech_play),
                         size = playBtnIcon,
                     )
                 }
@@ -1609,11 +1620,15 @@ fun ExpandedMediaView(media: MediaInfo?, onCollapse: () -> Unit, scale: Float = 
                 // Repeat: off -> all -> one
                 IconButton(
                     onClick = { IslandStateManager.onCycleRepeat?.invoke() },
-                    modifier = Modifier.size(sideControlSize)
+                    modifier = Modifier
+                        .size(sideControlSize)
+                        .semantics {
+                            stateDescription = if ((media?.repeatMode ?: MediaInfo.REPEAT_OFF) != MediaInfo.REPEAT_OFF) onLabel else offLabel
+                        }
                 ) {
                     Icon(
                         imageVector = if (media?.repeatMode == MediaInfo.REPEAT_ONE) IslandIcons.RepeatOne else IslandIcons.Repeat,
-                        contentDescription = "Repeat",
+                        contentDescription = stringResource(R.string.speech_repeat),
                         tint = if ((media?.repeatMode ?: MediaInfo.REPEAT_OFF) != MediaInfo.REPEAT_OFF) sliderActiveTint else controlsTint.copy(alpha = 0.45f),
                         modifier = Modifier.size(sideControlIcon)
                     )
@@ -1807,11 +1822,14 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                         .padding(horizontal = IslandTokens.SpaceMd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val replyFieldLabel = stringResource(R.string.speech_reply_to, notification?.title.orEmpty())
                     BasicTextField(
                         value = replyText,
                         onValueChange = { replyText = it },
                         modifier = Modifier
                             .weight(1f)
+                            // C3.6: "Reply to Sam, edit box"
+                            .semantics { contentDescription = replyFieldLabel }
                             .focusRequester(replyFocusRequester)
                             .onFocusChanged { focusState ->
                                 if (focusState.isFocused) {
@@ -1851,7 +1869,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                     ) {
                         Icon(
                             imageVector = IslandIcons.Send,
-                            contentDescription = "Send Reply",
+                            contentDescription = stringResource(R.string.speech_send_reply),
                             // Disabled Send keeps its dimmer grey: disabled controls are exempt from contrast
                             tint = if (replyText.isNotBlank()) Color.White else IslandTokens.IconDisabled,
                             modifier = Modifier.size(18.dp)
@@ -1867,7 +1885,7 @@ fun ExpandedNotificationView(notification: NotificationInfo?, onCollapse: () -> 
                     ) {
                         Icon(
                             imageVector = IslandIcons.Close,
-                            contentDescription = "Cancel",
+                            contentDescription = stringResource(R.string.speech_cancel_reply),
                             tint = IslandTokens.TextTertiary,
                             modifier = Modifier.size(16.dp)
                         )
@@ -1960,7 +1978,7 @@ fun ExpandedProgressView(notification: NotificationInfo?, onCollapse: () -> Unit
                     if (notification?.iconBitmap != null) {
                         Image(
                             bitmap = notification.iconBitmap.asImageBitmap(),
-                            contentDescription = "App Icon",
+                            contentDescription = null,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {

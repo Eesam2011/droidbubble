@@ -573,7 +573,7 @@ fun FlippingCoverArt(
     art: Bitmap?,
     trackKey: Any?,
     modifier: Modifier = Modifier,
-    contentDescription: String? = "Cover Art",
+    contentDescription: String? = null,
     placeholder: @Composable () -> Unit = {}
 ) {
     var shownArt by remember { mutableStateOf(art) }
@@ -690,7 +690,7 @@ fun NotificationAvatar(
             avatar != null -> {
                 Image(
                     bitmap = avatar.asImageBitmap(),
-                    contentDescription = "Sender",
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
@@ -713,7 +713,7 @@ fun NotificationAvatar(
             appIcon != null -> {
                 Image(
                     bitmap = appIcon.asImageBitmap(),
-                    contentDescription = "App Icon",
+                    contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(islandShape(size * 0.25f))

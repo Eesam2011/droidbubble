@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -248,5 +249,64 @@ class IslandSemanticsTest {
         assertTrue("the full timeout starts again when focus leaves", IslandStateManager.isExpanded.value)
         h.settle(4_000)
         assertTrue("collapsed after the open-card timeout", !IslandStateManager.isExpanded.value)
+    }
+
+    // --- C3.6: card, backdrop and control labels -----------------------------------------
+
+    private fun nodeWith(description: String) = rule.onNode(
+        androidx.compose.ui.test.hasContentDescription(description), useUnmergedTree = false
+    )
+
+    @Test
+    fun pill_readsOnlyItsSummary() {
+        h.onState { IslandStateManager.updateNotification(IslandFixtures.timer) }
+        h.settle()
+        val all = config(IslandTestTags.PILL).getOrNull(SemanticsProperties.ContentDescription)
+        println("C3.6 pill descriptions: $all")
+        assertEquals(listOf("Timer"), all)
+    }
+
+    @Test
+    fun card_hasPaneTitle_backdropIsCloseIsland() {
+        h.onState {
+            IslandStateManager.updateNotification(IslandFixtures.timer)
+            IslandStateManager.expand(null)
+        }
+        h.settle()
+        node(IslandTestTags.CARD).assert(A11yMatchers.hasPaneTitle("Island: Timer"))
+        val backdrop = nodeWith("Close island").fetchSemanticsNode().config
+        assertEquals(1f, backdrop.getOrNull(SemanticsProperties.TraversalIndex))
+        assertEquals("Close", backdrop.getOrNull(SemanticsActions.OnClick)?.label)
+    }
+
+    @Test
+    fun mediaControls_sayWhatTheyDo() {
+        h.onState {
+            IslandStateManager.updateMedia(IslandFixtures.song)
+            IslandStateManager.expand(null)
+        }
+        h.settle()
+        nodeWith("Pause").assertExists()
+        val shuffle = nodeWith("Shuffle").fetchSemanticsNode().config
+        assertEquals("Off", shuffle.getOrNull(SemanticsProperties.StateDescription))
+    }
+
+    @Test
+    fun replyButtons_areLabelled_withTouchTargetsOfAtLeast48dp() {
+        h.onState {
+            IslandStateManager.updateNotification(IslandFixtures.message())
+            IslandStateManager.expand(null)
+        }
+        h.settle()
+        rule.onNode(androidx.compose.ui.test.hasText("Reply") and androidx.compose.ui.test.hasClickAction()).performClick()
+        h.settle()
+        rule.onNode(androidx.compose.ui.test.hasContentDescription("Reply to Sam")).assertExists()
+        for (label in listOf("Send reply", "Cancel reply")) {
+            val n = nodeWith(label).fetchSemanticsNode()
+            val t = n.touchBoundsInRoot
+            val minPx = 48f * rule.density.density - 0.5f
+            println("C3.6 $label layout=${n.boundsInRoot} touch=$t")
+            assertTrue("$label touch ${t.width}x${t.height} px", t.width >= minPx && t.height >= minPx)
+        }
     }
 }

@@ -49,4 +49,15 @@
     <string name="speech_action_flashlight_off">Turn off flashlight</string>
     <string name="speech_action_pause_island">Pause island for 1 hour</string>
     <string name="speech_action_collapse">Collapse</string>
+    <!-- C3.6: controls inside the open card -->
+    <string name="speech_play">Play</string>
+    <string name="speech_pause">Pause</string>
+    <string name="speech_on">On</string>
+    <string name="speech_off">Off</string>
+    <string name="speech_shuffle">Shuffle</string>
+    <string name="speech_repeat">Repeat</string>
+    <string name="speech_reply_to">Reply to %1$s</string>
+    <string name="speech_send_reply">Send reply</string>
+    <string name="speech_cancel_reply">Cancel reply</string>
+    <string name="speech_overtime">%1$s over</string>
 </resources>

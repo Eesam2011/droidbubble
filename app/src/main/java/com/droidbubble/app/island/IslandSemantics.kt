@@ -276,3 +276,10 @@ fun islandCustomActions(
         CustomAccessibilityAction(speech.actionLabel(action)) { run(); true }
     }
 }
+
+/**
+ * C3.6: false inside the pill's and the bubble's content. Their node already reads one summary
+ * (C3.4), so numbers drawn inside them ([RollingNumberText]) stay silent instead of being read a
+ * second time. The open card's numbers are read (as durations, for clocks).
+ */
+val LocalNumbersSpoken = androidx.compose.runtime.staticCompositionLocalOf { true }

@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
@@ -464,10 +465,25 @@ fun RollingNumberText(
     letterSpacing: TextUnit? = null,
     /** Longer text is drawn plainly. A detail line ("12 MB of 40 MB") allows more (D3.2). */
     maxRollLength: Int = 12,
+    /**
+     * C3.6: what TalkBack reads instead of [text]. Null: a clock ("4:59") reads as a duration
+     * ("4 minutes, 59 seconds"); anything else as written.
+     */
+    spokenText: String? = null,
 ) {
     val style = rollingNumberStyle(color, fontSize, fontWeight, lineHeight, lineHeightStyle, letterSpacing)
+    val resources = androidx.compose.ui.platform.LocalContext.current.resources
+    val speaks = LocalNumbersSpoken.current
+    val spoken = if (!speaks) null else spokenText ?: remember(text, resources) { spokenClock(resources, text) } ?: text
     if (text.length > maxRollLength || text.none { it.isDigit() }) {
-        Text(text = text, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = modifier)
+        Text(
+            text = text, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+            modifier = when {
+                spoken == null -> modifier.clearAndSetSemantics {}
+                spoken != text -> modifier.semantics { contentDescription = spoken }
+                else -> modifier
+            }
+        )
         return
     }
     val measurer = rememberTextMeasurer(cacheSize = 8)
@@ -510,7 +526,7 @@ fun RollingNumberText(
     val travelFactor = if (motion.tier == MotionTier.REDUCED) 0f else 0.72f
     Spacer(
         modifier = modifier
-            .semantics { contentDescription = text }
+            .then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier)
             .layout { measurable, _ ->
                 val placeable = measurable.measure(Constraints.fixed(w, h))
                 layout(
@@ -555,6 +571,17 @@ fun RollingNumberText(
                 }
             }
     )
+}
+
+/**
+ * C3.6: a clock ("4:59", "1:02:03", or overtime "-00:12") as TalkBack should say it ("4 minutes,
+ * 59 seconds"; "12 seconds over"), or null when [text] isn't a clock.
+ */
+fun spokenClock(resources: android.content.res.Resources, text: String): String? {
+    val over = text.trimStart().startsWith("-")
+    val ms = com.droidbubble.app.model.parseTimerTextMillis(text.trim().removePrefix("-")) ?: return null
+    val duration = IslandSpeech(resources).spokenDuration(ms)
+    return if (over) resources.getString(com.droidbubble.app.R.string.speech_overtime, duration) else duration
 }
 
 /** The style [RollingNumberText] draws in, for callers that measure it first. */
@@ -1411,7 +1438,7 @@ fun LiveActivityCompactIcon(
     when (kind) {
         // I3.2: a ringing call's handset swings every 2.4 s until it is answered
         LiveActivityKind.CALL -> DynamicIcon(
-            IslandIcons.Compact.Call, contentDescription = "Call", tint = accent, size = glyph,
+            IslandIcons.Compact.Call, contentDescription = null, tint = accent, size = glyph,
             effect = if (notification.isIncomingCall) CALL_WIGGLE else null,
             trigger = IslandStateManager.iconSignals.collectAsState().value.ringStart,
             active = notification.isIncomingCall,
