@@ -299,7 +299,7 @@ The fastest visible wins are B2 (touch pass-through), M1.3 and M1.4 (one-body mo
 | C2.4 | "Fit to camera" on Dimensions (with V1.4) | todo |
 | C3.1 | A11y test harness and device spike | done (MainScreenTest rebuilt on the real MainScreen and ViewModel, Enable Island switch tagged; IslandSemanticsTest + A11yMatchers pin today: the pill is tappable with no label; androidTest compiles; TalkBack device spike pending, phone not connected: C3.4 waits on it) |
 | C3.2 | IslandA11y environment | done (IslandA11y.screenReaderOn: touch exploration or another package's spoken-feedback service, never our own status bar layer; follows touch-exploration, accessibility-state and (API 33+) services-state listeners, registered in the overlay service; recommendedTimeoutMs goes through IslandTimings; IslandA11yTest 5 cases; check later on the phone: TalkBack on/off flips it within a second) |
-| C3.3 | IslandSpeech label builder | todo |
+| C3.3 | IslandSpeech label builder | done (IslandSpeech: headline, value, click / long-click labels, availableActions per node with the Dismiss exclusions, pane title, announcement politeness, ICU durations and locale percentages; SpeechSubject + subjectFor(NotificationInfo) so the wiring is mechanical; 45 spoken strings in strings.xml; IslandSpeechTest 18 cases incl. es; no call sites yet) |
 | C3.4 | Pill, bubble and ring semantics | todo |
 | C3.5 | Custom actions | todo |
 | C3.6 | Expanded card, backdrop and control labels | todo |
