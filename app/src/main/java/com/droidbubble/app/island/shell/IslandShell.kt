@@ -358,6 +358,8 @@ internal fun IslandShell(
         val activity = activitySubject(secondaryPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, now)
         nodeSpeech(islandSpeech, activity, null, false, secondaryAppName, longClickTarget(secondaryPriority, activity, currentNotif))
     }
+    // C3.7: the pill announces a real event once (polite), never its ticking value
+    val pillAnnouncement = remember(pillSpeech?.subject, islandSpeech) { pillSpeech?.subject?.let { islandSpeech.announcement(it) } }
     // C3.5: the swipe-only actions, in TalkBack's Actions menu. The card acts on what card 1 shows.
     val cardPriority = if (isExpanded) primaryPriority else null
     val cardSpeech = remember(cardPriority, currentMedia, currentNotif, currentProgress, recording, flashlightPercent, islandSpeech) {
@@ -1621,6 +1623,7 @@ internal fun IslandShell(
                 Box(
                     modifier = Modifier
                         .testTag(IslandTestTags.PILL)
+                        .islandLiveRegion(pillAnnouncement, isExpanded)
                         .islandNodeSemantics(pillSpeech, pillActions)
                         .layoutSize(width = { compactWidthState.value })
                         .height(settings.heightDp.dp)

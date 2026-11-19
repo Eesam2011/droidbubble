@@ -8,7 +8,13 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.SemanticsModifierNode
+import androidx.compose.ui.node.invalidateSemantics
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
@@ -18,7 +24,9 @@ import com.droidbubble.app.model.IslandPriority
 import com.droidbubble.app.model.MediaInfo
 import com.droidbubble.app.model.NotificationInfo
 import com.droidbubble.app.model.ScreenRecordingState
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * C3.4: what one island node (the pill or the bubble) says to TalkBack. [headline] is the
@@ -159,6 +167,74 @@ fun Modifier.islandNodeSemantics(speech: NodeSpeech?, actions: List<CustomAccess
         speech.value?.let { stateDescription = it }
         if (actions.isNotEmpty()) customActions = actions
     }
+}
+
+/** C3.7: how long the pill stays a live region after a real event. */
+const val LIVE_REGION_WINDOW_MS = 4_000L
+
+/**
+ * C3.7: the pill's live region. TalkBack hears an event once: the node becomes a polite live
+ * region when its [announcement] changes, and stops being one [LIVE_REGION_WINDOW_MS] later, so a
+ * ticking value (the timer's seconds in stateDescription) is never announced. None while
+ * expanded, for assertive events (the card's pane title carries those), and for events
+ * [IslandSpeech.announcement] keeps quiet (media, unlock, the minimised ring).
+ *
+ * A modifier node, so the window opening and closing updates semantics only and never
+ * recomposes the island. Put it before [islandNodeSemantics], which may clear what follows it.
+ */
+fun Modifier.islandLiveRegion(announcement: Announcement?, isExpanded: Boolean): Modifier =
+    this then LiveRegionElement(announcement, isExpanded)
+
+private data class LiveRegionElement(val announcement: Announcement?, val isExpanded: Boolean) :
+    ModifierNodeElement<LiveRegionNode>() {
+    override fun create() = LiveRegionNode(announcement, isExpanded)
+    override fun update(node: LiveRegionNode) = node.update(announcement, isExpanded)
+}
+
+private class LiveRegionNode(
+    private var announcement: Announcement?,
+    private var isExpanded: Boolean,
+) : Modifier.Node(), SemanticsModifierNode {
+    private var fresh = false
+    private var window: Job? = null
+
+    override fun onAttach() = openWindow()
+
+    override fun onDetach() {
+        window = null
+        fresh = false
+    }
+
+    fun update(announcement: Announcement?, isExpanded: Boolean) {
+        val changed = announcement?.text != this.announcement?.text
+        this.announcement = announcement
+        this.isExpanded = isExpanded
+        if (changed && isAttached) openWindow() else invalidateSemantics()
+    }
+
+    private fun openWindow() {
+        window?.cancel()
+        fresh = announcement != null
+        invalidateSemantics()
+        if (fresh) {
+            window = coroutineScope.launch {
+                delay(LIVE_REGION_WINDOW_MS)
+                fresh = false
+                invalidateSemantics()
+            }
+        }
+    }
+
+    override fun SemanticsPropertyReceiver.applySemantics() {
+        liveRegionFor(announcement, fresh, isExpanded)?.let { liveRegion = it }
+    }
+}
+
+/** Pure part of [islandLiveRegion]. */
+fun liveRegionFor(announcement: Announcement?, fresh: Boolean, isExpanded: Boolean): LiveRegionMode? = when {
+    announcement == null || !fresh || isExpanded -> null
+    announcement.politeness == Politeness.ASSERTIVE -> null
+    else -> LiveRegionMode.Polite
 }
 
 /**

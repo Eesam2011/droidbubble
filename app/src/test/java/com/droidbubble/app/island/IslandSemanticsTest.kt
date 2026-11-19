@@ -185,4 +185,48 @@ class IslandSemanticsTest {
         runAction(IslandTestTags.CARD, "Collapse")
         assertTrue(!IslandStateManager.isExpanded.value)
     }
+
+    // --- C3.7: live regions ---------------------------------------------------------------
+
+    private fun liveRegion(tag: String) = config(tag).getOrNull(SemanticsProperties.LiveRegion)
+
+    @Test
+    fun newMessage_isAPoliteLiveRegion_thenQuiet() {
+        h.onState { IslandStateManager.updateNotification(IslandFixtures.message()) }
+        h.settle(200)
+        assertEquals(androidx.compose.ui.semantics.LiveRegionMode.Polite, liveRegion(IslandTestTags.PILL))
+        h.settle(LIVE_REGION_WINDOW_MS + 500)
+        assertNull("no live region once announced", liveRegion(IslandTestTags.PILL))
+    }
+
+    @Test
+    fun timer_headlineStableAcrossTicks_andNoLiveRegionWhileExpanded() {
+        h.onState { IslandStateManager.updateNotification(IslandFixtures.timer) }
+        h.settle(200)
+        val before = headline(IslandTestTags.PILL)
+        h.settle(3_000)
+        assertEquals("Timer", before)
+        assertEquals(before, headline(IslandTestTags.PILL))
+        h.onState { IslandStateManager.expand(null) }
+        h.settle()
+        if (h.exists(IslandTestTags.PILL)) assertNull(liveRegion(IslandTestTags.PILL))
+    }
+
+    @Test
+    fun media_isNeverALiveRegion() {
+        h.onState { IslandStateManager.updateMedia(IslandFixtures.song) }
+        h.settle(200)
+        assertNull(liveRegion(IslandTestTags.PILL))
+    }
+
+    @Test
+    fun liveRegionRule() {
+        val polite = Announcement(Politeness.POLITE, "Timer")
+        val loud = Announcement(Politeness.ASSERTIVE, "Incoming call: Sam Carter")
+        assertEquals(androidx.compose.ui.semantics.LiveRegionMode.Polite, liveRegionFor(polite, fresh = true, isExpanded = false))
+        assertNull(liveRegionFor(polite, fresh = false, isExpanded = false))
+        assertNull(liveRegionFor(polite, fresh = true, isExpanded = true))
+        assertNull("the pane title carries it", liveRegionFor(loud, fresh = true, isExpanded = false))
+        assertNull(liveRegionFor(null, fresh = true, isExpanded = false))
+    }
 }
