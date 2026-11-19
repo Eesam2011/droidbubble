@@ -38,6 +38,9 @@ class IslandTimings(private val recommend: (originalMs: Int, flags: Int) -> Int)
     val ringer: Long get() = scaled(2_500, ICONS)
     val charging: Long get() = scaled(4_000, ICONS or TEXT)
 
+    /** C3.2: any other text-and-controls timeout, through the same setting. */
+    fun recommended(ms: Int): Long = scaled(ms, CONTROLS or TEXT)
+
     private fun scaled(ms: Int, flags: Int): Long = recommend(ms, flags).toLong()
 
     companion object {

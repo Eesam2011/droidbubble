@@ -388,6 +388,8 @@ class IslandOverlayService : Service() {
             IslandStateManager.touchExplorationOn = am.isTouchExplorationEnabled
             am.addTouchExplorationStateChangeListener { on -> IslandStateManager.touchExplorationOn = on }
         }
+        // C3.2: is a screen reader on (not just our own accessibility service)?
+        com.droidbubble.app.island.IslandA11y.register(this)
         // B11.3: after a crash loop, pause the activity that was on the island at the crash
         com.droidbubble.app.util.SafeMode.evaluateOnStart(this, System.currentTimeMillis())
         val appContext = applicationContext
@@ -1102,6 +1104,7 @@ class IslandOverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         runCatching { getSystemService(android.hardware.display.DisplayManager::class.java)?.unregisterDisplayListener(displayListener) }
+        com.droidbubble.app.island.IslandA11y.unregister()
         spokenAlertsJob?.cancel()
         spokenAlertsJob = null
         spokenAlerts?.shutdown()
