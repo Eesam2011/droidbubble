@@ -97,7 +97,9 @@ import com.droidbubble.app.util.traced
 class IslandOverlayService : Service() {
 
     companion object {
-        const val CHANNEL_ID = "droidbubble_silent_service_v2"
+        // v3: a visible (low, silent) channel. ColorOS kills apps on a recents swipe unless they
+        // have a visible ongoing notification, and it treats a MIN channel as hidden.
+        const val CHANNEL_ID = "droidbubble_service_v4"
         const val NOTIFICATION_ID = 1001
         const val ACTION_START = "com.droidbubble.app.START_OVERLAY"
         const val ACTION_STOP = "com.droidbubble.app.STOP_OVERLAY"
@@ -411,8 +413,8 @@ class IslandOverlayService : Service() {
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
         createNotificationChannel()
+        clearUpdateNotification()
         initCameraTorch()
-        startAutoUpdateChecker()
 
         debugReceiver = DebugCommands.register(this)
 
@@ -489,7 +491,7 @@ class IslandOverlayService : Service() {
             .setOngoing(true)
             .setSilent(true)
             .setShowWhen(false)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
         // B11.3: say what safe mode paused, with a way to undo it at once
         com.droidbubble.app.util.SafeMode.activePause(this, System.currentTimeMillis())?.let { pause ->
@@ -1140,66 +1142,14 @@ class IslandOverlayService : Service() {
     }
 
 
-    private fun startAutoUpdateChecker() {
-        serviceScope.launch(Dispatchers.IO) {
-            delay(15_000L)
-            while (isActive) {
-                try {
-                    val result = com.droidbubble.app.util.UpdateManager.checkGithubUpdates(applicationContext)
-                    if (result is com.droidbubble.app.util.UpdateCheckResult.UpdateAvailable) {
-                        showUpdateNotification(result.release.version)
-                    } else if (result is com.droidbubble.app.util.UpdateCheckResult.UpToDate) {
-                        cancelUpdateNotification()
-                    }
-                } catch (e: Exception) {
-                    Log.w("IslandOverlayService", "Auto-update check encountered error", e)
-                }
-                delay(2 * 60 * 60 * 1000L)
-            }
-        }
-    }
-
-    private fun showUpdateNotification(version: String) {
-        val notificationManager = getSystemService(NotificationManager::class.java) ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_UPDATES_ID,
-                "App Updates",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifies when a new Droidbubble update is available"
-                setShowBadge(true)
-            }
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("EXTRA_SHOW_UPDATE", true)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            UPDATE_NOTIFICATION_ID,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_UPDATES_ID)
-            .setSmallIcon(R.drawable.ic_notification_island)
-            .setContentTitle("Update to $version")
-            .setContentText("Update to $version")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        notificationManager.notify(UPDATE_NOTIFICATION_ID, notification)
-    }
-
-    private fun cancelUpdateNotification() {
+    // No update notification: updates are checked from the app's own screen. This clears the one
+    // older builds posted, along with its channel.
+    private fun clearUpdateNotification() {
         val notificationManager = getSystemService(NotificationManager::class.java) ?: return
         notificationManager.cancel(UPDATE_NOTIFICATION_ID)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            runCatching { notificationManager.deleteNotificationChannel(CHANNEL_UPDATES_ID) }
+        }
     }
 
     private fun createNotificationChannel() {
@@ -1208,12 +1158,15 @@ class IslandOverlayService : Service() {
             runCatching {
                 manager?.deleteNotificationChannel("droidbubble_overlay_channel")
                 manager?.deleteNotificationChannel("droidbubble_overlay_service")
+                manager?.deleteNotificationChannel("droidbubble_silent_service_v2")
+                manager?.deleteNotificationChannel("droidbubble_service_v3")
             }
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Droidbubble Service",
-                NotificationManager.IMPORTANCE_MIN
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
+                setSound(null, null)
                 description = "Keeps Dynamic Island running smoothly"
                 setShowBadge(false)
                 enableLights(false)
