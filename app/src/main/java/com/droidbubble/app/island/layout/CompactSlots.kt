@@ -164,11 +164,12 @@ fun rememberCompactSide(
     recording: ScreenRecordingState,
     pillHeight: Dp,
     maxSide: Dp,
+    /** C3.10: the pill's own (capped) density. */
+    density: androidx.compose.ui.unit.Density = LocalDensity.current,
 ): Dp {
     val measurer = rememberTextMeasurer()
     val base = LocalTextStyle.current
     val type = LocalIslandType.current
-    val density = LocalDensity.current
     val sides = remember(priority, media, notification, recording.durationSeconds / 60, pillHeight) {
         CompactSlots.sides(priority, media, notification, recording, pillHeight)
     }
@@ -187,10 +188,12 @@ fun rememberCompactSide(
 
 /** V3.5: the glance pills' widest content, measured in their own styles. */
 @Composable
-fun rememberAlertSides(): com.droidbubble.app.island.scene.AlertSides {
+fun rememberAlertSides(
+    /** C3.10: the pill's own (capped) density. */
+    density: androidx.compose.ui.unit.Density = LocalDensity.current,
+): com.droidbubble.app.island.scene.AlertSides {
     val measurer = rememberTextMeasurer()
     val base = LocalTextStyle.current
-    val density = LocalDensity.current
     return remember(base, density) {
         fun w(text: String, size: androidx.compose.ui.unit.TextUnit) = CompactFit.measure(
             measurer, density, text, base.merge(TextStyle(fontSize = size, fontWeight = FontWeight.SemiBold)), squeeze = false

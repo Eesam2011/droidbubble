@@ -599,16 +599,20 @@ internal fun IslandShell(
     // The pill is the Width setting; a pill with text grows just enough for it (measured once
     // per activity, not per tick). Icon-only pills (media) keep exactly the setting.
     val compactNotification = if (primaryPriority == IslandPriority.PROGRESS) currentProgress else currentNotif
+    // C3.10: the pill and bubble cap the phone's font size at 1.3x; the cards use the island's own (up to 2.0x)
+    val rootDensity = LocalDensity.current
+    val compactDensity = remember(rootDensity) { IslandFontScale.compactDensity(rootDensity) }
     val compactSlots = remember(primaryPriority, currentMedia, compactNotification, recording.durationSeconds / 60, settings.heightDp) {
         com.droidbubble.app.island.layout.CompactSlots.sides(primaryPriority, currentMedia, compactNotification, recording, settings.heightDp.dp)
     }
     val measuredCompactSide = com.droidbubble.app.island.layout.rememberCompactSide(
         primaryPriority, currentMedia, compactNotification, recording, settings.heightDp.dp,
         com.droidbubble.app.island.layout.CompactSlots.TEXT_SIDE_MAX,
+        density = compactDensity,
     )
     val compactSide: Dp? = measuredCompactSide.takeIf { com.droidbubble.app.island.layout.CompactSlots.hasText(compactSlots) }
     // V3.5: the glance pills fit their widest content
-    val alertSides = com.droidbubble.app.island.layout.rememberAlertSides()
+    val alertSides = com.droidbubble.app.island.layout.rememberAlertSides(compactDensity)
     // V4.1: the media card is as tall as its rows
     val mediaBaseHeight = remember(settings.expandedScale, notifBaseTextStyle, notifDensity) {
         com.droidbubble.app.island.measureMediaCardHeight(settings.expandedScale, notifTextMeasurer, notifBaseTextStyle, notifDensity)
@@ -1479,6 +1483,9 @@ internal fun IslandShell(
                 },
             contentAlignment = Alignment.TopCenter
         ) {
+            // C3.10: everything around the camera (bubble, neck, notch ears, pill, parentheses)
+            // draws text at the compact font scale
+            CompositionLocalProvider(LocalDensity provides compactDensity) {
             // Smoothly fade in over the first frames where it is barely a circle emerging from the punch hole,
             // and smoothly fade out when shrinking back into the punch hole.
             // Applies to both single and dual activities!
@@ -2202,7 +2209,8 @@ internal fun IslandShell(
                         .graphicsLayer { alpha = effectiveParenthesisAlpha }
                 )
             }
-        }
+                    }
+}
     }
 }
 

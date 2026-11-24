@@ -24,7 +24,7 @@ class CardGeometry(scale: Float, fontScale: Float = 1f) {
      * How much the phone's font size setting grows the cards. Text follows the setting fully;
      * controls and rows grow 60% as much, so big text still fits without the card ballooning.
      */
-    private val textGrowth = fontScale.coerceIn(1f, 1.5f)
+    private val textGrowth = fontScale.coerceIn(1f, com.droidbubble.app.island.IslandFontScale.CARD_MAX)
     val rowGrowth = 1f + (textGrowth - 1f) * 0.6f
 
     /** Inset of a one-row live card from its edges. */

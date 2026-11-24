@@ -32,7 +32,7 @@ class IslandTypeTest {
     fun heroes_growWithTheRow_notTheFont() {
         for (scale in scales) {
             for (font in listOf(1f, 1.3f, 1.5f, 2f)) {
-                val textGrowth = font.coerceIn(1f, 1.5f)
+                val textGrowth = font.coerceIn(1f, IslandFontScale.CARD_MAX) // C3.10: was 1.5
                 val rowGrowth = 1f + (textGrowth - 1f) * 0.6f
                 val t = IslandType(scale, font)
                 assertEquals(((38 * scale).coerceIn(31f, 44f) * rowGrowth / textGrowth).sp, t.hero)

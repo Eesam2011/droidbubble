@@ -705,12 +705,12 @@ class IslandOverlayService : Service() {
                     // their width wobbling (only digits are affected; letters stay proportional).
                     // Material's body style adds 0.5sp tracking, which looks loose on the island:
                     // use the font's own spacing instead.
-                    // Large text: the island follows the phone's font size setting, capped at 1.5x
-                    // because the pill around the camera can't grow without limit.
+                    // Large text: the island follows the phone's font size setting. C3.10: open cards
+                    // up to 2.0x; the pill and bubble cap themselves at 1.3x (IslandFontScale).
                     val systemDensity = LocalDensity.current
                     CompositionLocalProvider(
                         LocalTextStyle provides LocalTextStyle.current.copy(fontFeatureSettings = "tnum", letterSpacing = 0.sp),
-                        LocalDensity provides Density(systemDensity.density, systemDensity.fontScale.coerceIn(0.85f, 1.5f)),
+                        LocalDensity provides Density(systemDensity.density, com.droidbubble.app.island.IslandFontScale.card(systemDensity.fontScale)),
                         LocalCameraZone provides cameraZone,
                     ) {
                         IslandOverlayRoot(
@@ -864,8 +864,8 @@ class IslandOverlayService : Service() {
         return IslandEnv(
             isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE,
             screenWidthDp = config.screenWidthDp,
-            // The same clamp the overlay content applies to the font scale
-            fontScale = config.fontScale.coerceIn(0.85f, 1.5f),
+            // The same clamp the overlay content applies to the font scale (C3.10)
+            fontScale = com.droidbubble.app.island.IslandFontScale.card(config.fontScale),
         )
     }
     private val settingsFlow: kotlinx.coroutines.flow.Flow<IslandSettings>

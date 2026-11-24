@@ -76,7 +76,8 @@ class IslandHarness(
             IslandOverlayRoot(settings = settings.value)
         } else {
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.floatValue)) {
+            // The service's clamp (C3.10): the island up to 2.0x; the pill caps itself at 1.3x
+            CompositionLocalProvider(LocalDensity provides Density(density.density, com.droidbubble.app.island.IslandFontScale.card(fontScale.floatValue))) {
                 IslandOverlayRoot(settings = settings.value)
             }
         }

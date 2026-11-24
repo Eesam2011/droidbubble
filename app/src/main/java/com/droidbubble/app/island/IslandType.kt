@@ -34,7 +34,7 @@ class IslandType(
     private val s = expandedScale
 
     /** How much the phone's font size grows the live-activity rows (see [LiveLayout]). */
-    private val textGrowth = fontScale.coerceIn(1f, 1.5f)
+    private val textGrowth = fontScale.coerceIn(1f, IslandFontScale.CARD_MAX)
     private val rowGrowth = 1f + (textGrowth - 1f) * 0.6f
 
     private val trimmed = mode == Mode.Trimmed

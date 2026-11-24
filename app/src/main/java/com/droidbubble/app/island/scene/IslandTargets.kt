@@ -105,7 +105,7 @@ fun deriveIslandTargets(
 
     // V3.5: a glance pill is never narrower than its widest content, the same width in every
     // state (Ring, Vibrate and Silent alike), so nothing is clipped and the label never moves
-    val alertSides = measured.alertSides ?: estimatedAlertSides(env.fontScale)
+    val alertSides = measured.alertSides ?: estimatedAlertSides(com.droidbubble.app.island.IslandFontScale.compact(env.fontScale))
     val chargingIslandWidth = maxOf(
         (settings.widthDp + IslandTokens.Shell.ChargingExtraWidthDp).dp.coerceAtLeast(IslandTokens.Shell.ChargingMinWidth),
         IslandTokens.Shell.ChargingContentPadding * 2 + measured.cameraZone + alertSides.charging * 2,

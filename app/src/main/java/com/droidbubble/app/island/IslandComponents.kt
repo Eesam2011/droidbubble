@@ -220,7 +220,7 @@ fun cardHeightFor(priority: IslandPriority?, scale: Float, notifHeight: Dp, prog
         else -> 195.dp to 155.dp // media, idle, charging...
     }
     // Larger system font sizes get proportionally taller fixed-layout cards, so text isn't cut off
-    val textGrowth = 1f + (fontScale.coerceIn(1f, 1.5f) - 1f) * 0.5f
+    val textGrowth = 1f + (fontScale.coerceIn(1f, IslandFontScale.CARD_MAX) - 1f) * 0.5f
     return (baseH * scale * textGrowth).coerceAtLeast(minH)
 }
 
