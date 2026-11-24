@@ -477,8 +477,17 @@ fun rememberLiveTimerText(notification: NotificationInfo?): String? {
     // first frame would mix the new base with a stale clock and show the previous second, so
     // the digits rolled back and then forward again. Read the clock here too.
     val t = maxOf(now, IslandClock.wallMs())
-    val millis = if (countDown) base - t else t - base
-    return formatTimerText(millis)
+    return liveTimerText(base, countDown, t)
+}
+
+/**
+ * The text of a live timer counted from [base] at [nowMs]. A3.7 (owner-approved 2026-11-19): a
+ * countdown past its end keeps counting as overtime ("-00:12") while the app still posts it,
+ * instead of freezing at 00:00. A count-up never goes negative.
+ */
+fun liveTimerText(base: Long, countDown: Boolean, nowMs: Long): String {
+    val millis = if (countDown) base - nowMs else nowMs - base
+    return if (countDown && millis < 0L) "-" + formatTimerText(-millis) else formatTimerText(millis)
 }
 
 fun formatTimerText(millis: Long): String {

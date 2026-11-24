@@ -92,6 +92,17 @@ class ChronometerReaderTest {
     }
 
     @Test
+    fun overtimeText() {
+        // A3.7: 12 s past the end of a countdown reads "-00:12"; before the end it counts down
+        assertEquals("-00:12", com.droidbubble.app.island.liveTimerText(base = 1_000L, countDown = true, nowMs = 13_000L))
+        assertEquals("00:07", com.droidbubble.app.island.liveTimerText(base = 20_000L, countDown = true, nowMs = 13_000L))
+        assertEquals("00:00", com.droidbubble.app.island.liveTimerText(base = 13_000L, countDown = true, nowMs = 13_000L))
+        assertEquals("-1:00:05", com.droidbubble.app.island.liveTimerText(base = 0L, countDown = true, nowMs = 3_605_000L))
+        // A count-up whose base is a moment ahead never shows a minus
+        assertEquals("00:00", com.droidbubble.app.island.liveTimerText(base = 14_000L, countDown = false, nowMs = 13_000L))
+    }
+
+    @Test
     fun overtime() {
         assertTrue(ChronometerReader.isOvertime(baseMs = 1_000L, countDown = true, nowMs = 13_000L))
         assertFalse(ChronometerReader.isOvertime(baseMs = 20_000L, countDown = true, nowMs = 13_000L))

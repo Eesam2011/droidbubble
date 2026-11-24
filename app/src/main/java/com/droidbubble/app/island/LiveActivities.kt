@@ -1074,7 +1074,8 @@ fun LiveAlertView(
     val isTimer = isTimerAlert(notification)
     val accent = LiveActivityColors.AlarmYellow
     val liveTime = rememberLiveTimerText(notification)
-    val trailing = liveTime?.let { "-$it" } ?: alarmTimeText(notification)
+    // Time's up already shows the overtime with its minus; don't double it
+    val trailing = liveTime?.let { if (it.startsWith("-")) it else "-$it" } ?: alarmTimeText(notification)
     val headline = when {
         isTimer && notification.title.isNotBlank() && !notification.title.equals("Timer", ignoreCase = true) -> notification.title
         isTimer -> "Time's up"
